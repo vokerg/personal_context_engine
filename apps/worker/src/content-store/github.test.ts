@@ -258,6 +258,12 @@ describe("GitHub ContentStore safety and concurrency", () => {
     fake.failOnce = { status: 429, headers: { "retry-after": "1" } };
     expect((await store.read("inbox/rate.md")).content).toBe("synthetic");
     expect(fake.delays).toEqual([1000]);
+    fake.failOnce = {
+      status: 403,
+      headers: { "retry-after": "1", "x-ratelimit-remaining": "40" },
+    };
+    expect((await store.listPending()).files).toHaveLength(1);
+    expect(fake.delays).toEqual([1000, 1000]);
     fake.forbidden = true;
     await expect(store.listPending()).rejects.toMatchObject({
       code: "PERMISSION_DENIED",
@@ -280,6 +286,10 @@ describe("GitHub ContentStore safety and concurrency", () => {
       code: "IO_ERROR",
     });
     fake.truncated = false;
+    fake.put("inbox/CON.md", "reserved path");
+    await expect(store.listPending()).rejects.toMatchObject({
+      code: "INVALID_PATH",
+    });
     fake.put("inbox/bad.md", Buffer.from([0xc3, 0x28]));
     await expect(store.read("inbox/bad.md")).rejects.toMatchObject({
       code: "INVALID_CONTENT",
