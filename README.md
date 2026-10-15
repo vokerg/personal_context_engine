@@ -2,7 +2,7 @@
 
 **Personal Context Engine (PCE)** is an extensible, self-hostable system for capturing unstructured thoughts, preserving their original meaning, turning them into structured records, and surfacing relevant context later.
 
-**Status: runnable monorepo scaffold (issue #4).** This repository has starter API/worker processes, React/Vite and Expo shells, and shared TypeScript workspaces. It does **not** yet have authentication, personal note browsing/ingestion, database migrations, production notification services or deployment. The documents distinguish agreed direction from implemented functionality.
+**Status: runnable monorepo scaffold (issue #4) plus a versioned Markdown capture parser (issue #6).** This repository has starter API/worker processes, React/Vite and Expo shells, shared TypeScript workspaces, and pure synthetic-tested v1 Markdown capture validation/serialization in `@pce/core`. It does **not** yet have authentication, personal note browsing/ingestion, database migrations, production notification services or deployment. The documents distinguish agreed direction from implemented functionality.
 
 ## Two-repository design
 
