@@ -188,7 +188,10 @@ export function runContentStoreConformance(
 
     it("refuses to replace a conflicting rejected file", async () => {
       const f = getFixture();
-      const sourcePath = await f.seedPending("invalid-collision.md", "new input");
+      const sourcePath = await f.seedPending(
+        "invalid-collision.md",
+        "new input",
+      );
       const source = await f.store.read(sourcePath);
       await f.seedDestination("rejected/invalid-collision.md", "old input");
       await expect(
@@ -200,7 +203,9 @@ export function runContentStoreConformance(
       expect((await f.store.read(sourcePath)).content).toBe("new input");
     });
 
-    it("never interprets an absent source as a successful move to a different revision", async () => {
+    it(
+      "never interprets an absent source as a successful move to a different revision",
+      async () => {
       const f = getFixture();
       const referencePath = await f.seedPending("reference.md", "reference");
       const reference = await f.store.read(referencePath);
@@ -216,7 +221,8 @@ export function runContentStoreConformance(
       expect((await f.store.read(missing.destinationPath)).content).toBe(
         "unrelated content",
       );
-    });
+      },
+    );
 
     it("reports missing files and disallows unsafe paths", async () => {
       const store = getFixture().store;
