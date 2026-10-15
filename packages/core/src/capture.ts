@@ -145,7 +145,7 @@ function parseScalar(value: string, field: string): string {
   // Explicit, conservative YAML v1 subset: no aliases, tags, block scalars,
   // implicit object/array scalars, comments or ambiguous colon-space pairs.
   if (
-    (["!", "&", "*", "|", ">", "{", "}", "[", "]", ",", "#", "%", "@"].some((token) => value.startsWith(token)) ||
+    ["!", "&", "*", "|", ">", "{", "}", "[", "]", ",", "#", "%", "@"].some((token) => value.startsWith(token)) ||
       value.startsWith("---") ||
       value.startsWith("...") ||
     /:\s|\s#/.test(value) ||
