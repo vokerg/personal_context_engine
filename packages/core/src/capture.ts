@@ -443,7 +443,7 @@ function parseBody(
     .trim();
   const originalInput = body
     .slice(originalHeading.index! + originalHeading[0].length)
-    .replace(/^\r?\n/, "");
+    .replace(/^\r?\n(?:\r?\n)?/, "");
   if (!summary || !originalInput.trim()) fail("INVALID_BODY");
   return { summary, originalInput };
 }
