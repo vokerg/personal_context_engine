@@ -84,7 +84,9 @@ export class NoteValidationError extends Error {
     public readonly code: NoteValidationCode,
     public readonly field?: string,
   ) {
-    super("Note validation failed: " + code + (field ? " (" + field + ")" : ""));
+    super(
+      "Note validation failed: " + code + (field ? " (" + field + ")" : ""),
+    );
     this.name = "NoteValidationError";
   }
 }
@@ -121,7 +123,10 @@ const OPTIONAL_FIELDS = [
   "related_note_ids",
   "processing_model",
 ] as const;
-const ALLOWED_FIELDS = new Set<string>([...REQUIRED_FIELDS, ...OPTIONAL_FIELDS]);
+const ALLOWED_FIELDS = new Set<string>([
+  ...REQUIRED_FIELDS,
+  ...OPTIONAL_FIELDS,
+]);
 
 function fail(code: NoteValidationCode, field?: string): never {
   throw new NoteValidationError(code, field);
@@ -145,11 +150,16 @@ function parseScalar(value: string, field: string): string {
   // Explicit, conservative YAML v1 subset: no aliases, tags, block scalars,
   // implicit object/array scalars, comments or ambiguous colon-space pairs.
   if (
-    ["!", "&", "*", "|", ">", "{", "}", "[", "]", ",", "#", "%", "@"].some((token) => value.startsWith(token)) ||
-      value.startsWith("---") ||
-      value.startsWith("...") ||
+    ["!", "&", "*", "|", ">", "{", "}", "[", "]", ",", "#", "%", "@"].some(
+      (token) => value.startsWith(token),
+    ) ||
+    value.startsWith("---") ||
+    value.startsWith("...") ||
     /:\s|\s#/.test(value) ||
-    [...value].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)
+    [...value].some(
+      (character) =>
+        character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+    )
   ) {
     fail("UNSAFE_YAML", field);
   }
@@ -233,7 +243,10 @@ function requiredString(
     !value.trim() ||
     value !== value.trim() ||
     value.length > maxLength ||
-    [...value].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)
+    [...value].some(
+      (character) =>
+        character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+    )
   ) {
     fail("INVALID_FIELD", field);
   }
@@ -301,7 +314,9 @@ function ids(raw: Record<string, unknown>, field: string): string[] {
   if (
     !Array.isArray(value) ||
     value.length > 100 ||
-    !value.every((entry: unknown) => typeof entry === "string" && ID_PATTERN.test(entry)) ||
+    !value.every(
+      (entry: unknown) => typeof entry === "string" && ID_PATTERN.test(entry),
+    ) ||
     new Set(value).size !== value.length
   ) {
     fail("INVALID_FIELD", field);
@@ -319,13 +334,19 @@ function oneOf<T extends string>(
   return value as T;
 }
 
-function optionalString(raw: Record<string, unknown>, field: string): string | undefined {
+function optionalString(
+  raw: Record<string, unknown>,
+  field: string,
+): string | undefined {
   return raw[field] === undefined ? undefined : requiredString(raw, field);
 }
 
 /** Validates a v1 metadata object without changing intent, tags, or offsets. */
-export function validateNoteMetadata(raw: Record<string, unknown>): NoteMetadata {
-  if (raw.schema_version !== NOTE_SCHEMA_VERSION) fail("SCHEMA_VERSION", "schema_version");
+export function validateNoteMetadata(
+  raw: Record<string, unknown>,
+): NoteMetadata {
+  if (raw.schema_version !== NOTE_SCHEMA_VERSION)
+    fail("SCHEMA_VERSION", "schema_version");
   for (const field of REQUIRED_FIELDS) {
     if (!Object.hasOwn(raw, field)) fail("INVALID_FIELD", field);
   }
@@ -374,18 +395,28 @@ export function validateNoteMetadata(raw: Record<string, unknown>): NoteMetadata
     }
   }
   const processingModel = optionalString(raw, "processing_model");
-  if (processingModel !== undefined) metadata.processing_model = processingModel;
+  if (processingModel !== undefined)
+    metadata.processing_model = processingModel;
   return metadata;
 }
 
-function parseBody(body: string, title: string): Pick<Note, "summary" | "originalInput"> {
+function parseBody(
+  body: string,
+  title: string,
+): Pick<Note, "summary" | "originalInput"> {
   const titleMatch = /^(?:\r?\n)*# ([^\r\n]+)\r?\n/.exec(body);
   if (!titleMatch || titleMatch[1] !== title) fail("INVALID_BODY", "title");
 
   // Original input is the terminal section: all subsequent Markdown headings
   // belong to the transcript rather than to the note's structure.
-  const headings = [...body.matchAll(/^## (Summary|Original input|Details|Context|Open questions)\r?$/gm)];
-  const originalHeading = headings.find((heading) => heading[1] === "Original input");
+  const headings = [
+    ...body.matchAll(
+      /^## (Summary|Original input|Details|Context|Open questions)\r?$/gm,
+    ),
+  ];
+  const originalHeading = headings.find(
+    (heading) => heading[1] === "Original input",
+  );
   if (!originalHeading) fail("INVALID_BODY", "Original input");
   const beforeOriginal = headings.filter(
     (heading) => heading.index! < originalHeading.index!,
@@ -396,7 +427,9 @@ function parseBody(body: string, title: string): Pick<Note, "summary" | "origina
     if (seen.has(section)) fail("INVALID_BODY", section);
     seen.add(section);
   }
-  const summaryHeading = beforeOriginal.find((heading) => heading[1] === "Summary");
+  const summaryHeading = beforeOriginal.find(
+    (heading) => heading[1] === "Summary",
+  );
   if (!summaryHeading) fail("INVALID_BODY", "Summary");
   const following = beforeOriginal.find(
     (heading) => heading.index! > summaryHeading.index!,
@@ -417,7 +450,8 @@ function parseBody(body: string, title: string): Pick<Note, "summary" | "origina
 
 /** UTF-8 decode is fatal: replacement characters must never silently change a capture. */
 export function parseNoteMarkdown(input: string | Uint8Array): Note {
-  const bytes = typeof input === "string" ? new TextEncoder().encode(input) : input;
+  const bytes =
+    typeof input === "string" ? new TextEncoder().encode(input) : input;
   if (bytes.byteLength > MAX_BYTES) fail("TOO_LARGE");
   let markdown: string;
   try {
@@ -435,7 +469,9 @@ export function parseNoteMarkdown(input: string | Uint8Array): Note {
 
 export function safeParseNoteMarkdown(
   input: string | Uint8Array,
-): { success: true; note: Note } | { success: false; error: NoteValidationError } {
+):
+  | { success: true; note: Note }
+  | { success: false; error: NoteValidationError } {
   try {
     return { success: true, note: parseNoteMarkdown(input) };
   } catch (error) {
@@ -456,7 +492,10 @@ export function serializeNoteMarkdown(note: Note): string {
     note.metadata as unknown as Record<string, unknown>,
   );
   const sections = parseBody(note.body, metadata.title);
-  if (sections.summary !== note.summary || sections.originalInput !== note.originalInput) {
+  if (
+    sections.summary !== note.summary ||
+    sections.originalInput !== note.originalInput
+  ) {
     fail("INVALID_BODY");
   }
   const lines: string[] = [];
@@ -468,7 +507,8 @@ export function serializeNoteMarkdown(note: Note): string {
         lines.push(field + ": []");
       } else {
         lines.push(field + ":");
-        for (const item of value) lines.push("  - " + encodeScalar(item as string));
+        for (const item of value)
+          lines.push("  - " + encodeScalar(item as string));
       }
     } else if (typeof value === "string") {
       lines.push(field + ": " + encodeScalar(value));
@@ -488,7 +528,10 @@ export function inboxNotePath(metadata: NoteMetadata): string {
 }
 
 /** Rejects traversal, noncanonical separators, wrong IDs, and wrong dates. */
-export function verifyInboxNotePath(path: string, metadata: NoteMetadata): string {
+export function verifyInboxNotePath(
+  path: string,
+  metadata: NoteMetadata,
+): string {
   const canonical = inboxNotePath(metadata);
   if (path !== canonical) fail("INVALID_PATH");
   return canonical;
@@ -511,7 +554,9 @@ export function groupNotesByCapture(notes: readonly Note[]): Capture[] {
         id: metadata.capture_id,
         capturedAt: metadata.captured_at,
         source: metadata.source,
-        ...(metadata.timezone !== undefined ? { timezone: metadata.timezone } : {}),
+        ...(metadata.timezone !== undefined
+          ? { timezone: metadata.timezone }
+          : {}),
         notes: [],
       };
       groups.set(metadata.capture_id, capture);
