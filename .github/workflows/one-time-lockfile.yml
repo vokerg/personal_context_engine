@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   generate-lock:
-    if: github.actor == 'vokerg' && !contains(github.event.head_commit.message, 'lockfile')
+    if: github.actor == 'vokerg' && !startsWith(github.event.head_commit.message, 'chore: generate npm lockfile')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
