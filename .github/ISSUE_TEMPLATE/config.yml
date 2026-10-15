@@ -1,0 +1,2 @@
+# Require a structured issue form instead of an unscoped blank report.
+blank_issues_enabled: false

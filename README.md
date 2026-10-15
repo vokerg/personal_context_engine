@@ -59,4 +59,6 @@ There is **no runnable app yet**. The intended developer entry points are `npm i
 
 ## Contribution and review
 
-All substantial changes should arrive through short-lived branches and pull requests; do not auto-merge. Keep documentation synchronized with behavior. Public CI must use synthetic fixtures only; runtime credentials for private content must never be available to untrusted PR workflows.
+Non-trivial code, schema, infrastructure and architecture work **starts with a GitHub issue**. Follow the [contributor workflow](CONTRIBUTING.md), using the [implementation or bug-report templates](.github/ISSUE_TEMPLATE/) and the [PR template](.github/pull_request_template.md). Every implementing PR references its issue, includes actual verification evidence and requires explicit human authorization before merge; a coding agent must not approve its own PR or merge without that authorization. Prefer squash merges. Keep documentation synchronized with behavior.
+
+Public CI must use synthetic fixtures only; runtime credentials for private content must never be available to untrusted PR workflows.

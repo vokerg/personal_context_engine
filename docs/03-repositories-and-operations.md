@@ -89,7 +89,7 @@ PUSH_PROVIDER=disabled
 
 ## Git and CI policy
 
-- Use short-lived branches and reviewable PRs. Do not push normal changes directly to `main`; do not merge without approval. Prefer squash merge.
+- Follow the [issue-first contribution process](../CONTRIBUTING.md): a well-scoped issue precedes each non-trivial code, schema, infrastructure or architecture change; use one short-lived branch and reviewable PR per issue. Do not push normal changes directly to `main`. A coding agent must not approve its own PR or merge without explicit human authorization for that PR. Prefer squash merge.
 - Protect `main` as soon as workflows and branch rules are ready.
 - Public CI may lint docs, typecheck/build, run unit and integration tests with synthetic fixtures, and audit dependencies.
 - Public PR workflows must use minimal `GITHUB_TOKEN` permissions and **no** content repository secret, personal dumps or external action tokens.

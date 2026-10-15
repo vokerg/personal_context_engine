@@ -5,6 +5,7 @@ on:
     paths:
       - '**/*.md'
       - 'scripts/check-docs.mjs'
+      - '.github/ISSUE_TEMPLATE/**'
       - '.github/workflows/docs.yml'
   push:
     branches: [main]
