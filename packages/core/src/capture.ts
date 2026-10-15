@@ -379,28 +379,38 @@ export function validateNoteMetadata(raw: Record<string, unknown>): NoteMetadata
 function parseBody(body: string, title: string): Pick<Note, "summary" | "originalInput"> {
   const titleMatch = /^(?:\r?\n)*# ([^\r\n]+)\r?\n/.exec(body);
   if (!titleMatch || titleMatch[1] !== title) fail("INVALID_BODY", "title");
+
+  // Original input is the terminal section: all subsequent Markdown headings
+  // belong to the transcript rather than to the note's structure.
   const headings = [...body.matchAll(/^## (Summary|Original input|Details|Context|Open questions)\r?$/gm)];
-  const sections = new Map<string, string>();
-  const positions = new Map<string, number>();
-  for (let index = 0; index < headings.length; index++) {
-    const heading = headings[index]!;
+  const originalHeading = headings.find((heading) => heading[1] === "Original input");
+  if (!originalHeading) fail("INVALID_BODY", "Original input");
+  const beforeOriginal = headings.filter(
+    (heading) => heading.index! < originalHeading.index!,
+  );
+  const seen = new Set<string>();
+  for (const heading of beforeOriginal) {
     const section = heading[1]!;
-    if (sections.has(section)) fail("INVALID_BODY", section);
-    const end = index + 1 < headings.length ? headings[index + 1]!.index! : body.length;
-    const content = body.slice(heading.index! + heading[0].length, end).replace(/^\r?\n/, "");
-    sections.set(section, content);
-    positions.set(section, heading.index!);
+    if (seen.has(section)) fail("INVALID_BODY", section);
+    seen.add(section);
   }
-  const summary = sections.get("Summary");
-  const originalInput = sections.get("Original input");
-  if (
-    !summary?.trim() ||
-    !originalInput?.trim() ||
-    (positions.get("Summary") ?? Infinity) >= (positions.get("Original input") ?? -1)
-  ) {
-    fail("INVALID_BODY");
-  }
-  return { summary: summary.trim(), originalInput };
+  const summaryHeading = beforeOriginal.find((heading) => heading[1] === "Summary");
+  if (!summaryHeading) fail("INVALID_BODY", "Summary");
+  const following = beforeOriginal.find(
+    (heading) => heading.index! > summaryHeading.index!,
+  );
+  const summary = body
+    .slice(
+      summaryHeading.index! + summaryHeading[0].length,
+      following?.index ?? originalHeading.index!,
+    )
+    .replace(/^\r?\n/, "")
+    .trim();
+  const originalInput = body
+    .slice(originalHeading.index! + originalHeading[0].length)
+    .replace(/^\r?\n/, "");
+  if (!summary || !originalInput.trim()) fail("INVALID_BODY");
+  return { summary, originalInput };
 }
 
 /** UTF-8 decode is fatal: replacement characters must never silently change a capture. */
