@@ -1,0 +1,38 @@
+name: Workspace bootstrap
+
+on:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.base.json'
+      - 'eslint.config.mjs'
+      - '.github/workflows/bootstrap.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Temporary bootstrap lockfile generation (artifact only; no push/secret access).
+      - run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - uses: actions/upload-artifact@v4
+        with:
+          name: resolved-lockfile
+          path: package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run docs:check
