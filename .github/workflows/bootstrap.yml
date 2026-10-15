@@ -38,8 +38,12 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npm run lint
+      - run: npm run format:check
       - run: npm run typecheck
       - run: npm test
+      - name: Bundle Expo Android JS without a simulator
+        working-directory: apps/mobile
+        run: npx expo export --platform android --output-dir /tmp/pce-expo-export
       - name: API and worker process smoke
         run: |
           node apps/api/dist/main.js > /tmp/pce-api.log 2>&1 &
