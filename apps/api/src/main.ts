@@ -11,7 +11,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 try {
   await app.listen({ host: '127.0.0.1', port });
   console.log(`Scaffold API listening at http://127.0.0.1:${port}`);
-} catch (error) {
+} catch {
   console.error('Unable to start scaffold API');
   await app.close();
   process.exitCode = 1;

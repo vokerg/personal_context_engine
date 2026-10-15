@@ -2,7 +2,7 @@
   "name": "@pce/mobile",
   "version": "0.1.0",
   "private": true,
-  "main": "node_modules/expo/AppEntry.js",
+  "main": "index.ts",
   "scripts": {
     "start": "expo start",
     "typecheck": "tsc --noEmit -p tsconfig.json"

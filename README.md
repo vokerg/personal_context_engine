@@ -2,7 +2,7 @@
 
 **Personal Context Engine (PCE)** is an extensible, self-hostable system for capturing unstructured thoughts, preserving their original meaning, turning them into structured records, and surfacing relevant context later.
 
-**Status: architecture and documentation foundation.** This repository does not yet contain working API, web, mobile, worker, database migrations, or production notification services. The documents describe an agreed direction and proposed contracts, not implemented functionality.
+**Status: runnable monorepo scaffold (issue #4).** This repository has starter API/worker processes, React/Vite and Expo shells, and shared TypeScript workspaces. It does **not** yet have authentication, personal note browsing/ingestion, database migrations, production notification services or deployment. The documents distinguish agreed direction from implemented functionality.
 
 ## Two-repository design
 
@@ -53,9 +53,22 @@ Start at **[docs/README.md](docs/README.md)**. In particular:
 
 Agent instructions: [AGENTS.md](AGENTS.md).
 
-## Local development
+## Local development (bootstrap)
 
-There is **no runnable app yet**. The intended developer entry points are `npm install`, `npm run dev`, `npm run dev:worker`, and `npm run db:migrate`, once workspaces exist. Run the current documentation check with `node scripts/check-docs.mjs` when the script lands. See [repository operations](docs/03-repositories-and-operations.md) for proposed layout and environment boundaries.
+Use Node.js 22.12+ and npm 10+ (`.nvmrc` pins the Node major). From the repository root:
+
+```bash
+npm ci
+npm run lint
+npm run typecheck
+npm test              # also builds compiled packages and Vite web bundle
+npm run docs:check
+npm run dev           # API :3000, worker (idle), Vite web :4200
+```
+
+Alternatively run `npm run dev:api`, `npm run dev:worker`, or `npm run dev:web` separately. `API_PORT` overrides the local API port (see `.env.example`; values are not auto-loaded). The only API endpoint is public `GET http://127.0.0.1:3000/health`, returning `{"status":"ok"}`. There are **no private note routes**; the worker deliberately does no ingestion.
+
+For Expo, run `npm run dev:mobile` with a separately configured simulator/device development environment. Expo Go/native device launch and bundle compatibility must be verified on the target platform; the bootstrap CI only runs TypeScript checking, not an emulator or a production mobile bundle. A future authenticated API client must use a device-reachable host, not device `localhost`. Database migration commands are not available until issue #8. See [repository operations](docs/03-repositories-and-operations.md).
 
 ## Contribution and review
 

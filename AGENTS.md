@@ -6,7 +6,7 @@ These instructions apply to the **public mechanism repository**, not to a person
 
 Build a replaceable-channel personal context engine: capture (voice/text) -> durable Markdown -> deterministic ingestion -> queryable projections -> contextual ledgers, reminders and deliberate external actions. Optimize for lossless capture, privacy, recoverability, low capture friction, and explainable results.
 
-**Current state:** documentation-first; do not claim that proposed apps, workers, data models, or connectors are already implemented. Inspect the repository before making changes.
+**Current state:** issue #4 introduces only runnable scaffold processes, shared packages and app shells. Data ingestion, authenticated APIs, database models, connectors and push delivery are not implemented. Inspect source and tests before making changes.
 
 ## Read before working
 

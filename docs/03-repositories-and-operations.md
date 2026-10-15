@@ -25,7 +25,7 @@ rejected/                   # invalid input, preserved for repair
 
 Git does not preserve truly empty directories; a bootstrap can include a README or a non-sensitive placeholder. No content repository CI, workflows or shared PR secret exposure.
 
-## Proposed public monorepo layout
+## Public monorepo layout (scaffold implemented)
 
 ```text
 apps/
@@ -42,33 +42,33 @@ scripts/                     # maintenance and verification
 .github/workflows/           # public, synthetic-only CI
 AGENTS.md
 README.md
-package.json                 # introduced when application workspaces exist
+package.json                 # npm workspaces and root commands
+package-lock.json            # committed npm dependency resolution
 ```
 
 Favor a modular monolith and independent process entry points over multiple deployable microservices. Share types, hooks or client logic only when actually portable; keep React DOM and React Native presentation separate.
 
 ## Local development target
 
-Application scripts below are **planned, not currently runnable**:
+The bootstrapped workspaces require Node.js 22.12+ and npm 10+. The root lockfile enables reproducible clean installation. Commands are:
 
 ```bash
 nvm use
-npm install
-npm run db:migrate
-npm run dev               # web + api, possibly local deps
-npm run dev:worker
-npm run build
-npm test
+npm ci
 npm run lint
+npm run typecheck
+npm test                 # builds workspaces and exercises synthetic smoke tests
+npm run build
+npm run docs:check
+npm run dev              # API :3000, idle worker and Vite web :4200
+npm run dev:mobile       # separate Expo/Metro dev session
 ```
 
-Target development versions: Node.js 22.12+ and npm 10+, subject to upgrade when packages are added. Proposed local ports: API `http://localhost:3000`, web `http://localhost:4200` (configurable). `apps/mobile` will use Expo/Metro and a device-reachable API host instead of device `localhost`.
-
-The documentation-only repository can be checked today with `node scripts/check-docs.mjs`.
+The API binds to `127.0.0.1:3000` by default, with `API_PORT` supported. Its only route is `GET /health`. The worker starts/stops without ingesting data. React web is a static scaffold and the Expo app is a native scaffold; neither reads private content. Running Expo on a real device needs local Expo tooling, a compatible emulator/device, and separate device-reachable API configuration when auth arrives. CI does **not** claim native simulator validation. `db:migrate` is **not implemented** until issue #8.
 
 ## Environment and credentials
 
-Planned **server-only** configuration (examples, not current environment variables):
+Future **server-only** configuration (examples, not current environment variables; only `API_PORT` exists today):
 
 ```dotenv
 DATABASE_URL=postgresql://...
