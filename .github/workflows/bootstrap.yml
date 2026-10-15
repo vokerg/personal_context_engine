@@ -37,6 +37,10 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Temporary formatter diagnostics (synthetic source only)
+        run: |
+          npx prettier apps/worker/src/content-store/github.ts | base64 -w 76 | sed 's/^/PCE_FMT_A_/'
+          npx prettier apps/worker/src/content-store/github.test.ts | base64 -w 76 | sed 's/^/PCE_FMT_B_/'
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
