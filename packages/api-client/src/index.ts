@@ -9,6 +9,9 @@ export async function getHealth(
   if (!["http:", "https:"].includes(url.protocol)) {
     throw new TypeError("API URL must be HTTP(S)");
   }
+  if (url.username || url.password) {
+    throw new TypeError("API URL must not contain credentials");
+  }
   const response = await request(url);
   if (!response.ok)
     throw new Error(`API health request failed (${response.status})`);

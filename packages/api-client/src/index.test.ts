@@ -25,4 +25,14 @@ describe("health client", () => {
       ),
     ).rejects.toThrow("503");
   });
+  it("rejects non-HTTP URLs and embedded credentials before sending", async () => {
+    const transport = vi.fn(async () => new Response("{}"));
+    await expect(getHealth("file:///tmp/api", transport)).rejects.toThrow(
+      "HTTP(S)",
+    );
+    await expect(
+      getHealth("http://alice:secret@localhost:3000", transport),
+    ).rejects.toThrow("credentials");
+    expect(transport).not.toHaveBeenCalled();
+  });
 });
