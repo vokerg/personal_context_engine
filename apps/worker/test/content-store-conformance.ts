@@ -203,9 +203,7 @@ export function runContentStoreConformance(
       expect((await f.store.read(sourcePath)).content).toBe("new input");
     });
 
-    it(
-      "never interprets an absent source as a successful move to a different revision",
-      async () => {
+    it("refuses unrelated destination content during replay", async () => {
       const f = getFixture();
       const referencePath = await f.seedPending("reference.md", "reference");
       const reference = await f.store.read(referencePath);
@@ -221,8 +219,7 @@ export function runContentStoreConformance(
       expect((await f.store.read(missing.destinationPath)).content).toBe(
         "unrelated content",
       );
-      },
-    );
+    });
 
     it("reports missing files and disallows unsafe paths", async () => {
       const store = getFixture().store;
