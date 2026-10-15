@@ -145,9 +145,11 @@ function parseScalar(value: string, field: string): string {
   // Explicit, conservative YAML v1 subset: no aliases, tags, block scalars,
   // implicit object/array scalars, comments or ambiguous colon-space pairs.
   if (
-    /^(?:[!&*|>{}\[\],#%@]|---|\.\.\.)/.test(value) ||
+    (["!", "&", "*", "|", ">", "{", "}", "[", "]", ",", "#", "%", "@"].some((token) => value.startsWith(token)) ||
+      value.startsWith("---") ||
+      value.startsWith("...") ||
     /:\s|\s#/.test(value) ||
-    /[\u0000-\u001f\u007f]/.test(value)
+    [...value].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)
   ) {
     fail("UNSAFE_YAML", field);
   }
@@ -195,7 +197,7 @@ function parseFrontmatter(source: string): Record<string, unknown> {
       const items: string[] = [];
       while (index + 1 < lines.length) {
         const nextLine = lines[index + 1]!;
-        const itemMatch = /^  - (.*)$/.exec(nextLine);
+        const itemMatch = /^ {2}- (.*)$/.exec(nextLine);
         if (!itemMatch) break;
         items.push(parseScalar(itemMatch[1]!, field));
         index++;
@@ -231,7 +233,7 @@ function requiredString(
     !value.trim() ||
     value !== value.trim() ||
     value.length > maxLength ||
-    /[\u0000-\u001f\u007f]/.test(value)
+    [...value].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)
   ) {
     fail("INVALID_FIELD", field);
   }
