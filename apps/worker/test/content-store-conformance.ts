@@ -202,10 +202,12 @@ export function runContentStoreConformance(
 
     it("never interprets an absent source as a successful move to a different revision", async () => {
       const f = getFixture();
+      const referencePath = await f.seedPending("reference.md", "reference");
+      const reference = await f.store.read(referencePath);
       const missing = {
         sourcePath: "inbox/missing.md",
         destinationPath: "notes/2026/10/missing.md",
-        expectedRevision: "a".repeat(64),
+        expectedRevision: reference.revision,
       };
       await f.seedDestination(missing.destinationPath, "unrelated content");
       await expect(f.store.finalize(missing)).rejects.toMatchObject({
