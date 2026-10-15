@@ -9,7 +9,6 @@ permissions:
 
 jobs:
   generate-lock:
-    if: github.actor == 'vokerg' && !startsWith(github.event.head_commit.message, 'chore: generate npm lockfile')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -21,12 +20,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - run: |
+          if [ -f package-lock.json ]; then exit 0; fi
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Commit generated lockfile on feature branch
         run: |
           test "$GITHUB_REF" = 'refs/heads/chore/issue-4-workspaces'
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if [ ! -f package-lock.json ]; then exit 0; fi
           git add package-lock.json
           git commit -m 'chore: generate npm lockfile for issue 4'
           git push origin HEAD:chore/issue-4-workspaces
