@@ -148,3 +148,68 @@ The conformance tests are defined in
 `apps/worker/src/content-store/filesystem.test.ts`. GitHub adapter tests
 should run the same suite with a deterministic fake fixture. The current
 adapter has no live private-repository smoke test (not authorized by #7).
+
+
+## GitHub ContentStore adapter (issue #11)
+
+The optional `GitHubContentStore` at
+`apps/worker/src/content-store/github.ts` implements the same port as the
+filesystem adapter. It is **not wired into the idle worker** until issue #10,
+and public CI uses an injected synthetic GitHub HTTP fake. No live content
+repository was accessed for this implementation.
+
+Server-only configuration (deliberately **not** placed in client bundles or PR
+workflow secrets):
+
+```dotenv
+CONTENT_REPOSITORY=owner/verified-private-content-repo
+CONTENT_BRANCH=main
+CONTENT_GITHUB_TOKEN=<runtime-secret-injected-by-secret-manager>
+```
+
+Instantiate via `githubContentStoreFromEnv()` after **separately verifying**
+the target repository is Private, or inject explicit constructor options and a
+fake `fetch` for tests. The token must be granted to the configured content
+repository with **Contents: read and write**; no Actions, Issues, Pull requests,
+Secrets or administration permission is required. A GitHub fine-grained PAT can
+be repository-scoped but cannot be restricted to only `inbox/` and `notes/`
+paths; protect the credential as a repository-wide content write capability.
+Use an installation token if the deployment supports its expiry and rotation
+semantics. Credentials are carried only in the HTTP Authorization header.
+
+GitHub revisions are immutable **blob SHAs**, unlike local SHA-256 revisions.
+A transition reads a branch-head snapshot, creates a new Git tree with the
+source deleted and destination referencing the same blob, creates a commit and
+attempts a **non-force, fast-forward branch ref update**. If another writer
+advances the branch, the adapter re-evaluates source/destination revisions
+against the new head; it never overwrites a different destination or removes
+newer source bytes. This is an atomic Git commit, not copy-then-delete; a
+network timeout can leave an uncertain commit result, safely reconciled on
+the next call. A matching destination plus original source is recoverable, and
+a missing source plus matching destination means already finalized.
+
+Pending discovery uses a bounded **seek cursor over the repository tree**
+(default 50; maximum 100 per page), not a GitHub REST page number. The tree
+API returns an entire recursive tree snapshot per scan, so costs grow with
+repository size. GitHub's `truncated` response is **rejected**, not silently
+treated as a complete scan. This implementation is appropriate to a small
+personal repository and must be replaced with subtree-based scans when tree
+limits become significant. Paths outside the approved inbox/notes/rejected
+layout, nonregular Git objects and invalid/oversized UTF-8 Markdown are
+rejected. Only files inside `inbox/` are discovered.
+
+Transient request failures (network exceptions, 429, 5xx and documented
+secondary rate limits) receive bounded retries with capped delay; HTTP
+401/403 (other than explicit rate limiting) denies access. Errors are typed
+without relaying content bodies, private URLs, tokens or API exception text.
+Following retry exhaustion, the worker must record an error and retry at a
+higher level later rather than discard the source. Branch-head conflicts are
+retried up to four attempts before surfacing `REVISION_CONFLICT`.
+
+**Manual private-repo smoke test — not performed:** first verify repository
+visibility is Private and explicitly authorize synthetic-only external writes.
+Then check list/read/finalize/replay/reject using a freshly generated disposable
+synthetic note in a dedicated staging branch, with a repository-scoped token.
+Inspect the final commit to confirm source deletion and exact destination
+bytes; revoke the token and clean staging data. Never invoke that smoke test
+from the public PR workflow, or upload a token or real note to CI.
