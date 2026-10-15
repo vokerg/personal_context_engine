@@ -96,7 +96,7 @@ Proposed inbox path: `inbox/<captured-date>_<note-id>.md`, for example `inbox/20
 
 The validator deliberately accepts a **restricted, deterministic subset of YAML**: one top-level mapping with unique, known keys; unquoted plain strings, single-quoted strings, or JSON-style double-quoted strings; literal `true`/`false`, integer `schema_version`, and string arrays as `[]`, JSON flow arrays or indented `- value` lines. It rejects aliases, anchors, tags, nested mappings, folded/literal block scalars, comments, ambiguous scalar syntax, unknown keys and duplicate fields. This restriction protects against unsafe YAML interpretation across parsers; YAML features outside the subset are not silently converted. The canonical serializer emits quoted strings.
 
-- Input is strict UTF-8 (no replacement decoding), at most **1 MiB** with frontmatter at most **16 KiB**.
+- Input is strict UTF-8 (no replacement decoding and no UTF-8 byte-order mark), at most **1 MiB** with frontmatter at most **16 KiB**.
 - IDs are uppercase Crockford ULIDs or canonical lowercase hyphenated UUIDs. The note and capture IDs differ; note IDs must be globally unique across a batch.
 - `captured_at`, `occurred_at` and `due_at` require a Gregorian date, seconds, and a literal UTC offset (`Z` or `±HH:MM`). Up to three fractional-second digits are accepted. Both the original offset and optional IANA timezone are preserved unchanged.
 - `domains`, `projects` and `tags` contain at most 100 distinct lowercase ASCII hyphenated slugs (max 64 characters each). They are **validated rather than silently rewritten**. Unknown but well-formed slugs stay intact and cannot trigger actions.
