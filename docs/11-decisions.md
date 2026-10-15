@@ -16,6 +16,7 @@
 | D-008 | Ledgers: daily, weekly, monthly; per-project ledgers are a natural extension. | Re-surface useful context rather than archive it forever. |
 | D-009 | The public repository owns code, schemas and CI; the content repository contains no app CI. | Strong separation of operational responsibilities. |
 | D-010 | No external action is executed solely due to a model-assigned tag. | Prevent accidental or unauthorized side effects. |
+| D-011 | Non-trivial engineering work is GitHub issue-first, one reviewable PR per issue, with CI evidence and explicit human approval before merging. | Auditability, reproducible agent execution and separation of author from reviewer. |
 
 ## Proposed implementation defaults (subject to prototyping)
 

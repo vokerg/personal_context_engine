@@ -1,0 +1,49 @@
+name: Bug report
+description: Reproducible defect with expected and actual behavior
+title: "[BUG] "
+body:
+  - type: markdown
+    attributes:
+      value: "Use synthetic or redacted data only. Do not share credentials, personal notes, or private URLs."
+  - type: textarea
+    id: summary
+    attributes:
+      label: Problem summary
+      description: Explain the defect and impact.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include minimal synthetic input and numbered steps.
+      placeholder: "1. ...\n2. ...\n3. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include a redacted error, if applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and version
+      description: OS, Node/runtime version, commit/ref, deployment (without secrets).
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted logs, regressions, dependencies, and attempted fixes
+      description: Include relevant issue/PR links and sanitized output.
+    validations:
+      required: false

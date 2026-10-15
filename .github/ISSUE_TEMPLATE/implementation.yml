@@ -1,0 +1,55 @@
+name: Implementation task
+description: Scoped, testable engineering work with explicit dependencies
+title: "[TASK] "
+body:
+  - type: markdown
+    attributes:
+      value: "Use this form for non-trivial code, schema, infrastructure, or architecture work. Never paste secrets or personal data."
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective and observable outcome
+      description: Explain why this is needed and what completion will look like.
+      placeholder: "As a ..., I need ...; success looks like ..."
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and decisions
+      description: Link prerequisites and blockers; write None when unblocked.
+      placeholder: "Depends on #...; approved decision ..."
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope, owned areas, and exclusions
+      description: List paths/components to touch, areas not owned, and non-goals.
+      placeholder: "In: apps/...; Out: ..."
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Use testable, observable checkboxes.
+      placeholder: "- [ ] Expected behavior verified\n- [ ] Edge case covered"
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification plan
+      description: List precise commands or manual evidence; note checks that need infrastructure.
+      placeholder: "npm test -- ...; node scripts/check-docs.mjs"
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Security, privacy, and rollback risks
+      description: State public/private boundaries, auth/secret considerations, migration and recovery concerns, or None.
+      placeholder: "Synthetic fixtures only; no secrets; rollback: ..."
+    validations:
+      required: true
