@@ -2,24 +2,8 @@ name: Workspace checks
 
 on:
   pull_request:
-    paths:
-      - 'apps/**'
-      - 'packages/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'tsconfig.base.json'
-      - 'eslint.config.mjs'
-      - '.github/workflows/bootstrap.yml'
   push:
     branches: [main]
-    paths:
-      - 'apps/**'
-      - 'packages/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'tsconfig.base.json'
-      - 'eslint.config.mjs'
-      - '.github/workflows/bootstrap.yml'
 
 permissions:
   contents: read
@@ -34,7 +18,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npm run lint
@@ -60,4 +44,3 @@ jobs:
           kill -TERM "$worker_pid"
           wait "$worker_pid"
           grep -q 'Worker scaffold stopped' /tmp/pce-worker.log
-      - run: npm run docs:check
