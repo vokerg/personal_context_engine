@@ -37,6 +37,9 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Temporary Prettier diff (synthetic TypeScript only)
+        run: |
+          diff -u apps/worker/src/content-store/github.ts <(npx prettier apps/worker/src/content-store/github.ts) || true
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
