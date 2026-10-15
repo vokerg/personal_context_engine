@@ -198,7 +198,10 @@ describe("version 1 Markdown capture contract", () => {
       changed(idea, "projects: []", "projects: { key: value }"),
       "UNSAFE_YAML",
     );
-    invalid(changed(idea, "tags:\n  - training", "tags:\n  -"), "INVALID_FIELD");
+    invalid(
+      changed(idea, "tags:\n  - training", "tags:\n  -"),
+      "INVALID_FIELD",
+    );
     invalid(
       changed(idea, "title: Sample", "title: >\n  Sample"),
       "UNSAFE_YAML",
