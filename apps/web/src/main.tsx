@@ -1,7 +1,11 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import { App } from './App.js';
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { App } from "./App.js";
 
-const root = document.getElementById('root');
-if (!root) throw new Error('Missing application mount node');
-createRoot(root).render(<StrictMode><App /></StrictMode>);
+const root = document.getElementById("root");
+if (!root) throw new Error("Missing application mount node");
+createRoot(root).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);
