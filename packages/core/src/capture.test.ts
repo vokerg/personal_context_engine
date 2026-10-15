@@ -147,6 +147,16 @@ describe("version 1 Markdown capture contract", () => {
     );
   });
 
+  it("refuses capture grouping when projected original text or summary diverges", () => {
+    const note = parseNoteMarkdown(idea);
+    expect(() =>
+      groupNotesByCapture([{ ...note, originalInput: "tampered" }]),
+    ).toThrowError("INVALID_BODY");
+    expect(() =>
+      groupNotesByCapture([{ ...note, summary: "tampered" }]),
+    ).toThrowError("INVALID_BODY");
+  });
+
   it("constructs and verifies a date-partitioned, canonical inbox path", () => {
     const note = parseNoteMarkdown(idea);
     const canonical = "inbox/2026-10-15_" + NOTE_ID + ".md";
@@ -272,6 +282,9 @@ describe("version 1 Markdown capture contract", () => {
     expect(() => parseNoteMarkdown(idea + "\ud800")).toThrowError(
       "INVALID_ENCODING",
     );
+    expect(() =>
+      parseNoteMarkdown(Uint8Array.from([0xef, 0xbb, 0xbf, ...new TextEncoder().encode(idea)])),
+    ).toThrowError("INVALID_ENCODING");
     expect(() => parseNoteMarkdown("missing delimiters")).toThrowError(
       "FRONTMATTER",
     );
