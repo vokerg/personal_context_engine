@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Personal Context Engine",
+    "slug": "personal-context-engine",
+    "scheme": "pce",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "dev.pce.mobile"
+    }
+  }
+}

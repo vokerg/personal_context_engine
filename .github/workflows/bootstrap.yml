@@ -1,0 +1,63 @@
+name: Workspace checks
+
+on:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.base.json'
+      - 'eslint.config.mjs'
+      - '.github/workflows/bootstrap.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.base.json'
+      - 'eslint.config.mjs'
+      - '.github/workflows/bootstrap.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm test
+      - name: Bundle Expo Android JS without a simulator
+        working-directory: apps/mobile
+        run: npx expo export --platform android --output-dir /tmp/pce-expo-export
+      - name: API and worker process smoke
+        run: |
+          node apps/api/dist/main.js > /tmp/pce-api.log 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:3000/health > /tmp/pce-health.json; then break; fi
+            sleep 0.5
+          done
+          node -e "const fs=require('fs'); const result=JSON.parse(fs.readFileSync('/tmp/pce-health.json')); if(result.status!=='ok') process.exit(1)"
+          node apps/worker/dist/main.js > /tmp/pce-worker.log 2>&1 &
+          worker_pid=$!
+          sleep 1
+          kill -TERM "$worker_pid"
+          wait "$worker_pid"
+          grep -q 'Worker scaffold stopped' /tmp/pce-worker.log
+      - run: npm run docs:check
