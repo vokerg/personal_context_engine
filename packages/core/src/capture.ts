@@ -453,6 +453,10 @@ export function parseNoteMarkdown(input: string | Uint8Array): Note {
   const bytes =
     typeof input === "string" ? new TextEncoder().encode(input) : input;
   if (bytes.byteLength > MAX_BYTES) fail("TOO_LARGE");
+  // Reject a BOM instead of allowing TextDecoder to silently discard bytes.
+  if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    fail("INVALID_ENCODING");
+  }
   let markdown: string;
   try {
     markdown = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
@@ -545,7 +549,13 @@ export function groupNotesByCapture(notes: readonly Note[]): Capture[] {
     const metadata = validateNoteMetadata(
       note.metadata as unknown as Record<string, unknown>,
     );
-    parseBody(note.body, metadata.title);
+    const sections = parseBody(note.body, metadata.title);
+    if (
+      sections.summary !== note.summary ||
+      sections.originalInput !== note.originalInput
+    ) {
+      fail("INVALID_BODY");
+    }
     if (noteIds.has(metadata.id)) fail("DUPLICATE_ID", "id");
     noteIds.add(metadata.id);
     let capture = groups.get(metadata.capture_id);
