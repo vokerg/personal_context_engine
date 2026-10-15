@@ -31,6 +31,12 @@
 | P-007 | Expo push with an API-owned reminder scheduler and durable delivery records. | Device testing, permissions and reliability. |
 | P-008 | Monorepo modules: `apps/{api,worker,web,mobile}`, `packages/{core,contracts,api-client}`. | Avoid premature packaging. |
 
+## Implemented contract constraints (2026-10-15, issue #6)
+
+- D-003 now has an executable **v1 Markdown validator/serializer** in `@pce/core`, with synthetic adversarial tests; no worker, GitHub adapter or persistence is implemented by this change.
+- P-002/P-003 are partially validated by code: only ULID/UUID identifiers, strict offset-bearing timestamps, defined enum values, non-mutating lowercase slug validation and constrained YAML syntax are accepted. This is an intentional compatibility restriction; widening syntax or changing identity/collision policy requires a version-aware migration.
+- **Original input is terminal** in v1 Markdown: all Markdown after `## Original input` belongs to the original transcription. Optional descriptive sections go before it. No tags, action hints or deadlines are inferred at parse time.
+
 ## Deferred decisions
 
 - Choose the hosted/scheduled LLM provider, budget and execution model for unattended aggregators.

@@ -1,6 +1,6 @@
 # 04 — Capture and Markdown interchange contract (draft v1)
 
-**Status:** proposed version 1, to become executable after validator and sample-capture tests exist. This contract is for the initial file-first pipeline; it must not be confused with a deployed API.
+**Status:** version 1 is implemented as a pure parser/serializer in `packages/core/src/capture.ts` (issue #6). No persistence, API or ingestion pipeline is implied.
 
 ## Principles
 
@@ -91,6 +91,20 @@ If a date like "tomorrow" cannot be resolved against a known capture timezone an
 ## Filename and location
 
 Proposed inbox path: `inbox/<captured-date>_<note-id>.md`, for example `inbox/2026-10-15_01K00000000000000000000001.md`. The path is only a locator; **ID is the canonical identity**. After successful import, file moves to `notes/YYYY/MM/<note-id>.md` based on the capture date. The worker, not the LLM, owns finalization.
+
+## Executable v1 conventions
+
+The validator deliberately accepts a **restricted, deterministic subset of YAML**: one top-level mapping with unique, known keys; unquoted plain strings, single-quoted strings, or JSON-style double-quoted strings; literal `true`/`false`, integer `schema_version`, and string arrays as `[]`, JSON flow arrays or indented `- value` lines. It rejects aliases, anchors, tags, nested mappings, folded/literal block scalars, comments, ambiguous scalar syntax, unknown keys and duplicate fields. This restriction protects against unsafe YAML interpretation across parsers; YAML features outside the subset are not silently converted. The canonical serializer emits quoted strings.
+
+- Input is strict UTF-8 (no replacement decoding and no UTF-8 byte-order mark), at most **1 MiB** with frontmatter at most **16 KiB**.
+- IDs are uppercase Crockford ULIDs or canonical lowercase hyphenated UUIDs. The note and capture IDs differ; note IDs must be globally unique across a batch.
+- `captured_at`, `occurred_at` and `due_at` require a Gregorian date, seconds, and a literal UTC offset (`Z` or `±HH:MM`). Up to three fractional-second digits are accepted. Both the original offset and optional IANA timezone are preserved unchanged.
+- `domains`, `projects` and `tags` contain at most 100 distinct lowercase ASCII hyphenated slugs (max 64 characters each). They are **validated rather than silently rewritten**. Unknown but well-formed slugs stay intact and cannot trigger actions.
+- The `# Title` heading must match `title`. `## Summary` precedes `## Original input`; optional descriptive sections should precede **Original input**, which is the final section. Everything after that heading is preserved byte-for-byte in the body, including Markdown headings and line endings. The exposed `originalInput` retains trailing newlines.
+- `inboxNotePath` derives the path only from validated capture date and note ID; `verifyInboxNotePath` rejects anything other than that exact canonical path. Structured error codes and field names deliberately omit captured text.
+- `groupNotesByCapture` permits multiple unique notes per capture, rejecting mismatched capture timestamp, source, or timezone. It does not persist or create captures, authorize reminders or infer due dates.
+
+The **version 1 schema** is an executable interchange contract, not a claim that ingestion or private content storage is live.
 
 ## Validation requirements
 
