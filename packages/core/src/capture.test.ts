@@ -132,7 +132,9 @@ describe("version 1 Markdown capture contract", () => {
 
   it("rejects duplicate IDs and capture source/timestamp mismatches", () => {
     const first = parseNoteMarkdown(idea);
-    expect(() => groupNotesByCapture([first, first])).toThrow(NoteValidationError);
+    expect(() => groupNotesByCapture([first, first])).toThrow(
+      NoteValidationError,
+    );
     const second = parseNoteMarkdown(
       changed(
         changed(idea, "id: " + NOTE_ID, "id: " + NOTE_ID_2),
@@ -176,24 +178,57 @@ describe("version 1 Markdown capture contract", () => {
   });
 
   it("rejects unsupported versions, unsafe YAML, aliases and duplicate keys", () => {
-    invalid(changed(idea, "schema_version: 1", "schema_version: 2"), "SCHEMA_VERSION");
-    invalid(changed(idea, "title: Sample", "title: &alias Sample"), "UNSAFE_YAML");
-    invalid(changed(idea, "tags:\n  - training", "tags:\n  - *alias"), "UNSAFE_YAML");
-    invalid(changed(idea, "kind: idea", "kind: idea\nkind: task"), "INVALID_FIELD");
-    invalid(changed(idea, "projects: []", "projects: { key: value }"), "UNSAFE_YAML");
+    invalid(
+      changed(idea, "schema_version: 1", "schema_version: 2"),
+      "SCHEMA_VERSION",
+    );
+    invalid(
+      changed(idea, "title: Sample", "title: &alias Sample"),
+      "UNSAFE_YAML",
+    );
+    invalid(
+      changed(idea, "tags:\n  - training", "tags:\n  - *alias"),
+      "UNSAFE_YAML",
+    );
+    invalid(
+      changed(idea, "kind: idea", "kind: idea\nkind: task"),
+      "INVALID_FIELD",
+    );
+    invalid(
+      changed(idea, "projects: []", "projects: { key: value }"),
+      "UNSAFE_YAML",
+    );
     invalid(changed(idea, "tags:\n  - training", "tags:\n  -"), "UNSAFE_YAML");
-    invalid(changed(idea, "title: Sample", "title: >\n  Sample"), "UNSAFE_YAML");
+    invalid(
+      changed(idea, "title: Sample", "title: >\n  Sample"),
+      "UNSAFE_YAML",
+    );
   });
 
   it("rejects invalid IDs, enum fields, metadata and unsafe or duplicate labels", () => {
     invalid(changed(idea, "id: " + NOTE_ID, "id: ../forged"), "INVALID_FIELD");
-    invalid(changed(idea, "capture_id: " + CAPTURE_ID, "capture_id: " + NOTE_ID), "INVALID_FIELD");
+    invalid(
+      changed(idea, "capture_id: " + CAPTURE_ID, "capture_id: " + NOTE_ID),
+      "INVALID_FIELD",
+    );
     invalid(changed(idea, "kind: idea", "kind: dangerous"), "INVALID_FIELD");
-    invalid(changed(idea, "tags:\n  - training", "tags:\n  - training\n  - training"), "INVALID_FIELD");
+    invalid(
+      changed(idea, "tags:\n  - training", "tags:\n  - training\n  - training"),
+      "INVALID_FIELD",
+    );
     invalid(changed(idea, "  - training", "  - UpperCase"), "INVALID_FIELD");
-    invalid(changed(idea, "review_required: false", "review_required: yes"), "INVALID_FIELD");
-    invalid(changed(idea, "timezone: Europe/Prague", "timezone: Planet/Never"), "INVALID_FIELD");
-    invalid(changed(idea, "source: chatgpt_text", "source: github_private"), "INVALID_FIELD");
+    invalid(
+      changed(idea, "review_required: false", "review_required: yes"),
+      "INVALID_FIELD",
+    );
+    invalid(
+      changed(idea, "timezone: Europe/Prague", "timezone: Planet/Never"),
+      "INVALID_FIELD",
+    );
+    invalid(
+      changed(idea, "source: chatgpt_text", "source: github_private"),
+      "INVALID_FIELD",
+    );
   });
 
   it("rejects malformed dates, missing offset, bad calendar values and impossible timezone offsets", () => {
@@ -204,26 +239,42 @@ describe("version 1 Markdown capture contract", () => {
       "2026-10-15T08:30:60+02:00",
       "2026-10-15T08:30:00+14:30",
     ]) {
-      invalid(changed(idea, "2026-10-15T08:30:00+02:00", date), "INVALID_FIELD");
+      invalid(
+        changed(idea, "2026-10-15T08:30:00+02:00", date),
+        "INVALID_FIELD",
+      );
     }
   });
 
   it("rejects missing or duplicated mandatory headings and title divergence", () => {
     invalid(changed(idea, "## Summary", "## Overview"), "INVALID_BODY");
-    invalid(changed(idea, "## Original input", "## Transcript"), "INVALID_BODY");
-    invalid(changed(idea, "# Sample training idea", "# Different title"), "INVALID_BODY");
-    invalid(changed(idea, "## Summary", "## Summary\n\n## Summary"), "INVALID_BODY");
+    invalid(
+      changed(idea, "## Original input", "## Transcript"),
+      "INVALID_BODY",
+    );
+    invalid(
+      changed(idea, "# Sample training idea", "# Different title"),
+      "INVALID_BODY",
+    );
+    invalid(
+      changed(idea, "## Summary", "## Summary\n\n## Summary"),
+      "INVALID_BODY",
+    );
   });
 
   it("rejects non-UTF8, excess size, invalid delimiters and single-surrogate input", () => {
     expect(() => parseNoteMarkdown(Uint8Array.from([0xff, 0xfe]))).toThrowError(
       "INVALID_ENCODING",
     );
-    expect(() => parseNoteMarkdown(idea + "\ud800")).toThrowError("INVALID_ENCODING");
-    expect(() => parseNoteMarkdown("missing delimiters")).toThrowError("FRONTMATTER");
-    expect(() => parseNoteMarkdown(idea + "a".repeat(1024 * 1024))).toThrowError(
-      "TOO_LARGE",
+    expect(() => parseNoteMarkdown(idea + "\ud800")).toThrowError(
+      "INVALID_ENCODING",
     );
+    expect(() => parseNoteMarkdown("missing delimiters")).toThrowError(
+      "FRONTMATTER",
+    );
+    expect(() =>
+      parseNoteMarkdown(idea + "a".repeat(1024 * 1024)),
+    ).toThrowError("TOO_LARGE");
   });
 
   it("fails serialization if the caller changes an original transcript independently of its body", () => {
