@@ -97,7 +97,6 @@ PUSH_PROVIDER=disabled
 - Production jobs may be separately deployed from this code repository, but their private content access is provisioned in a trusted runtime environment only.
 - A failing content ingestion is handled by runtime status and retries, not by committing an error log to the public repo.
 
-
 ### Required public PR checks
 
 Both workflows run on **every** `pull_request` (including documentation-only changes) and `push` to `main`. They deliberately have **no path filters**, so workflow/configuration/script changes cannot accidentally suppress a required status check. The jobs run independently and do not depend on production services.
@@ -125,7 +124,7 @@ npm test
 npm run docs:check
 ```
 
-To verify a **negative documentation case**, temporarily add `[broken-test-link](file-that-does-not-exist.md)` to `README.md` and run `npm run docs:check`. It must exit nonzero with a `Broken link` diagnostic. Remove the temporary line and rerun the command before committing. A missing required documentation file likewise fails. Lint, typecheck, unit-test and bundle failures propagate as nonzero workflow steps; a job's green status is only evidence for that actual GitHub Actions run, not future code.
+To verify a **negative documentation case**, temporarily add a Markdown link to a nonexistent target, such as `file-that-does-not-exist.md`, in `README.md` and run `npm run docs:check`. It must exit nonzero with a `Broken link` diagnostic. Remove the temporary line and rerun the command before committing. A missing required documentation file likewise fails. Lint, typecheck, unit-test and bundle failures propagate as nonzero workflow steps; a job's green status is only evidence for that actual GitHub Actions run, not future code.
 
 GitHub Settings → Branches / Rulesets should require both `workspace` and `docs` check contexts before merging to protect `main`. **A workflow file alone does not enforce branch protection.** If repository rules are not configured, request owner action; do not claim that checks are mandatory at the GitHub merge button. Optional device/simulator, integration-with-real-provider and production deployment tests remain out of scope for public PR workflows.
 
