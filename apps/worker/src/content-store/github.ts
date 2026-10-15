@@ -182,8 +182,7 @@ export class GitHubContentStore implements ContentStore {
       if (response.status === 401 || (response.status === 403 && !rateLimited)) {
         fail("PERMISSION_DENIED");
       }
-      const transient =
-        response.status === 429 || response.status >= 500 || rateLimited;
+      const transient = response.status === 429 || response.status >= 500 || rateLimited;
       if (transient) {
         if (attempt === MAX_ATTEMPTS - 1) fail("IO_ERROR");
         const retryAfter = Number(response.headers.get("retry-after"));
