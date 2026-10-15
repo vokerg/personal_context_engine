@@ -282,9 +282,13 @@ describe("version 1 Markdown capture contract", () => {
     expect(() => parseNoteMarkdown(idea + "\ud800")).toThrowError(
       "INVALID_ENCODING",
     );
-    expect(() =>
-      parseNoteMarkdown(Uint8Array.from([0xef, 0xbb, 0xbf, ...new TextEncoder().encode(idea)])),
-    ).toThrowError("INVALID_ENCODING");
+    const withBom = Uint8Array.from([
+      0xef,
+      0xbb,
+      0xbf,
+      ...new TextEncoder().encode(idea),
+    ]);
+    expect(() => parseNoteMarkdown(withBom)).toThrowError("INVALID_ENCODING");
     expect(() => parseNoteMarkdown("missing delimiters")).toThrowError(
       "FRONTMATTER",
     );
