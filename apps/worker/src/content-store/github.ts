@@ -158,7 +158,9 @@ export class GitHubContentStore implements ContentStore {
             Authorization: `Bearer ${this.token}`,
             Accept: "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
-            ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+            ...(body === undefined
+              ? {}
+              : { "Content-Type": "application/json" }),
           },
           ...(body === undefined ? {} : { body: JSON.stringify(body) }),
           signal: AbortSignal.timeout(10_000),
@@ -188,9 +190,10 @@ export class GitHubContentStore implements ContentStore {
       if (transient) {
         if (attempt === MAX_ATTEMPTS - 1) fail("IO_ERROR");
         const retryAfter = Number(response.headers.get("retry-after"));
-        const seconds = Number.isFinite(retryAfter) && retryAfter > 0
-          ? Math.min(retryAfter, 2)
-          : 0;
+        const seconds =
+          Number.isFinite(retryAfter) && retryAfter > 0
+            ? Math.min(retryAfter, 2)
+            : 0;
         await this.sleep(seconds > 0 ? seconds * 1000 : 50 * 2 ** attempt);
         continue;
       }
@@ -216,16 +219,23 @@ export class GitHubContentStore implements ContentStore {
     const tree = (commit.tree as { sha?: unknown } | undefined)?.sha;
     if (typeof tree !== "string" || !BLOB_SHA.test(tree)) fail("IO_ERROR");
     const listing = await this.request(`/git/trees/${tree}?recursive=1`);
-    if (listing.truncated === true || !Array.isArray(listing.tree) ||
-        listing.tree.length > MAX_ENTRIES) {
+    if (
+      listing.truncated === true ||
+      !Array.isArray(listing.tree) ||
+      listing.tree.length > MAX_ENTRIES
+    ) {
       fail("IO_ERROR");
     }
     const entries = new Map<string, TreeEntry>();
     for (const raw of listing.tree) {
       if (!raw || typeof raw !== "object") fail("IO_ERROR");
       const entry = raw as TreeEntry;
-      if (typeof entry.path !== "string" || typeof entry.sha !== "string" ||
-          typeof entry.type !== "string" || typeof entry.mode !== "string") {
+      if (
+        typeof entry.path !== "string" ||
+        typeof entry.sha !== "string" ||
+        typeof entry.type !== "string" ||
+        typeof entry.mode !== "string"
+      ) {
         fail("IO_ERROR");
       }
       entries.set(entry.path, entry);
@@ -236,12 +246,17 @@ export class GitHubContentStore implements ContentStore {
   private entry(snapshot: Snapshot, path: string): TreeEntry | undefined {
     const entry = snapshot.entries.get(path);
     if (entry) {
-      if (entry.type !== "blob" || entry.mode !== "100644" ||
-          !BLOB_SHA.test(entry.sha)) {
+      if (
+        entry.type !== "blob" ||
+        entry.mode !== "100644" ||
+        !BLOB_SHA.test(entry.sha)
+      ) {
         fail("UNSAFE_ENTRY");
       }
-      if (entry.size !== undefined &&
-          (!Number.isSafeInteger(entry.size) || entry.size > MAX_FILE_BYTES)) {
+      if (
+        entry.size !== undefined &&
+        (!Number.isSafeInteger(entry.size) || entry.size > MAX_FILE_BYTES)
+      ) {
         fail("INVALID_CONTENT");
       }
     }
@@ -286,8 +301,11 @@ export class GitHubContentStore implements ContentStore {
     const entry = this.entry(await this.snapshot(), path);
     if (!entry) fail("NOT_FOUND");
     const blob = await this.request(`/git/blobs/${entry.sha}`);
-    if (blob.encoding !== "base64" || typeof blob.content !== "string" ||
-        typeof blob.size !== "number") {
+    if (
+      blob.encoding !== "base64" ||
+      typeof blob.content !== "string" ||
+      typeof blob.size !== "number"
+    ) {
       fail("INVALID_CONTENT");
     }
     const content = decodeContent(blob.content.replace(/\\s/g, ""), blob.size);
@@ -382,5 +400,10 @@ export function githubContentStoreFromEnv(
   const branch = env.CONTENT_BRANCH;
   const token = env.CONTENT_GITHUB_TOKEN;
   if (!repository || !branch || !token) fail("PERMISSION_DENIED");
-  return new GitHubContentStore({ repository, branch, token, ...(http ? { fetch: http } : {}) });
+  return new GitHubContentStore({
+    repository,
+    branch,
+    token,
+    ...(http ? { fetch: http } : {}),
+  });
 }
