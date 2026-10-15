@@ -175,18 +175,15 @@ export class GitHubContentStore implements ContentStore {
         fail("IO_ERROR");
       }
       if (response.status === 404) fail("NOT_FOUND");
-      if (
-        response.status === 401 ||
-        (response.status === 403 &&
-          response.headers.get("x-ratelimit-remaining") !== "0")
-      ) {
+      const rateLimited =
+        response.status === 403 &&
+        (response.headers.get("x-ratelimit-remaining") === "0" ||
+          response.headers.has("retry-after"));
+      if (response.status === 401 || (response.status === 403 && !rateLimited)) {
         fail("PERMISSION_DENIED");
       }
       const transient =
-        response.status === 429 ||
-        response.status >= 500 ||
-        (response.status === 403 &&
-          response.headers.get("x-ratelimit-remaining") === "0");
+        response.status === 429 || response.status >= 500 || rateLimited;
       if (transient) {
         if (attempt === MAX_ATTEMPTS - 1) fail("IO_ERROR");
         const retryAfter = Number(response.headers.get("retry-after"));
@@ -255,7 +252,9 @@ export class GitHubContentStore implements ContentStore {
       }
       if (
         entry.size !== undefined &&
-        (!Number.isSafeInteger(entry.size) || entry.size > MAX_FILE_BYTES)
+        (!Number.isSafeInteger(entry.size) ||
+          entry.size < 0 ||
+          entry.size > MAX_FILE_BYTES)
       ) {
         fail("INVALID_CONTENT");
       }
@@ -281,10 +280,10 @@ export class GitHubContentStore implements ContentStore {
       .sort()
       .filter((path) => options.cursor === undefined || path > options.cursor);
     const selected = paths.slice(0, limit);
-    const files: ContentRef[] = selected.map((path) => ({
-      path,
-      revision: this.entry(snapshot, path)!.sha,
-    }));
+    const files: ContentRef[] = selected.map((path) => {
+      assertPath(path, "inbox");
+      return { path, revision: this.entry(snapshot, path)!.sha };
+    });
     return paths.length > selected.length && selected.length > 0
       ? { files, nextCursor: selected[selected.length - 1]! }
       : { files };
