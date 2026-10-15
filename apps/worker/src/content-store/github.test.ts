@@ -197,7 +197,6 @@ describe("GitHub ContentStore safety and concurrency", () => {
     expect(() => new GitHubContentStore({
       repository: "owner/repo", branch: "../main", token: "synthetic",
     })).toThrow();
-    expect(() => githubContentStoreFromEnv({})).toMatchObject;
     expect(() => githubContentStoreFromEnv({})).toThrow();
   });
 
