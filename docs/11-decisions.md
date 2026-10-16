@@ -83,6 +83,10 @@ remains separate future work. The final authentication **provider** is still
 deferred; replacing the verification adapter does not revise D-012's
 authorization invariants.
 
+## Implemented ingestion boundary (2026-10-16, issue #10)
+
+P-001/P-004 now have a deterministic opt-in one-shot worker, with ContentStore compare-and-swap transitions, PostgreSQL processing-attempt leases and replayable `PERSISTED` recovery. The default developer process remains inert. Workers never infer reminders from prose or enqueue notifications; captured `due_at` is projected with its original offset, and absent `due_at` stays absent. A content conflict is left for manual repair. This does **not** authorize private GitHub ingestion, a scheduler, active notifications or authenticated DB reads. Five-minute leases and bounded backoff are implementation defaults, not a cross-system ACID guarantee.
+
 ## Client integration boundary (2026-10-16, issue #14)
 
 Web and Expo now consume the same `@pce/api-client` typed GET routes.

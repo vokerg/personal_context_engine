@@ -6,7 +6,7 @@ These instructions apply to the **public mechanism repository**, not to a person
 
 Build a replaceable-channel personal context engine: capture (voice/text) -> durable Markdown -> deterministic ingestion -> queryable projections -> contextual ledgers, reminders and deliberate external actions. Optimize for lossless capture, privacy, recoverability, low capture friction, and explainable results.
 
-**Current state:** the runnable scaffold, v1 Markdown parser, ContentStore adapters, public-only Fastify API and Prisma/PostgreSQL projection package exist. The worker remains idle. An interim JWT verification boundary and opt-in owner-scoped synthetic note routes are implemented (#13); the default API still has no private reads. Real DB ownership, login, push delivery and live ingestion are not implemented. Inspect source and tests before making changes.
+**Current state:** the runnable scaffold, v1 Markdown parser, ContentStore adapters, public-only Fastify API and Prisma/PostgreSQL projection package exist. An explicit opt-in, once-mode deterministic ingestion worker is implemented under #10; the default development worker remains idle. An interim JWT verification boundary and opt-in owner-scoped synthetic note routes are implemented (#13); the default API still has no private reads. Real DB ownership, login, push delivery and private-repository ingestion deployment are not implemented. Inspect source and tests before making changes.
 
 ## Read before working
 

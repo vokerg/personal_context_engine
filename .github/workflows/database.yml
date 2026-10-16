@@ -6,6 +6,7 @@ on:
       - "packages/db/**"
       - "packages/core/**"
       - "apps/api/**"
+      - "apps/worker/**"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.base.json"
@@ -16,6 +17,7 @@ on:
       - "packages/db/**"
       - "packages/core/**"
       - "apps/api/**"
+      - "apps/worker/**"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.base.json"
@@ -66,6 +68,7 @@ jobs:
       - run: npm run build -w @pce/db
       - run: npm run build -w @pce/contracts
       - run: npm run build -w @pce/api
+      - run: npm run build -w @pce/worker
       - name: Database-dependent API readiness smoke
         run: |
           API_PORT=32123 node apps/api/dist/main.js > /tmp/pce-db-api.log 2>&1 &
@@ -77,4 +80,4 @@ jobs:
           done
           node -e 'const v=require("/tmp/pce-db-ready.json"); if(v.status!=="ready")process.exit(1)'
       - name: PostgreSQL integration tests (synthetic records only)
-        run: npx vitest run packages/db/src/index.integration.test.ts
+        run: npx vitest run packages/db/src/index.integration.test.ts apps/worker/src/worker.integration.test.ts

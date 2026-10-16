@@ -60,11 +60,11 @@ npm run typecheck
 npm test                 # builds workspaces and exercises synthetic smoke tests
 npm run build
 npm run docs:check
-npm run dev              # API :3000, idle worker and Vite web :4200
+npm run dev              # API :3000, default-idle worker and Vite web :4200
 npm run dev:mobile       # separate Expo/Metro dev session
 ```
 
-The API binds to `127.0.0.1:3000` by default; `API_HOST` and `API_PORT` are validated at startup. Public `GET /health`, `GET /ready` and `GET /api/v1` are implemented. Private note routes are registered only if an authenticated, owner-scoped note reader is explicitly injected (#13); default startup still exposes only public endpoints. The DB projection package lacks persisted ownership and is not wired to private reads. The worker starts/stops without ingesting data. React web is a static scaffold and the Expo app is a native scaffold; neither reads private content. Running Expo on a real device needs local Expo tooling, a compatible emulator/device, and separate device-reachable API configuration when auth arrives. CI does **not** claim native simulator validation. `db:migrate` applies the checked-in Prisma/PostgreSQL projection migration (issue #8); see [DB setup](../packages/db/README.md).
+The API binds to `127.0.0.1:3000` by default; `API_HOST` and `API_PORT` are validated at startup. Public `GET /health`, `GET /ready` and `GET /api/v1` are implemented. Private note routes are registered only if an authenticated, owner-scoped note reader is explicitly injected (#13); default startup still exposes only public endpoints. The DB projection package lacks persisted ownership and is not wired to private reads. The default worker starts/stops without ingesting data; issue #10 adds an explicit once-mode worker that requires a database and an opted-in ContentStore. React web is a static scaffold and the Expo app is a native scaffold; neither reads private content. Running Expo on a real device needs local Expo tooling, a compatible emulator/device, and separate device-reachable API configuration when auth arrives. CI does **not** claim native simulator validation. `db:migrate` applies the checked-in Prisma/PostgreSQL projection migration (issue #8); see [DB setup](../packages/db/README.md).
 
 ## Environment and credentials
 
@@ -174,6 +174,19 @@ a trusted token issuer, secure key storage, and persisted data ownership
 before connecting the live notes projection. Local test:
 `npx vitest run apps/api/src/app.test.ts apps/api/src/config.test.ts
 packages/api-client/src/index.test.ts`.
+
+
+### One-shot synthetic ingestion worker (#10)
+
+After `npm run build` and `npm run db:migrate`, populate a **disposable**, absolute sandbox directory with schema-v1 files under `inbox/` and run:
+
+```bash
+WORKER_MODE=once WORKER_CONTENT_BACKEND=filesystem \\
+  WORKER_CONTENT_ROOT=/absolute/path/to/synthetic-sandbox \\
+  npm run start -w @pce/worker
+```
+
+A configured `DATABASE_URL` with reachable PostgreSQL is mandatory; the worker fails closed and never logs note contents or connection secrets. Default `npm run dev:worker` stays idle. Each one-shot invocation is bounded; a trusted external scheduler may invoke it repeatedly. See [ingestion state machine](05-ingestion.md) for durable retries, lease recovery, test coverage and the guarded GitHub backend. Neither public CI nor this command exercises a real private content repository by default.
 
 ### Minimal web and Expo read-only clients (#14)
 

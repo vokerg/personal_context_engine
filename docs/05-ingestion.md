@@ -1,6 +1,6 @@
 # 05 — Worker ingestion and data lifecycle
 
-**Status:** proposed implementation specification. File placement indicates **processing state**, not whether the human task described by the note is complete.
+**Status:** deterministic one-shot implementation (#10) with a synthetic filesystem/PostgreSQL execution path; production private-repository deployment and scheduling are not verified. File placement indicates **processing state**, not whether the human task described by the note is complete.
 
 ## File lifecycle
 
@@ -83,8 +83,7 @@ See [architecture](02-architecture.md), [capture contract](04-capture-contract.m
 
 The first **implemented adapter** lives at `apps/worker/src/content-store/`, with a
 provider-neutral `ContentStore` port (`port.ts`) and a synthetic-only filesystem
-implementation (`filesystem.ts`). The worker process is still an idle scaffold:
-**issue #10** will wire discovery, database ingestion and durable processing leases.
+implementation (`filesystem.ts`). The worker has an explicit `WORKER_MODE=once` execution path with durable database leases and restart recovery. The default development process remains idle until configured.
 
 The adapter API is intentionally smaller than an entire file manager:
 
@@ -154,8 +153,7 @@ adapter has no live private-repository smoke test (not authorized by #7).
 
 The optional `GitHubContentStore` at
 `apps/worker/src/content-store/github.ts` implements the same port as the
-filesystem adapter. It is **not wired into the idle worker** until issue #10,
-and public CI uses an injected synthetic GitHub HTTP fake. No live content
+filesystem adapter. The opt-in one-shot worker can select this adapter only after a separately verified private-repository acknowledgement, while public CI continues using an injected synthetic GitHub HTTP fake. No live content
 repository was accessed for this implementation.
 
 Server-only configuration (deliberately **not** placed in client bundles or PR
@@ -213,3 +211,22 @@ synthetic note in a dedicated staging branch, with a repository-scoped token.
 Inspect the final commit to confirm source deletion and exact destination
 bytes; revoke the token and clean staging data. Never invoke that smoke test
 from the public PR workflow, or upload a token or real note to CI.
+
+
+## Deterministic ingestion pass (issue #10)
+
+`runIngestionBatch` scans at most 500 inbox references per pass by default (hard maximum 1000) and processes at most 50 claimed revisions (hard maximum 100). Each `processing_attempts` row is unique on source path and source revision; the PostgreSQL conditional update owns a five-minute lease, 5-second-to-1-hour capped retry delay, structured error code and durable `PERSISTED` checkpoint. Expired leases can be reclaimed. A schema-validation error is stored in the durable `REJECTED` state **before** moving the source to `rejected/`; if the move fails or the process crashes, subsequent inbox scans reconcile the unchanged revision. Identity conflicts remain in the inbox for manual repair. Identity/source collisions remain in the inbox for manual repair, without overwrites.
+
+After schema-v1 validation and the idempotent serializable Prisma upsert, the worker writes the `PERSISTED` checkpoint, then calls ContentStore finalization with the observed revision and only afterward marks both note and attempt `FINALIZED`. At the beginning of every pass, a reconciliation scan retries persisted attempts, including cases where an interrupted transition already moved the source out of `inbox/`. The canonical date is the captured **local** date, not the UTC conversion or reminder `due_at`. No notification, task, inferred deadline or LLM operation is performed.
+
+The default `npm run dev:worker` remains an idle scaffold for safe developer startup. To run **one synthetic/local batch**, apply the DB migration, create an absolute disposable filesystem sandbox containing `inbox/*.md` files that pass the v1 validator, then run:
+
+```bash
+export DATABASE_URL='postgresql://pce:pce_dev_only@127.0.0.1:5432/pce?schema=public'
+WORKER_MODE=once WORKER_CONTENT_BACKEND=filesystem \\
+  WORKER_CONTENT_ROOT=/absolute/path/to/synthetic-sandbox npm run start -w @pce/worker
+```
+
+Build first with `npm run build`; schedule subsequent once-mode executions using an external, separately configured job scheduler. To opt into the GitHub-backed store instead, a trusted runtime **must** set `WORKER_CONTENT_BACKEND=github`, `WORKER_ALLOW_GITHUB_WRITES=I_VERIFIED_PRIVATE_REPOSITORY`, `CONTENT_REPOSITORY`, `CONTENT_BRANCH` and a server-only `CONTENT_GITHUB_TOKEN`. This string is an intentional operator acknowledgement, **not** a substitute for verifying privacy or permissions. Never configure the public CI with content credentials.
+
+The PostgreSQL 16 integration job validates the synthetic filesystem path and crash/retry/concurrency cases. Real private GitHub writes, a device, persistent scheduler, process-kill testing at every instruction, and end-to-end private capture remain unverified. Lease expiry during a long content transition can permit concurrent recovery; the ContentStore's compare-and-swap semantics protect against overwritten revisions. As with any non-ACID Git/DB operation, an unrecoverable destination conflict requires manual inspection rather than destructive overwrite.
