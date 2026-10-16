@@ -345,7 +345,7 @@ describe("synthetic API-to-shared-client integration", () => {
 });
 
 describe("asynchronous token-provider cancellation", () => {
-  it("times out a token provider that never settles without sending credentials", async () => {
+  it("times out a hung token provider without sending a request", async () => {
     vi.useFakeTimers();
     try {
       const request = vi.fn(async () => new Response("{}"));
