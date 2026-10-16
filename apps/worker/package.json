@@ -7,7 +7,9 @@
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js",
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dev:mcp": "tsx watch src/chatgpt-mcp/main.ts",
+    "start:mcp": "node dist/chatgpt-mcp/main.js"
   },
   "dependencies": {
     "@pce/core": "0.1.0",
