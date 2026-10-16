@@ -171,7 +171,7 @@ export function createApp(options: ApiOptions = {}) {
           // Identity provider errors do not grant access or leak credentials.
         }
       }
-      if (!principal) {
+      if (!isAuthenticatedPrincipal(principal)) {
         reply.header("WWW-Authenticate", "Bearer");
         return reply.code(401).send(errorResponse("UNAUTHORIZED"));
       }
