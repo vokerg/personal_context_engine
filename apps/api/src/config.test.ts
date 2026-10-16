@@ -9,6 +9,7 @@ describe("API environment validation", () => {
       environment: "development",
       corsOrigin: null,
       requiresDatabase: false,
+      auth: null,
     });
   });
 
@@ -27,6 +28,13 @@ describe("API environment validation", () => {
       { API_CORS_ORIGIN: "https://example.com/path" },
       { API_CORS_ORIGIN: "https://example.com/" },
       { API_CORS_ORIGIN: "http://example.com", NODE_ENV: "production" },
+      { NODE_ENV: "production" },
+      { API_AUTH_ISSUER: "issuer" },
+      {
+        API_AUTH_ISSUER: "issuer",
+        API_AUTH_AUDIENCE: "api",
+        API_AUTH_HS256_SECRET: "short",
+      },
     ]) {
       expect(() => loadApiConfig(env)).toThrow();
     }
@@ -37,9 +45,13 @@ describe("API environment validation", () => {
       DATABASE_URL: "postgresql://synthetic.example/test",
       API_REQUIRE_DB: "false",
       NODE_ENV: "production",
+      API_AUTH_ISSUER: "example-issuer",
+      API_AUTH_AUDIENCE: "example-api",
+      API_AUTH_HS256_SECRET: "synthetic-key-32-bytes-minimum-secure----",
       API_CORS_ORIGIN: "https://app.example",
     });
     expect(config.requiresDatabase).toBe(true);
     expect(config.corsOrigin).toBe("https://app.example");
+    expect(config.auth?.audience).toBe("example-api");
   });
 });

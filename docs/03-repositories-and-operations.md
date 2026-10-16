@@ -64,7 +64,7 @@ npm run dev              # API :3000, idle worker and Vite web :4200
 npm run dev:mobile       # separate Expo/Metro dev session
 ```
 
-The API binds to `127.0.0.1:3000` by default; `API_HOST` and `API_PORT` are validated at startup. Public `GET /health`, `GET /ready` and `GET /api/v1` are implemented. Private note routes are **not** registered until authentication and authorization (#13) are ready; the DB projection package alone does not permit private API reads. The worker starts/stops without ingesting data. React web is a static scaffold and the Expo app is a native scaffold; neither reads private content. Running Expo on a real device needs local Expo tooling, a compatible emulator/device, and separate device-reachable API configuration when auth arrives. CI does **not** claim native simulator validation. `db:migrate` applies the checked-in Prisma/PostgreSQL projection migration (issue #8); see [DB setup](../packages/db/README.md).
+The API binds to `127.0.0.1:3000` by default; `API_HOST` and `API_PORT` are validated at startup. Public `GET /health`, `GET /ready` and `GET /api/v1` are implemented. Private note routes are registered only if an authenticated, owner-scoped note reader is explicitly injected (#13); default startup still exposes only public endpoints. The DB projection package lacks persisted ownership and is not wired to private reads. The worker starts/stops without ingesting data. React web is a static scaffold and the Expo app is a native scaffold; neither reads private content. Running Expo on a real device needs local Expo tooling, a compatible emulator/device, and separate device-reachable API configuration when auth arrives. CI does **not** claim native simulator validation. `db:migrate` applies the checked-in Prisma/PostgreSQL projection migration (issue #8); see [DB setup](../packages/db/README.md).
 
 ## Environment and credentials
 
@@ -84,7 +84,7 @@ LLM_PROVIDER=disabled
 PUSH_PROVIDER=disabled
 ```
 
-- `API_HOST`, `API_PORT`, `API_REQUIRE_DB` and optional single-origin `API_CORS_ORIGIN` are implemented. CORS is denied by default; production non-loopback origins require HTTPS. `DATABASE_URL` or `API_REQUIRE_DB=true` makes the database mandatory; startup requires a live PostgreSQL connection and `/ready` uses a trusted DB probe (#8). `/health` does not imply database readiness.
+- `API_HOST`, `API_PORT`, `API_REQUIRE_DB`, optional single-origin `API_CORS_ORIGIN`, and scoped bearer authentication configuration are implemented. CORS is denied by default; production non-loopback origins require HTTPS. `DATABASE_URL` or `API_REQUIRE_DB=true` makes the database mandatory; startup requires a live PostgreSQL connection and `/ready` uses a trusted DB probe (#8). `/health` does not imply database readiness.
 - Other secret names and exact provisioning methods remain implementation proposals.
 - Tokens must be scoped to necessary repository paths/operations where possible; do not commit values.
 - Runtime content credentials belong to deployed API/worker secret storage, **not public CI** and **never clients**.
@@ -147,3 +147,30 @@ The API now **fails closed** on a configured but unreachable database; without
 mode. No private note routes are exposed before #13.
 
 See [full projection contract](../packages/db/README.md).
+
+### Interim auth configuration and local synthetic testing (#13)
+
+`NODE_ENV=production` requires all of `API_AUTH_ISSUER`,
+`API_AUTH_AUDIENCE`, and `API_AUTH_HS256_SECRET` (server-only secret,
+minimum 32 UTF-8 bytes). Any partially configured group is rejected. In
+development/test, all three may be absent: the normal entry point exposes
+public diagnostics only. Set the variables in a trusted local shell/secret
+manager, **never** in `.env.example`, public CI secrets, mobile or web
+bundles. The issuer must mint standard HS256 JWTs with matching `iss`,
+`aud`, verified `sub`, `scope: "notes:read"`, `iat` and `exp` (at
+most 3600 seconds apart). This API does not issue tokens.
+
+`createApp({ dependencies: { notes, verifyToken } })` enables
+synthetic scoped reads in tests; omitting `notes` disables all private
+routes. The reader's methods must filter by the verified subject.
+`GET /api/v1/notes` and `GET /api/v1/notes/:id` have typed contracts
+in `@pce/contracts`. Both clients can use `getNotes({ baseUrl,
+getAccessToken })` and `getNote(options, id)`; tokens are provided per
+request, with optional `request` (mock transport) and `signal` (abort).
+The client refuses non-loopback HTTP before retrieving a bearer token; local
+HTTP is limited to localhost or literal IPv4/IPv6 loopback. A production
+deployment additionally requires TLS ingress rate limiting,
+a trusted token issuer, secure key storage, and persisted data ownership
+before connecting the live notes projection. Local test:
+`npx vitest run apps/api/src/app.test.ts apps/api/src/config.test.ts
+packages/api-client/src/index.test.ts`.

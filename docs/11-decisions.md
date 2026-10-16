@@ -17,6 +17,7 @@
 | D-009 | The public repository owns code, schemas and CI; the content repository contains no app CI. | Strong separation of operational responsibilities. |
 | D-010 | No external action is executed solely due to a model-assigned tag. | Prevent accidental or unauthorized side effects. |
 | D-011 | Non-trivial engineering work is GitHub issue-first, one reviewable PR per issue, with CI evidence and explicit human approval before merging. | Auditability, reproducible agent execution and separation of author from reviewer. |
+| D-012 | Interim authenticated API uses strict short-lived HS256 JWTs behind a replaceable verifier, with server-only signing keys and verified-subject scoping. | An auditable zero-external-service boundary for synthetic tests; future hosted OIDC/JWKS and key rotation are explicitly permitted without changing route authorization. |
 
 ## Proposed implementation defaults (subject to prototyping)
 
@@ -68,3 +69,16 @@ Note ID uniqueness, opaque content revision compare-and-swap, original-offset
 preservation, restricted capture deletion and noncascading attempt metadata
 are deliberate compatibility rules. No private API reads, ownership mappings
 or worker finalization are added here; those require #13 and #10.
+
+## Interim authentication constraint (2026-10-16, issue #13)
+
+D-012 implements a token **verification** adapter and opt-in synthetic private
+note routes. Production-like startup requires issuer/audience/key config and
+fails closed if absent. An authenticated `notes:read` principal is scoped
+by the trusted reader; missing/forged tokens get 401, insufficient scopes
+403, and other-owner note IDs 404. The API does not mint tokens or connect
+the unowned DB projection to note routes. Adding persisted ownership
+migration, token issuance/refresh, revocation, and a production ingress
+remains separate future work. The final authentication **provider** is still
+deferred; replacing the verification adapter does not revise D-012's
+authorization invariants.

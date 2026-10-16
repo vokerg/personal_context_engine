@@ -55,9 +55,10 @@ See [repository operations](03-repositories-and-operations.md) and [ChatGPT setu
 
 ## Public API skeleton boundary (issue #9)
 
-The initial Fastify API serves only `/health`, `/ready` and `/api/v1` (version marker).
-**No note, ledger, reminder or other private resource routes are registered.**
-Authenticated browsing is blocked on #13. Issue #8 now wires a trusted
+The initial Fastify API served only `/health`, `/ready` and `/api/v1` (version marker).
+**No private resources are available through the default API startup.**
+Issue #13 adds opt-in authenticated, owner-scoped synthetic note reads, but the
+real DB reader is deliberately not wired yet. Issue #8 now wires a trusted
 Prisma-backed dependency probe: a configured but unavailable PostgreSQL database
 fails API startup, while a dependency outage after startup causes `/ready` to
 return generic HTTP 503. No private note routes are enabled by this probe.
@@ -68,3 +69,55 @@ CORS is denied by default; `API_CORS_ORIGIN` may allow one exact HTTP(S) origin.
 Production non-loopback origins require HTTPS. This is not a complete authentication,
 rate-limiting, TLS or deployment hardening implementation. These controls must
 precede any private route exposure.
+
+## Scoped note authentication boundary (#13)
+
+Private HTTP reads are registered **only** when a trusted, owner-scoped
+`PrivateNoteReader` is injected. The normal API entry point does not provide
+one until projection ownership and ingestion wiring have been implemented.
+No ledger/reminder mutation or read routes are available.
+
+The interim replaceable verifier accepts **only** HS256 JWT bearer credentials
+issued by a trusted server-side token issuer. The strict profile requires:
+`typ=JWT`, `alg=HS256`, matching single-string `iss` and `aud`,
+nonempty opaque `sub`, space-delimited `scope`, integer `iat` and `exp`,
+expiration in the future, lifetime at most one hour, and non-future `nbf`
+when supplied. The shared authenticated API client rejects non-loopback
+plain HTTP **before obtaining a token**, so bearer credentials are not sent
+unencrypted; HTTP is permitted only for literal `localhost`, `127.0.0.1`,
+or `[::1]` development targets. Tokens must be delivered over HTTPS outside
+disposable loopback development. The signing secret must never enter Vite, Expo, GitHub
+Actions, API responses, crash reports or client storage outside a secure
+session credential holder. No issuance/login/revocation API is implemented;
+integrate a trusted issuer before a real user session is enabled. Rotating
+the signing key invalidates all existing tokens.
+
+API authorization derives subject only from the verified token:
+- **401** missing, malformed, expired, forged or invalid bearer token, with
+  `WWW-Authenticate: Bearer` and no private data.
+- **403** verified identity without `notes:read` scope.
+- **404** unknown or other-owner note identifiers, indistinguishably.
+- **500** unexpected adapter errors, with a generic response and no note data.
+
+The data adapter MUST filter on the verified subject **in the underlying
+repository query**, not after returning unscoped rows. The current Prisma
+projection has no persisted owner identifiers: it MUST NOT be attached to
+these routes until an explicit ownership model and migration are reviewed.
+Deep links only resolve through the same authenticated detail route. Public
+`/health`, `/ready` and `/api/v1` stay content-free.
+
+Production API startup requires `API_AUTH_ISSUER`, `API_AUTH_AUDIENCE`
+and `API_AUTH_HS256_SECRET` (minimum 32 UTF-8 bytes), even when the
+private reader is disabled. Development may omit all three, but then the
+private reader cannot be enabled without an explicitly injected verifier.
+Partially supplied credentials fail in every mode. Public synthetic CI can
+inject a fake verifier; it never needs a real signing key or private GitHub
+repository.
+
+**Before deploying private reads**, require trusted HTTPS termination,
+request rate-limiting at the ingress, secret-manager-backed key provisioning,
+and an owner-aware DB adapter. Current Fastify hardening (no logs, no-store,
+narrow CORS, non-trusted proxy headers) does not substitute for these
+controls; CORS is not authentication and JWT possession alone does not
+provide logout/revocation. The final identity provider and token refresh
+mechanism remain deferred.

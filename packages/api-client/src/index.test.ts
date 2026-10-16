@@ -36,3 +36,124 @@ describe("health client", () => {
     expect(transport).not.toHaveBeenCalled();
   });
 });
+
+import { ApiRequestError, getNote, getNotes } from "./index.js";
+
+describe("typed authenticated notes client", () => {
+  const id = "01K00000000000000000000001";
+  const record = {
+    id,
+    title: "Synthetic",
+    summary: "Synthetic summary",
+    capturedAt: "2026-10-16T10:00:00+02:00",
+  };
+
+  it("injects a bearer token and validates note responses", async () => {
+    const request = vi.fn(
+      async () => new Response(JSON.stringify({ notes: [record] })),
+    );
+    const getAccessToken = vi.fn(async () => "synthetic.jwt.token");
+    const options = { baseUrl: "https://api.example", getAccessToken, request };
+    await expect(getNotes(options)).resolves.toEqual({ notes: [record] });
+    expect(request).toHaveBeenCalledWith(
+      new URL("https://api.example/api/v1/notes"),
+      {
+        method: "GET",
+        headers: { Authorization: "Bearer synthetic.jwt.token" },
+      },
+    );
+    const detailRequest = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ ...record, body: "Synthetic body" })),
+    );
+    await expect(
+      getNote({ ...options, request: detailRequest }, id),
+    ).resolves.toEqual({ ...record, body: "Synthetic body" });
+  });
+
+  it("refuses to transmit without a token or with injected line breaks", async () => {
+    const request = vi.fn(async () => new Response("{}"));
+    const options = { baseUrl: "https://api.example", request };
+    await expect(
+      getNotes({ ...options, getAccessToken: () => null }),
+    ).rejects.toMatchObject({ status: 401, code: "UNAUTHORIZED" });
+    await expect(
+      getNotes({ ...options, getAccessToken: () => "fake\nHeader: stolen" }),
+    ).rejects.toThrow("Invalid access token");
+    await expect(
+      getNote({ ...options, getAccessToken: () => "fake" }, "../other"),
+    ).rejects.toThrow();
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("never sends bearer credentials over non-loopback HTTP", async () => {
+    const request = vi.fn(async () => new Response("{}"));
+    const getAccessToken = vi.fn(() => "synthetic.jwt.token");
+    for (const baseUrl of [
+      "http://api.example:3000",
+      "http://192.168.1.2:3000",
+      "http://localhost.evil.example:3000",
+    ]) {
+      await expect(
+        getNotes({ baseUrl, getAccessToken, request }),
+      ).rejects.toThrow("HTTPS");
+    }
+    expect(getAccessToken).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
+
+    for (const baseUrl of [
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      "http://[::1]:3000",
+    ]) {
+      await expect(
+        getNotes({
+          baseUrl,
+          getAccessToken,
+          request: async () => new Response(JSON.stringify({ notes: [] })),
+        }),
+      ).resolves.toEqual({ notes: [] });
+    }
+  });
+
+  it("normalizes 403/404 responses without echoing server details", async () => {
+    const options = {
+      baseUrl: "https://api.example",
+      getAccessToken: () => "fake",
+      request: async () =>
+        new Response(
+          JSON.stringify({ error: { code: "FORBIDDEN", private: "hidden" } }),
+          { status: 403 },
+        ),
+    };
+    try {
+      await getNotes(options);
+      throw new Error("expected 403");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ApiRequestError);
+      expect(error).toMatchObject({ status: 403, code: "FORBIDDEN" });
+      expect((error as Error).message).not.toContain("hidden");
+    }
+  });
+
+  it("passes AbortSignal into transport and validates returned data", async () => {
+    const controller = new AbortController();
+    const request = vi.fn(async (...args: Parameters<typeof fetch>) => {
+      expect(args).toHaveLength(2);
+      return new Response(
+        JSON.stringify({ notes: [{ ...record, id: "invalid" }] }),
+      );
+    });
+    await expect(
+      getNotes({
+        baseUrl: "https://api.example",
+        getAccessToken: () => "fake",
+        signal: controller.signal,
+        request,
+      }),
+    ).rejects.toThrow();
+    expect(request.mock.calls[0]?.[1]).toMatchObject({
+      signal: controller.signal,
+    });
+  });
+});
