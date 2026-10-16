@@ -2,7 +2,7 @@
 
 **Personal Context Engine (PCE)** is an extensible, self-hostable system for capturing unstructured thoughts, preserving their original meaning, turning them into structured records, and surfacing relevant context later.
 
-**Status: runnable monorepo scaffold (issue #4) plus a versioned Markdown capture parser (issue #6).** This repository has starter API/worker processes, React/Vite and Expo shells, shared TypeScript workspaces, and pure synthetic-tested v1 Markdown capture validation/serialization in `@pce/core`. It does **not** yet have authentication, personal note browsing/ingestion, database migrations, production notification services or deployment. The documents distinguish agreed direction from implemented functionality.
+**Status: monorepo and schema baseline with a public-only Fastify API skeleton (issue #9).** This repository has starter API/worker processes, React/Vite and Expo shells, shared TypeScript workspaces, and pure synthetic-tested v1 Markdown capture validation/serialization in `@pce/core`. It does **not** yet have authentication, personal note browsing/ingestion, database migrations, production notification services or deployment. The documents distinguish agreed direction from implemented functionality.
 
 ## Two-repository design
 
@@ -66,7 +66,7 @@ npm run docs:check
 npm run dev           # API :3000, worker (idle), Vite web :4200
 ```
 
-Alternatively run `npm run dev:api`, `npm run dev:worker`, or `npm run dev:web` separately. `API_PORT` overrides the local API port (see `.env.example`; values are not auto-loaded). The only API endpoint is public `GET http://127.0.0.1:3000/health`, returning `{"status":"ok"}`. There are **no private note routes**; the worker deliberately does no ingestion.
+Alternatively run `npm run dev:api`, `npm run dev:worker`, or `npm run dev:web` separately. `API_HOST` and `API_PORT` configure the local bind address (see `.env.example`; values are not auto-loaded). Public `GET /health`, `GET /ready` and `GET /api/v1` expose liveness, mandatory-dependency readiness and API version. There are **no private note routes**; the worker deliberately does no ingestion. Configuring `API_REQUIRE_DB=true` or `DATABASE_URL` intentionally prevents startup until a trusted DB readiness adapter is integrated (#8).
 
 For Expo, run `npm run dev:mobile` with a separately configured simulator/device development environment. Expo Go/native device launch and bundle compatibility must be verified on the target platform; the bootstrap CI only runs TypeScript checking, not an emulator or a production mobile bundle. A future authenticated API client must use a device-reachable host, not device `localhost`. Database migration commands are not available until issue #8. See [repository operations](docs/03-repositories-and-operations.md).
 
