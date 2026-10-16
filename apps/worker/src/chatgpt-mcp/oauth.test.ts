@@ -66,7 +66,11 @@ describe("PCE OAuth resource validation", () => {
       { ...claims, nbf: Math.floor(Date.now() / 1000) + 3600 },
     ])
       expect(await verify(sign(changed))).toBe(false);
-    const forged = sign(claims).replace(/.$/, "x");
+    const signed = sign(claims);
+    const signatureStart = signed.lastIndexOf(".") + 1;
+    const first = signed[signatureStart];
+    const forged = signed.slice(0, signatureStart) +
+      (first === "A" ? "B" : "A") + signed.slice(signatureStart + 1);
     expect(await verify(forged)).toBe(false);
     expect(await verify(sign(claims, "none"))).toBe(false);
   });
