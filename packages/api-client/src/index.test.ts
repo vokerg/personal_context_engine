@@ -95,8 +95,10 @@ describe("typed authenticated notes client", () => {
 
   it("passes AbortSignal into transport and validates returned data", async () => {
     const controller = new AbortController();
-    const request = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-      new Response(JSON.stringify({ notes: [{ ...record, id: "invalid" }] })));
+    const request = vi.fn(async (...args: Parameters<typeof fetch>) => {
+      expect(args).toHaveLength(2);
+      return new Response(JSON.stringify({ notes: [{ ...record, id: "invalid" }] }));
+    });
     await expect(getNotes({
       baseUrl: "https://api.example",
       getAccessToken: () => "fake",
