@@ -51,3 +51,7 @@ Keep canonical source/contract behavior outside vendor-specific project instruct
 The user must explicitly switch the content repository to **Private** before any real notes are written. Privacy and model data-handling settings need to be checked separately. Dictated transcripts may contain sensitive content even without stored audio.
 
 See [security](09-security-and-privacy.md), [capture contract](04-capture-contract.md) and [roadmap](10-roadmap.md).
+
+## Separate custom MCP capture option
+
+A dedicated ChatGPT custom plugin adapter is being implemented under issue #28. It is **not a ChatGPT conversation-history export API**: only text legitimately available to the current model or explicitly supplied by the user can be stored. See [MCP deployment and capture-mode specification](13-chatgpt-mcp.md). The initial Project/GitHub connector capture remains a distinct path.
