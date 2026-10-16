@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { parseNoteMarkdown } from "@pce/core";
-import { buildChatContextNote, CaptureInputError, type ChatContextInput } from "./capture.js";
+import {
+  buildChatContextNote,
+  CaptureInputError,
+  type ChatContextInput,
+} from "./capture.js";
 
 const clock = "2026-10-16T19:30:01.000Z";
 const request_id = "11111111-2222-4333-8444-555555555555";
@@ -9,7 +13,8 @@ const brief: ChatContextInput = {
   mode: "brief",
   title: "A synthetic discussion",
   summary: "We discussed a fictional feature.",
-  source_text: "Maybe the imaginary app could support purple themes.\nThis is only a test.",
+  source_text:
+    "Maybe the imaginary app could support purple themes.\nThis is only a test.",
 };
 
 describe("ChatGPT context -> canonical v1 Markdown", () => {
@@ -34,23 +39,35 @@ describe("ChatGPT context -> canonical v1 Markdown", () => {
       ...brief,
       mode: "full",
       full_transcript_confirmed: true,
-      source_text: "User: Привет\nAssistant: Hello\n## Original input\nUser: bye",
+      source_text:
+        "User: Привет\nAssistant: Hello\n## Original input\nUser: bye",
     } satisfies ChatContextInput;
     const result = buildChatContextNote(full, clock);
     expect(result.note.originalInput).toBe(full.source_text);
     expect(result.note.metadata.review_required).toBe(false);
     expect(result.note.metadata.tags).toContain("full");
     expect(result.markdown).toContain("full transcript explicitly confirmed");
-    expect(() => buildChatContextNote({ ...full, full_transcript_confirmed: false }, clock)).toThrow(
-      new CaptureInputError("TRANSCRIPT_NOT_CONFIRMED"),
-    );
-    expect(() => buildChatContextNote({ ...brief, full_transcript_confirmed: true }, clock)).toThrow("INVALID_INPUT");
+    expect(() =>
+      buildChatContextNote(
+        { ...full, full_transcript_confirmed: false },
+        clock,
+      ),
+    ).toThrow(new CaptureInputError("TRANSCRIPT_NOT_CONFIRMED"));
+    expect(() =>
+      buildChatContextNote(
+        { ...brief, full_transcript_confirmed: true },
+        clock,
+      ),
+    ).toThrow("INVALID_INPUT");
   });
 
   it("reuses stable note identities for the same request ID, never for a different ID", () => {
     const a = buildChatContextNote(brief, clock);
     const replay = buildChatContextNote(brief, "2026-10-17T00:00:00.000Z");
-    const b = buildChatContextNote({ ...brief, request_id: "11111111-2222-4333-8444-555555555556" }, clock);
+    const b = buildChatContextNote(
+      { ...brief, request_id: "11111111-2222-4333-8444-555555555556" },
+      clock,
+    );
     expect(a.note.metadata.id).toBe(replay.note.metadata.id);
     expect(a.note.metadata.id).not.toBe(b.note.metadata.id);
     expect(a.note.metadata.capture_id).not.toBe(b.note.metadata.capture_id);
