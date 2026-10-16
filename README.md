@@ -2,7 +2,7 @@
 
 **Personal Context Engine (PCE)** is an extensible, self-hostable system for capturing unstructured thoughts, preserving their original meaning, turning them into structured records, and surfacing relevant context later.
 
-**Status: monorepo and schema baseline with a public-only Fastify API skeleton (issue #9).** This repository has starter API/worker processes, React/Vite and Expo shells, shared TypeScript workspaces, and pure synthetic-tested v1 Markdown capture validation/serialization in `@pce/core`. It does **not** yet have authentication, personal note browsing/ingestion, database migrations, production notification services or deployment. The documents distinguish agreed direction from implemented functionality.
+**Status: foundation with local deterministic ingestion and synthetic API authentication boundary.** This repository has starter API/worker processes, React/Vite and Expo shells, shared TypeScript workspaces, and pure synthetic-tested v1 Markdown capture validation/serialization in `@pce/core`. An opt-in one-shot worker supports filesystem/PostgreSQL ingestion and crash reconciliation; the normal worker command stays idle. There is no real login, owner-scoped database reader, production private-note ingestion, notification delivery or deployment. The documents distinguish agreed direction from implemented functionality.
 
 ## Two-repository design
 
@@ -63,7 +63,7 @@ npm run lint
 npm run typecheck
 npm test              # also builds compiled packages and Vite web bundle
 npm run docs:check
-npm run dev           # API :3000, worker (idle), Vite web :4200
+npm run dev           # API :3000, worker (idle until explicit opt-in), Vite web :4200
 ```
 
 Alternatively run `npm run dev:api`, `npm run dev:worker`, or `npm run dev:web` separately. `API_HOST` and `API_PORT` configure the local bind address (see `.env.example`; values are not auto-loaded). Public `GET /health`, `GET /ready` and `GET /api/v1` expose liveness, mandatory-dependency readiness and API version. There are **no private note routes**; the worker deliberately does no ingestion. Configuring `API_REQUIRE_DB=true` or `DATABASE_URL` intentionally prevents startup until a trusted DB readiness adapter is integrated (#8).
