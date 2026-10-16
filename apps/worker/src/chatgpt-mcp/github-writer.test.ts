@@ -151,6 +151,9 @@ describe("private GitHub create-only ChatGPT capture", () => {
     await expect(
       save(fake, { ...input, summary: "Different intent." }),
     ).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(
+      save(fake, { ...input, mode: "full", full_transcript_confirmed: true }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
     expect(fake.read(created.path)).toBe(artifact().markdown);
   });
   it("refuses a public repository before any write, and rejects denied access", async () => {
