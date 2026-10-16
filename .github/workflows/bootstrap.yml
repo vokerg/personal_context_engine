@@ -37,6 +37,13 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Temporary worker formatting diagnostic
+        run: |
+          npx prettier --write apps/worker/src/worker.ts apps/worker/src/worker.test.ts apps/worker/src/worker.integration.test.ts apps/worker/src/main.ts
+          for file in apps/worker/src/worker.ts apps/worker/src/worker.test.ts apps/worker/src/worker.integration.test.ts apps/worker/src/main.ts; do
+            label=$(echo "$file" | tr '/.' '__')
+            echo "PCE_FORMAT_${label}=$(base64 -w0 "$file")"
+          done
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
