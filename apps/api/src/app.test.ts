@@ -83,6 +83,35 @@ describe("public API boundary", () => {
     }
   });
 
+  it("normalizes schema validation errors without echoing bad request bodies", async () => {
+    const app = createApp();
+    app.post(
+      "/synthetic-validated-input",
+      {
+        schema: {
+          body: {
+            type: "object",
+            required: ["noteId"],
+            properties: { noteId: { type: "string" } },
+          },
+        },
+      },
+      async () => ({ accepted: true }),
+    );
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/synthetic-validated-input",
+        payload: { noteId: 42, secret: "private-synthetic-value" },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({ error: { code: "BAD_REQUEST" } });
+      expect(response.body).not.toContain("private-synthetic-value");
+    } finally {
+      await app.close();
+    }
+  });
+
   it("allows only the explicitly configured CORS origin and GET preflights", async () => {
     const config = loadApiConfig({ API_CORS_ORIGIN: "http://127.0.0.1:4200" });
     const app = createApp({ config });
