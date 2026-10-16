@@ -388,7 +388,8 @@ describe("authenticated private read boundary", () => {
     const app = createApp({
       config: loadApiConfig({}),
       dependencies: {
-        verifyToken: async () => syntheticPrincipal as AuthenticatedPrincipal | null,
+        verifyToken: async () =>
+          syntheticPrincipal as AuthenticatedPrincipal | null,
         notes: { listByOwner, getByOwner },
       },
     });
