@@ -30,9 +30,9 @@ describe("health client", () => {
     await expect(getHealth("file:///tmp/api", transport)).rejects.toThrow(
       "HTTP(S)",
     );
-    await expect(
-      getHealth("***localhost:3000", transport),
-    ).rejects.toThrow("credentials");
+    await expect(getHealth("http://alice:secret@localhost:3000", transport)).rejects.toThrow(
+      "credentials",
+    );
     expect(transport).not.toHaveBeenCalled();
   });
 });
@@ -59,7 +59,7 @@ describe("typed authenticated notes client", () => {
       new URL("https://api.example/api/v1/notes"),
       {
         method: "GET",
-        headers: { Authorization: "***" },
+        headers: { Authorization: "Bearer synthetic.jwt.token" },
       },
     );
     const detailRequest = vi.fn(
