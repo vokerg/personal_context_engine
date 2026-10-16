@@ -100,7 +100,7 @@ export function getNotes(
   );
 }
 
-export function getNote(
+export async function getNote(
   options: AuthenticatedRequestOptions,
   noteId: string,
 ): Promise<NoteDetail> {
