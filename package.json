@@ -26,7 +26,7 @@
     "build": "npm run prisma:generate && npm run build --workspaces --if-present",
     "test": "npm run build && vitest run",
     "lint": "eslint apps packages",
-    "format:check": "prettier --write \"apps/api/src/app.test.ts\" \"apps/api/src/app.ts\" \"apps/api/src/auth.ts\" \"apps/api/src/config.test.ts\" \"apps/api/src/config.ts\" \"packages/api-client/src/index.test.ts\" \"packages/api-client/src/index.ts\" \"packages/contracts/src/index.ts\" && node -e \"const fs=require('node:fs'); [\\\"apps/api/src/app.test.ts\\\",\\\"apps/api/src/app.ts\\\",\\\"apps/api/src/auth.ts\\\",\\\"apps/api/src/config.test.ts\\\",\\\"apps/api/src/config.ts\\\",\\\"packages/api-client/src/index.test.ts\\\",\\\"packages/api-client/src/index.ts\\\",\\\"packages/contracts/src/index.ts\\\"].forEach(p=>console.log('PCE_BASE64='+p+'|'+fs.readFileSync(p).toString('base64')))\" && exit 1",
+    "format:check": "prettier --check \"{apps,packages}/**/*.{ts,tsx,json}\" \"*.{json,mjs}\"",
     "typecheck": "npm run prisma:generate && npm run build -w @pce/core && npm run build -w @pce/contracts && npm run build -w @pce/api-client && npm run build -w @pce/db && npm run typecheck --workspaces --if-present",
     "docs:check": "node scripts/check-docs.mjs",
     "prisma:generate": "prisma generate --schema=packages/db/prisma/schema.prisma",
