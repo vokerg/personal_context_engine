@@ -1,10 +1,18 @@
 /** Server-side configuration only; no credentials or private data are serialized. */
+export interface ApiAuthConfig {
+  issuer: string;
+  audience: string;
+  /** Server-only HS256 key, at least 32 UTF-8 bytes. */
+  secret: string;
+}
+
 export interface ApiConfig {
   host: string;
   port: number;
   environment: "development" | "test" | "production";
   corsOrigin: string | null;
   requiresDatabase: boolean;
+  auth: ApiAuthConfig | null;
 }
 
 function parseOrigin(
@@ -70,5 +78,30 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
   const corsOrigin = env.API_CORS_ORIGIN
     ? parseOrigin(env.API_CORS_ORIGIN, mode)
     : null;
-  return { host, port, environment: mode, corsOrigin, requiresDatabase };
+  const issuer = env.API_AUTH_ISSUER;
+  const audience = env.API_AUTH_AUDIENCE;
+  const secret = env.API_AUTH_HS256_SECRET;
+  const anyAuthConfigured = [issuer, audience, secret].some(
+    (value) => value !== undefined,
+  );
+  if (mode === "production" && !anyAuthConfigured) {
+    throw new Error("Production requires authenticated API configuration");
+  }
+  let auth: ApiAuthConfig | null = null;
+  if (anyAuthConfigured) {
+    if (
+      !issuer ||
+      !audience ||
+      !secret ||
+      issuer.trim() !== issuer ||
+      audience.trim() !== audience ||
+      !/^[^\s\x00-\x1f]{1,256}$/.test(issuer) ||
+      !/^[^\s\x00-\x1f]{1,256}$/.test(audience) ||
+      Buffer.byteLength(secret, "utf8") < 32
+    ) {
+      throw new Error("API authentication requires issuer, audience and a strong server-side key");
+    }
+    auth = { issuer, audience, secret };
+  }
+  return { host, port, environment: mode, corsOrigin, requiresDatabase, auth };
 }
