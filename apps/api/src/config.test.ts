@@ -30,7 +30,11 @@ describe("API environment validation", () => {
       { API_CORS_ORIGIN: "http://example.com", NODE_ENV: "production" },
       { NODE_ENV: "production" },
       { API_AUTH_ISSUER: "issuer" },
-      { API_AUTH_ISSUER: "issuer", API_AUTH_AUDIENCE: "api", API_AUTH_HS256_SECRET: "short" },
+      {
+        API_AUTH_ISSUER: "issuer",
+        API_AUTH_AUDIENCE: "api",
+        API_AUTH_HS256_SECRET: "short",
+      },
     ]) {
       expect(() => loadApiConfig(env)).toThrow();
     }
