@@ -68,7 +68,14 @@ class FakeGitHub {
       const text = this.blobs.get(path.split("/").at(-1)!);
       return text === undefined ? json({}, 404) : json({ encoding: "base64", size: Buffer.byteLength(text), content: Buffer.from(text).toString("base64") });
     }
-    const body = JSON.parse(String(init?.body)) as Record<string, any>;
+    const body = JSON.parse(String(init?.body)) as {
+      content: string;
+      base_tree: string;
+      tree: TreeFile[];
+      parents: string[];
+      sha: string;
+      force: boolean;
+    };
     if (path.endsWith("/git/blobs") && method === "POST") {
       const raw = Buffer.from(body.content, "base64").toString("utf8");
       const sha = hash(raw);
