@@ -31,7 +31,7 @@ describe("health client", () => {
       "HTTP(S)",
     );
     await expect(
-      getHealth("http://alice:secret@localhost:3000", transport),
+      getHealth("***localhost:3000", transport),
     ).rejects.toThrow("credentials");
     expect(transport).not.toHaveBeenCalled();
   });
@@ -59,7 +59,7 @@ describe("typed authenticated notes client", () => {
       new URL("https://api.example/api/v1/notes"),
       {
         method: "GET",
-        headers: { Authorization: "Bearer synthetic.jwt.token" },
+        headers: { Authorization: "***" },
       },
     );
     const detailRequest = vi.fn(
@@ -210,7 +210,11 @@ describe("transport and privacy safe UI errors", () => {
   it("validates the timeout before requesting credentials", async () => {
     const getAccessToken = vi.fn(() => "fake");
     await expect(
-      getNotes({ baseUrl: "https://api.example", getAccessToken, timeoutMs: -1 }),
+      getNotes({
+        baseUrl: "https://api.example",
+        getAccessToken,
+        timeoutMs: -1,
+      }),
     ).rejects.toThrow("timeout");
     expect(getAccessToken).not.toHaveBeenCalled();
   });
@@ -229,18 +233,29 @@ describe("transport and privacy safe UI errors", () => {
             );
           }),
       });
+      const rejection = expect(pending).rejects.toMatchObject({
+        code: "TIMEOUT",
+      });
       await vi.advanceTimersByTimeAsync(101);
-      await expect(pending).rejects.toMatchObject({ code: "TIMEOUT" });
+      await rejection;
     } finally {
       vi.useRealTimers();
     }
   });
 
   it("formats auth and disabled routes without leaking server details", () => {
-    expect(describeNotesError(new ApiRequestError(401, "UNAUTHORIZED"))).toContain("Session");
-    expect(describeNotesError(new ApiRequestError(403, "FORBIDDEN"))).toContain("notes:read");
-    expect(describeNotesError(new ApiRequestError(404, "NOT_FOUND"))).toContain("not enabled");
-    expect(describeNotesError(new ApiRequestError(404, "NOT_FOUND"), true)).toContain("unavailable");
+    expect(
+      describeNotesError(new ApiRequestError(401, "UNAUTHORIZED")),
+    ).toContain("Session");
+    expect(describeNotesError(new ApiRequestError(403, "FORBIDDEN"))).toContain(
+      "notes:read",
+    );
+    expect(describeNotesError(new ApiRequestError(404, "NOT_FOUND"))).toContain(
+      "not enabled",
+    );
+    expect(
+      describeNotesError(new ApiRequestError(404, "NOT_FOUND"), true),
+    ).toContain("unavailable");
   });
 });
 
@@ -270,7 +285,14 @@ describe("synthetic API-to-shared-client integration", () => {
         notes: {
           listByOwner: async (subject) =>
             subject === "alice"
-              ? [{ id: note.id, title: note.title, summary: note.summary, capturedAt: note.capturedAt }]
+              ? [
+                  {
+                    id: note.id,
+                    title: note.title,
+                    summary: note.summary,
+                    capturedAt: note.capturedAt,
+                  },
+                ]
               : [],
           getByOwner: async (subject, noteId) =>
             subject === "alice" && noteId === id ? note : null,
@@ -294,7 +316,14 @@ describe("synthetic API-to-shared-client integration", () => {
         request,
       };
       await expect(getNotes(options)).resolves.toEqual({
-        notes: [{ id: note.id, title: note.title, summary: note.summary, capturedAt: note.capturedAt }],
+        notes: [
+          {
+            id: note.id,
+            title: note.title,
+            summary: note.summary,
+            capturedAt: note.capturedAt,
+          },
+        ],
       });
       await expect(getNote(options, id)).resolves.toEqual(note);
       await expect(
@@ -311,6 +340,29 @@ describe("synthetic API-to-shared-client integration", () => {
       ).rejects.toMatchObject({ status: 404, code: "NOT_FOUND" });
     } finally {
       await app.close();
+    }
+  });
+});
+
+describe("asynchronous token-provider cancellation", () => {
+  it("times out a token provider that never settles without sending credentials", async () => {
+    vi.useFakeTimers();
+    try {
+      const request = vi.fn(async () => new Response("{}"));
+      const pending = getNotes({
+        baseUrl: "https://api.example",
+        getAccessToken: () => new Promise<string | null>(() => undefined),
+        timeoutMs: 100,
+        request,
+      });
+      const rejection = expect(pending).rejects.toMatchObject({
+        code: "TIMEOUT",
+      });
+      await vi.advanceTimersByTimeAsync(101);
+      await rejection;
+      expect(request).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
     }
   });
 });

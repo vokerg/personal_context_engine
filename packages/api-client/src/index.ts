@@ -50,10 +50,7 @@ export class ApiRequestError extends Error {
 }
 
 export type ApiTransportErrorCode =
-  | "NETWORK_ERROR"
-  | "TIMEOUT"
-  | "CANCELLED"
-  | "INVALID_RESPONSE";
+  "NETWORK_ERROR" | "TIMEOUT" | "CANCELLED" | "INVALID_RESPONSE";
 
 export class ApiTransportError extends Error {
   constructor(readonly code: ApiTransportErrorCode) {
@@ -63,22 +60,24 @@ export class ApiTransportError extends Error {
 }
 
 /** No server message, token or note data is ever copied into a UI error. */
-export function describeNotesError(
-  error: unknown,
-  detail = false,
-): string {
+export function describeNotesError(error: unknown, detail = false): string {
   if (error instanceof ApiRequestError) {
-    if (error.status === 401) return "Session expired or invalid. Enter a new access token.";
-    if (error.status === 403) return "This session is missing notes:read access.";
+    if (error.status === 401)
+      return "Session expired or invalid. Enter a new access token.";
+    if (error.status === 403)
+      return "This session is missing notes:read access.";
     if (error.status === 404)
-      return detail ? "This note is unavailable." : "Private note reads are not enabled on this API.";
+      return detail
+        ? "This note is unavailable."
+        : "Private note reads are not enabled on this API.";
     if (error.status === 503) return "The API is temporarily unavailable.";
     return "The API could not complete this request.";
   }
   if (error instanceof ApiTransportError) {
     if (error.code === "TIMEOUT") return "The request timed out. Try again.";
     if (error.code === "CANCELLED") return "The request was cancelled.";
-    if (error.code === "INVALID_RESPONSE") return "The API returned an unexpected response.";
+    if (error.code === "INVALID_RESPONSE")
+      return "The API returned an unexpected response.";
     return "Could not reach the API. Check the address and connection.";
   }
   return "Unable to load notes. Check the API configuration.";
@@ -100,7 +99,9 @@ async function authenticatedGet<T>(
     url.protocol !== "https:" &&
     !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
   ) {
-    throw new TypeError("Authenticated API requests require HTTPS except loopback");
+    throw new TypeError(
+      "Authenticated API requests require HTTPS except loopback",
+    );
   }
   if (
     options.timeoutMs !== undefined &&
@@ -130,9 +131,34 @@ async function authenticatedGet<T>(
 
   try {
     if (signal?.aborted) throw new ApiTransportError("CANCELLED");
-    const token = await options.getAccessToken();
+    const token = signal
+      ? await new Promise<string | null>((resolve, reject) => {
+          const onAbort = () => {
+            signal.removeEventListener("abort", onAbort);
+            reject(new Error("Request aborted"));
+          };
+          signal.addEventListener("abort", onAbort, { once: true });
+          if (signal.aborted) {
+            onAbort();
+            return;
+          }
+          Promise.resolve()
+            .then(() => options.getAccessToken())
+            .then(
+              (value) => {
+                signal.removeEventListener("abort", onAbort);
+                resolve(value);
+              },
+              (error: unknown) => {
+                signal.removeEventListener("abort", onAbort);
+                reject(error);
+              },
+            );
+        })
+      : await options.getAccessToken();
     // Async session providers must not authorize an already-cancelled request.
-    if (signal?.aborted) throw new ApiTransportError(timedOut ? "TIMEOUT" : "CANCELLED");
+    if (signal?.aborted)
+      throw new ApiTransportError(timedOut ? "TIMEOUT" : "CANCELLED");
     if (token === null) throw new ApiRequestError(401, "UNAUTHORIZED");
     if (token.length > 4096 || !/^[A-Za-z0-9._-]+$/.test(token)) {
       throw new TypeError("Invalid access token format");
@@ -164,17 +190,21 @@ async function authenticatedGet<T>(
     try {
       return parse((await response.json()) as unknown);
     } catch {
+      if (signal?.aborted)
+        throw new ApiTransportError(timedOut ? "TIMEOUT" : "CANCELLED");
       throw new ApiTransportError("INVALID_RESPONSE");
     }
   } catch (error) {
     if (
       error instanceof ApiRequestError ||
       error instanceof ApiTransportError ||
-      (error instanceof TypeError && error.message === "Invalid access token format")
+      (error instanceof TypeError &&
+        error.message === "Invalid access token format")
     ) {
       throw error;
     }
-    if (signal?.aborted) throw new ApiTransportError(timedOut ? "TIMEOUT" : "CANCELLED");
+    if (signal?.aborted)
+      throw new ApiTransportError(timedOut ? "TIMEOUT" : "CANCELLED");
     throw new ApiTransportError("NETWORK_ERROR");
   } finally {
     if (timer !== undefined) clearTimeout(timer);

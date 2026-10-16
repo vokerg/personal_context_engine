@@ -21,18 +21,17 @@ import { parseNoteDeepLink } from "./links";
 const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
 type LoadState = "loading" | "ready" | "error";
 
-function Action({
-  label,
-  onPress,
-}: {
-  label: string;
-  onPress: () => void;
-}) {
+function Action({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <TouchableOpacity
       accessibilityRole="button"
       onPress={onPress}
-      style={{ backgroundColor: "#234f85", padding: 12, marginVertical: 6, borderRadius: 6 }}
+      style={{
+        backgroundColor: "#234f85",
+        padding: 12,
+        marginVertical: 6,
+        borderRadius: 6,
+      }}
     >
       <Text style={{ color: "white", fontWeight: "600" }}>{label}</Text>
     </TouchableOpacity>
@@ -68,8 +67,12 @@ export default function App() {
       const id = parseNoteDeepLink(value);
       if (id) setSelectedId(id);
     };
-    void Linking.getInitialURL().then(onUrl).catch(() => undefined);
-    const subscription = Linking.addEventListener("url", ({ url }) => onUrl(url));
+    void Linking.getInitialURL()
+      .then(onUrl)
+      .catch(() => undefined);
+    const subscription = Linking.addEventListener("url", ({ url }) =>
+      onUrl(url),
+    );
     return () => {
       active = false;
       subscription.remove();
@@ -149,7 +152,10 @@ export default function App() {
         <Text style={{ fontSize: 25, fontWeight: "700", color: "#19334e" }}>
           Personal Context Engine
         </Text>
-        <Text>Read-only preview. No login, note editing, push delivery or notifications.</Text>
+        <Text>
+          Read-only preview. No login, note editing, push delivery or
+          notifications.
+        </Text>
         {!apiBaseUrl ? (
           <Text accessibilityRole="alert">
             Set EXPO_PUBLIC_API_BASE_URL to a device-reachable HTTPS API URL
@@ -157,7 +163,9 @@ export default function App() {
           </Text>
         ) : !token ? (
           <View>
-            <Text style={{ fontSize: 19, fontWeight: "600" }}>Sign-in required</Text>
+            <Text style={{ fontSize: 19, fontWeight: "600" }}>
+              Sign-in required
+            </Text>
             {notice ? <Text accessibilityRole="alert">{notice}</Text> : null}
             <Text>
               Development only: paste a short-lived notes:read JWT from a
@@ -174,7 +182,12 @@ export default function App() {
               autoCorrect={false}
               value={draft}
               onChangeText={setDraft}
-              style={{ borderWidth: 1, borderColor: "#8593a3", padding: 10, marginTop: 10 }}
+              style={{
+                borderWidth: 1,
+                borderColor: "#8593a3",
+                padding: 10,
+                marginTop: 10,
+              }}
             />
             {draft.trim() ? (
               <Action
@@ -211,8 +224,12 @@ export default function App() {
               : null}
             {selectedId ? (
               <View style={{ marginTop: 16 }}>
-                <Text style={{ fontSize: 19, fontWeight: "600" }}>Note detail</Text>
-                {detailState === "loading" ? <Text>Loading detail…</Text> : null}
+                <Text style={{ fontSize: 19, fontWeight: "600" }}>
+                  Note detail
+                </Text>
+                {detailState === "loading" ? (
+                  <Text>Loading detail…</Text>
+                ) : null}
                 {detailState === "error" ? (
                   <Text accessibilityRole="alert">{detailError}</Text>
                 ) : null}

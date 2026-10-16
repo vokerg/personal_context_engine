@@ -129,18 +129,29 @@ export function App({
       }}
     >
       <h1>Personal Context Engine</h1>
-      <p>Read-only client preview. No login, token issuance, editing or reminders yet.</p>
+      <p>
+        Read-only client preview. No login, token issuance, editing or reminders
+        yet.
+      </p>
       {!token ? (
         <section aria-label="Sign-in required">
           <h2>Sign-in required</h2>
           {notice && <p role="alert">{notice}</p>}
           <p>
-            For synthetic development only, enter a short-lived notes:read JWT from
-            a trusted issuer. The token is never persisted in browser storage.
+            For synthetic development only, enter a short-lived notes:read JWT
+            from a trusted issuer. The token is never persisted in browser
+            storage.
           </p>
           <form onSubmit={connect}>
             <label htmlFor="access-token">Development access token</label>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+                marginTop: 8,
+              }}
+            >
               <input
                 id="access-token"
                 aria-label="Development access token"
@@ -184,7 +195,9 @@ export function App({
           {selectedId && (
             <section aria-label="Note detail">
               <h2>Note detail</h2>
-              {detailState === "loading" && <p role="status">Loading detail…</p>}
+              {detailState === "loading" && (
+                <p role="status">Loading detail…</p>
+              )}
               {detailState === "error" && <p role="alert">{detailError}</p>}
               {detailState === "ready" && detail && (
                 <article>
