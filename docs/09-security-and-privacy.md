@@ -57,10 +57,10 @@ See [repository operations](03-repositories-and-operations.md) and [ChatGPT setu
 
 The initial Fastify API serves only `/health`, `/ready` and `/api/v1` (version marker).
 **No note, ledger, reminder or other private resource routes are registered.**
-Authenticated browsing is blocked on #13; database-backed readiness needs an
-explicit trusted dependency adapter from #8. Configuring `DATABASE_URL` or
-`API_REQUIRE_DB=true` without this adapter refuses startup rather than claiming
-readiness. A failed mandatory dependency returns generic HTTP 503.
+Authenticated browsing is blocked on #13. Issue #8 now wires a trusted
+Prisma-backed dependency probe: a configured but unavailable PostgreSQL database
+fails API startup, while a dependency outage after startup causes `/ready` to
+return generic HTTP 503. No private note routes are enabled by this probe.
 
 The skeleton disables request logging, does not trust forwarding headers, limits
 JSON bodies to 16 KiB, responds without caching, and defaults to loopback binding.
