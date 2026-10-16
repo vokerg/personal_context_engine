@@ -12,7 +12,11 @@ import {
   type ApiErrorResponse,
 } from "@pce/contracts";
 import { loadApiConfig, type ApiConfig } from "./config.js";
-import { createHmacTokenVerifier, type AuthenticatedPrincipal, type TokenVerifier } from "./auth.js";
+import {
+  createHmacTokenVerifier,
+  type AuthenticatedPrincipal,
+  type TokenVerifier,
+} from "./auth.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -25,7 +29,6 @@ export interface PrivateNoteReader {
   listByOwner(subject: string): Promise<NotePreview[]>;
   getByOwner(subject: string, noteId: string): Promise<NoteDetail | null>;
 }
-
 
 export interface ApiDependencies {
   /** A trusted adapter supplied by the DB integration; never a user request. */
@@ -51,7 +54,8 @@ export function createApp(options: ApiOptions = {}) {
   const config = options.config ?? loadApiConfig();
   const checkDatabase = options.dependencies?.checkDatabase;
   const notes = options.dependencies?.notes;
-  const verifyToken = options.dependencies?.verifyToken ??
+  const verifyToken =
+    options.dependencies?.verifyToken ??
     (config.auth ? createHmacTokenVerifier(config.auth) : undefined);
   if (notes && !verifyToken) {
     throw new Error("Private notes require an authenticated token verifier");
@@ -175,11 +179,15 @@ export function createApp(options: ApiOptions = {}) {
       }
       request.authenticatedPrincipal = principal;
     };
-    app.get("/api/v1/notes", { preHandler: requireNoteRead }, async (request) => {
-      const principal = request.authenticatedPrincipal!;
-      const records = await notes.listByOwner(principal.subject);
-      return NotesListResponseSchema.parse({ notes: records });
-    });
+    app.get(
+      "/api/v1/notes",
+      { preHandler: requireNoteRead },
+      async (request) => {
+        const principal = request.authenticatedPrincipal!;
+        const records = await notes.listByOwner(principal.subject);
+        return NotesListResponseSchema.parse({ notes: records });
+      },
+    );
     app.get<{ Params: { id: string } }>(
       "/api/v1/notes/:id",
       { preHandler: requireNoteRead },
