@@ -157,3 +157,89 @@ describe("typed authenticated notes client", () => {
     });
   });
 });
+
+import { ApiTransportError, describeNotesError } from "./index.js";
+
+describe("transport and privacy safe UI errors", () => {
+  it("turns bad success payloads into stable, non-disclosing errors", async () => {
+    await expect(
+      getNotes({
+        baseUrl: "https://api.example",
+        getAccessToken: () => "fake",
+        request: async () =>
+          new Response(JSON.stringify({ notes: [{ secret: "private" }] })),
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  });
+
+  it("does not echo rejected transport exception details", async () => {
+    try {
+      await getNotes({
+        baseUrl: "https://api.example",
+        getAccessToken: () => "fake",
+        request: async () => {
+          throw new Error("token=sensitive-value");
+        },
+      });
+      throw new Error("expected transport failure");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ApiTransportError);
+      expect((error as Error).message).not.toContain("sensitive-value");
+      expect(describeNotesError(error)).toContain("Could not reach");
+    }
+  });
+
+  it("does not fetch after an abort, including async token resolution", async () => {
+    const controller = new AbortController();
+    const request = vi.fn(async () => new Response("{}"));
+    const getAccessToken = vi.fn(async () => {
+      controller.abort();
+      return "fake";
+    });
+    await expect(
+      getNotes({
+        baseUrl: "https://api.example",
+        getAccessToken,
+        signal: controller.signal,
+        request,
+      }),
+    ).rejects.toMatchObject({ code: "CANCELLED" });
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("validates the timeout before requesting credentials", async () => {
+    const getAccessToken = vi.fn(() => "fake");
+    await expect(
+      getNotes({ baseUrl: "https://api.example", getAccessToken, timeoutMs: -1 }),
+    ).rejects.toThrow("timeout");
+    expect(getAccessToken).not.toHaveBeenCalled();
+  });
+
+  it("times out a hung transport and removes its credentials from errors", async () => {
+    vi.useFakeTimers();
+    try {
+      const pending = getNotes({
+        baseUrl: "https://api.example",
+        getAccessToken: () => "fake",
+        timeoutMs: 100,
+        request: async (_url, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            (init?.signal as AbortSignal).addEventListener("abort", () =>
+              reject(new Error("hidden bearer")),
+            );
+          }),
+      });
+      await vi.advanceTimersByTimeAsync(101);
+      await expect(pending).rejects.toMatchObject({ code: "TIMEOUT" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("formats auth and disabled routes without leaking server details", () => {
+    expect(describeNotesError(new ApiRequestError(401, "UNAUTHORIZED"))).toContain("Session");
+    expect(describeNotesError(new ApiRequestError(403, "FORBIDDEN"))).toContain("notes:read");
+    expect(describeNotesError(new ApiRequestError(404, "NOT_FOUND"))).toContain("not enabled");
+    expect(describeNotesError(new ApiRequestError(404, "NOT_FOUND"), true)).toContain("unavailable");
+  });
+});
