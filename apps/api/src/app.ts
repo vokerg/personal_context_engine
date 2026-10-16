@@ -14,6 +14,7 @@ import {
 import { loadApiConfig, type ApiConfig } from "./config.js";
 import {
   createHmacTokenVerifier,
+  isAuthenticatedPrincipal,
   type AuthenticatedPrincipal,
   type TokenVerifier,
 } from "./auth.js";
