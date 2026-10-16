@@ -30,9 +30,9 @@ describe("health client", () => {
     await expect(getHealth("file:///tmp/api", transport)).rejects.toThrow(
       "HTTP(S)",
     );
-    await expect(getHealth("http://alice:secret@localhost:3000", transport)).rejects.toThrow(
-      "credentials",
-    );
+    await expect(
+      getHealth("http://alice:secret@localhost:3000", transport),
+    ).rejects.toThrow("credentials");
     expect(transport).not.toHaveBeenCalled();
   });
 });
