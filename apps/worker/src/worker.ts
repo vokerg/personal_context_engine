@@ -170,7 +170,10 @@ export async function runIngestionBatch(
     if (update.count === 1) report.retried += 1;
   }
 
-  async function markRejected(ref: ContentRef, error: unknown): Promise<boolean> {
+  async function markRejected(
+    ref: ContentRef,
+    error: unknown,
+  ): Promise<boolean> {
     const update = await db.processingAttempt.updateMany({
       where: leaseWhere(ref.path, ref.revision, "LEASED"),
       data: {

@@ -249,52 +249,52 @@ Synthetic transcription.
     });
 
     it("retries a failed rejection move without losing its durable validation error", async () => {
-    const note = fixture({ invalid: true });
-    await seed(note);
-    const original = await store.read(note.path);
-    let failRejection = true;
-    const flakyStore: ContentStore = {
-      listPending: (options) => store.listPending(options),
-      read: (path) => store.read(path),
-      stat: (path) => store.stat(path),
-      finalize: (request) => store.finalize(request),
-      reject: async (request) => {
-        if (failRejection) {
-          failRejection = false;
-          throw new ContentStoreError("IO_ERROR", "Synthetic interruption.");
-        }
-        return store.reject(request);
-      },
-    };
-    const first = await runIngestionBatch({
-      db,
-      store: flakyStore,
-      now: () => new Date(baseTime),
-    });
-    expect(first.rejected).toBe(1);
-    expect(await store.stat(note.path)).not.toBeNull();
-    const before = await db.processingAttempt.findUniqueOrThrow({
-      where: {
-        sourcePath_sourceRevision: {
-          sourcePath: note.path,
-          sourceRevision: original.revision,
+      const note = fixture({ invalid: true });
+      await seed(note);
+      const original = await store.read(note.path);
+      let failRejection = true;
+      const flakyStore: ContentStore = {
+        listPending: (options) => store.listPending(options),
+        read: (path) => store.read(path),
+        stat: (path) => store.stat(path),
+        finalize: (request) => store.finalize(request),
+        reject: async (request) => {
+          if (failRejection) {
+            failRejection = false;
+            throw new ContentStoreError("IO_ERROR", "Synthetic interruption.");
+          }
+          return store.reject(request);
         },
-      },
+      };
+      const first = await runIngestionBatch({
+        db,
+        store: flakyStore,
+        now: () => new Date(baseTime),
+      });
+      expect(first.rejected).toBe(1);
+      expect(await store.stat(note.path)).not.toBeNull();
+      const before = await db.processingAttempt.findUniqueOrThrow({
+        where: {
+          sourcePath_sourceRevision: {
+            sourcePath: note.path,
+            sourceRevision: original.revision,
+          },
+        },
+      });
+      expect(before.status).toBe("REJECTED");
+      expect(before.lastErrorCode).toBe("VALIDATION_SCHEMA_VERSION");
+      await runIngestionBatch({
+        db,
+        store,
+        now: () => new Date(baseTime + 12_000),
+      });
+      expect(await store.stat(note.path)).toBeNull();
+      expect((await store.read("rejected/" + note.path.slice(6))).content).toBe(
+        note.markdown,
+      );
     });
-    expect(before.status).toBe("REJECTED");
-    expect(before.lastErrorCode).toBe("VALIDATION_SCHEMA_VERSION");
-    await runIngestionBatch({
-      db,
-      store,
-      now: () => new Date(baseTime + 12_000),
-    });
-    expect(await store.stat(note.path)).toBeNull();
-    expect(
-      (await store.read("rejected/" + note.path.slice(6))).content,
-    ).toBe(note.markdown);
-  });
 
-  it("uses DB compare-and-swap to serialize competing workers", async () => {
+    it("uses DB compare-and-swap to serialize competing workers", async () => {
       const note = fixture();
       await seed(note);
       const results = await Promise.all([
