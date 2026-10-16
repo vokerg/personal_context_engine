@@ -82,3 +82,13 @@ migration, token issuance/refresh, revocation, and a production ingress
 remains separate future work. The final authentication **provider** is still
 deferred; replacing the verification adapter does not revise D-012's
 authorization invariants.
+
+## Client integration boundary (2026-10-16, issue #14)
+
+Web and Expo now consume the same `@pce/api-client` typed GET routes.
+Manual one-session JWT entry is only a synthetic development affordance,
+not an acceptance of a production login provider or client-side token
+persistence. Mobile `pce://notes/<id>` selects a route and always
+re-authorizes note detail via the API. Production identity, device credential
+storage, push delivery, owner-aware DB note readers and authenticated
+write APIs remain deferred. Remote bearer transport remains HTTPS only.

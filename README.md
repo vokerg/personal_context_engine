@@ -2,7 +2,7 @@
 
 **Personal Context Engine (PCE)** is an extensible, self-hostable system for capturing unstructured thoughts, preserving their original meaning, turning them into structured records, and surfacing relevant context later.
 
-**Status: monorepo and schema baseline with a public-only Fastify API skeleton (issue #9).** This repository has starter API/worker processes, React/Vite and Expo shells, shared TypeScript workspaces, and pure synthetic-tested v1 Markdown capture validation/serialization in `@pce/core`. It does **not** yet have authentication, personal note browsing/ingestion, database migrations, production notification services or deployment. The documents distinguish agreed direction from implemented functionality.
+**Status: typed monorepo foundation with guarded synthetic API/client integration (#14).** This repository has starter API/worker processes, React/Vite and Expo shells, shared TypeScript workspaces, and pure synthetic-tested v1 Markdown capture validation/serialization in `@pce/core`. It has a strict interim JWT verification boundary, a PostgreSQL projection schema, and read-only browser/mobile preview shells. Default API startup exposes no private note routes; no production login, owner-aware DB note reader, live personal-note browsing, or notification delivery exists. The documents distinguish agreed direction from implemented functionality.
 
 ## Two-repository design
 
@@ -66,9 +66,9 @@ npm run docs:check
 npm run dev           # API :3000, worker (idle), Vite web :4200
 ```
 
-Alternatively run `npm run dev:api`, `npm run dev:worker`, or `npm run dev:web` separately. `API_HOST` and `API_PORT` configure the local bind address (see `.env.example`; values are not auto-loaded). Public `GET /health`, `GET /ready` and `GET /api/v1` expose liveness, mandatory-dependency readiness and API version. There are **no private note routes**; the worker deliberately does no ingestion. Configuring `API_REQUIRE_DB=true` or `DATABASE_URL` intentionally prevents startup until a trusted DB readiness adapter is integrated (#8).
+Alternatively run `npm run dev:api`, `npm run dev:worker`, or `npm run dev:web` separately. `API_HOST` and `API_PORT` configure the local bind address (see `.env.example`; values are not auto-loaded). Public `GET /health`, `GET /ready` and `GET /api/v1` expose liveness, mandatory-dependency readiness and API version. Private notes routes are disabled by default and require an explicitly injected, owner-scoped reader. The default API only serves public diagnostics. Configuring `API_REQUIRE_DB=true` or `DATABASE_URL` intentionally prevents startup until a trusted DB readiness adapter is integrated (#8).
 
-For Expo, run `npm run dev:mobile` with a separately configured simulator/device development environment. Expo Go/native device launch and bundle compatibility must be verified on the target platform; the bootstrap CI only runs TypeScript checking, not an emulator or a production mobile bundle. A future authenticated API client must use a device-reachable host, not device `localhost`. PostgreSQL/Prisma migration and disposable local DB commands are available through `packages/db/README.md` (issue #8); authenticated note browsing remains blocked on #13. See [repository operations](docs/03-repositories-and-operations.md).
+For Expo, run `npm run dev:mobile` with a separately configured simulator/device development environment. Expo Go/native device launch and bundle compatibility must be verified on the target platform; the bootstrap CI only runs TypeScript checking, not an emulator or a production mobile bundle. Expo must set a device-reachable `EXPO_PUBLIC_API_BASE_URL` (remote bearer connections require HTTPS); the development-only token entry never creates sessions. See [client setup](docs/03-repositories-and-operations.md#minimal-web-and-expo-read-only-clients-14). PostgreSQL/Prisma migration and disposable local DB commands are available through `packages/db/README.md` (issue #8); production note browsing still requires an owner-aware read adapter and trusted token issuance. See [repository operations](docs/03-repositories-and-operations.md).
 
 ## Contribution and review
 

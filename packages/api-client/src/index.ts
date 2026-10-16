@@ -204,3 +204,8 @@ export async function getNote(
 }
 
 export type { NotePreview, NoteDetail } from "@pce/contracts";
+
+/** Validate a navigation ID using the same contract as the API. */
+export function isNoteId(value: string): boolean {
+  return NoteIdSchema.safeParse(value).success;
+}

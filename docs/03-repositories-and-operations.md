@@ -174,3 +174,64 @@ a trusted token issuer, secure key storage, and persisted data ownership
 before connecting the live notes projection. Local test:
 `npx vitest run apps/api/src/app.test.ts apps/api/src/config.test.ts
 packages/api-client/src/index.test.ts`.
+
+### Minimal web and Expo read-only clients (#14)
+
+Both app shells use the typed `@pce/api-client` for `GET /api/v1/notes`
+and `GET /api/v1/notes/:id`. They show signed-out, loading, empty, error and
+detail states; 401 clears the in-memory session, 403 reports missing scope,
+and a 404 on the list reports that the API's optional private reader is
+not enabled. A token is never saved to browser storage, native storage,
+source control, or config. There is **no login/token issuance or refresh**
+implementation. This is a synthetic, developer-only integration path, not
+production access to private content.
+
+Web development, in separate terminals:
+
+```bash
+npm ci
+npm run build -w @pce/contracts
+npm run build -w @pce/api-client
+API_CORS_ORIGIN=http://127.0.0.1:4200 npm run dev:api
+VITE_API_BASE_URL=http://127.0.0.1:3000 npm run dev:web
+```
+
+Visit `http://127.0.0.1:4200`. Use only a **short-lived synthetic** JWT
+issued separately by a trusted local test issuer with `notes:read` scope.
+The normal API entry point intentionally returns 404 for notes even with a
+valid token: real list/detail can be smoke-tested against the
+`createApp({ dependencies: { verifyToken, notes } })` synthetic fixture
+adapter exercised in `apps/api/src/app.test.ts`. The existing projection
+has no owner key and MUST NOT be attached to these routes.
+
+Expo development:
+
+```bash
+# Use a trusted HTTPS development API reachable by the emulator/device:
+EXPO_PUBLIC_API_BASE_URL=https://dev-api.example.test npm run dev:mobile
+# Android emulator or USB-connected Android via adb reverse may instead use:
+adb reverse tcp:3000 tcp:3000
+EXPO_PUBLIC_API_BASE_URL=http://localhost:3000 npm run dev:mobile
+```
+
+On an Android emulator, `10.0.2.2` reaches the host but is **not an
+approved plaintext bearer-token destination**; use `adb reverse` loopback
+or a trusted HTTPS endpoint. On a physical iPhone or Android device,
+`localhost` refers to the device, not the host PC. Do not weaken the
+client's HTTPS-only remote token rule for convenience. Expo's
+`EXPO_PUBLIC_*` values become public bundle constants: configure only
+the API URL, **never** the JWT signing key, bearer token, database
+credentials or private repository token.
+
+The Expo scheme is `pce://notes/<valid-note-id>`; opening a note target
+selects a detail view but **never bypasses authentication**. It does not
+register for, send, or claim push notifications. Verify JS compatibility
+with `cd apps/mobile && npx expo export --platform android --output-dir
+/tmp/pce-expo-export`; real Expo Go/device, iOS, OS deep-link delivery
+and native networking were not validated by this code-only change.
+
+Useful synthetic commands: `npx vitest run
+packages/api-client/src/index.test.ts apps/web/src/App.test.tsx
+apps/mobile/links.test.ts`, then `npm run typecheck`, `npm test`,
+`npm run build` and `npm run docs:check`. Browser interaction, device
+behavior and remote HTTPS termination require separate manual verification.
