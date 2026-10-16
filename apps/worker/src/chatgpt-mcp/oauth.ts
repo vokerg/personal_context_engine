@@ -120,7 +120,9 @@ export function makeOAuthVerifier(
           (candidate.use === undefined || candidate.use === "sig") &&
           (candidate.alg === undefined || candidate.alg === "RS256"),
       );
-      if (!key || typeof key.n !== "string" || typeof key.e !== "string") return false;
+      if (!key) return false;
+      if (typeof key.n !== "string") return false;
+      if (typeof key.e !== "string") return false;
       const publicKey = createPublicKey({
         key: { kty: "RSA", n: key.n, e: key.e },
         format: "jwk",
