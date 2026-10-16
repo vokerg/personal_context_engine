@@ -86,6 +86,36 @@ describe("typed authenticated notes client", () => {
     expect(request).not.toHaveBeenCalled();
   });
 
+  it("never sends bearer credentials over non-loopback HTTP", async () => {
+    const request = vi.fn(async () => new Response("{}"));
+    const getAccessToken = vi.fn(() => "synthetic.jwt.token");
+    for (const baseUrl of [
+      "http://api.example:3000",
+      "http://192.168.1.2:3000",
+      "http://localhost.evil.example:3000",
+    ]) {
+      await expect(
+        getNotes({ baseUrl, getAccessToken, request }),
+      ).rejects.toThrow("HTTPS");
+    }
+    expect(getAccessToken).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
+
+    for (const baseUrl of [
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      "http://[::1]:3000",
+    ]) {
+      await expect(
+        getNotes({
+          baseUrl,
+          getAccessToken,
+          request: async () => new Response(JSON.stringify({ notes: [] })),
+        }),
+      ).resolves.toEqual({ notes: [] });
+    }
+  });
+
   it("normalizes 403/404 responses without echoing server details", async () => {
     const options = {
       baseUrl: "https://api.example",
