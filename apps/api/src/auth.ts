@@ -14,6 +14,22 @@ export type TokenVerifier = (
 const base64Url = /^[A-Za-z0-9_-]+$/;
 const subjectPattern = /^[A-Za-z0-9][A-Za-z0-9._:|@-]{0,127}$/;
 
+/** Validate even injected verifier results before they reach any DB adapter. */
+export function isAuthenticatedPrincipal(
+  value: unknown,
+): value is AuthenticatedPrincipal {
+  if (!record(value)) return false;
+  return (
+    typeof value.subject === "string" &&
+    subjectPattern.test(value.subject) &&
+    Array.isArray(value.scopes) &&
+    value.scopes.every(
+      (scope: unknown) =>
+        typeof scope === "string" && /^[a-z][a-z0-9:-]{0,63}$/.test(scope),
+    )
+  );
+}
+
 function decodePart(value: string): unknown {
   if (!base64Url.test(value)) return null;
   const raw = Buffer.from(value, "base64url");
