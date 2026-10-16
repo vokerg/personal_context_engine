@@ -1,6 +1,10 @@
 import { createSign, generateKeyPairSync } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { makeOAuthVerifier, oauthConfigFromEnv, type OAuthConfig } from "./oauth.js";
+import {
+  makeOAuthVerifier,
+  oauthConfigFromEnv,
+  type OAuthConfig,
+} from "./oauth.js";
 
 const oauth: OAuthConfig = {
   issuer: "https://login.synthetic.test",
@@ -10,18 +14,31 @@ const oauth: OAuthConfig = {
   resourceUrl: "https://capture.synthetic.test/mcp",
 };
 function prepare() {
-  const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const { privateKey, publicKey } = generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+  });
   const jwk = publicKey.export({ format: "jwk" });
-  const fetcher: typeof fetch = async () => new Response(JSON.stringify({
-    keys: [{ ...jwk, use: "sig", alg: "RS256", kid: "key-1" }],
-  }), { status: 200 });
+  const fetcher: typeof fetch = async () =>
+    new Response(
+      JSON.stringify({
+        keys: [{ ...jwk, use: "sig", alg: "RS256", kid: "key-1" }],
+      }),
+      { status: 200 },
+    );
   const sign = (claims: Record<string, unknown>, algorithm = "RS256") => {
-    const header = Buffer.from(JSON.stringify({ alg: algorithm, kid: "key-1" })).toString("base64url");
+    const header = Buffer.from(
+      JSON.stringify({ alg: algorithm, kid: "key-1" }),
+    ).toString("base64url");
     const payload = Buffer.from(JSON.stringify(claims)).toString("base64url");
     const signingInput = header + "." + payload;
     const signer = createSign("RSA-SHA256");
     signer.update(signingInput);
-    return "Bearer " + signingInput + "." + signer.sign(privateKey).toString("base64url");
+    return (
+      "Bearer " +
+      signingInput +
+      "." +
+      signer.sign(privateKey).toString("base64url")
+    );
   };
   const claims = {
     iss: oauth.issuer,
@@ -47,19 +64,22 @@ describe("PCE OAuth resource validation", () => {
       { ...claims, scope: "pce.read" },
       { ...claims, exp: Math.floor(Date.now() / 1000) - 1 },
       { ...claims, nbf: Math.floor(Date.now() / 1000) + 3600 },
-    ]) expect(await verify(sign(changed))).toBe(false);
+    ])
+      expect(await verify(sign(changed))).toBe(false);
     const forged = sign(claims).replace(/.$/, "x");
     expect(await verify(forged)).toBe(false);
     expect(await verify(sign(claims, "none"))).toBe(false);
   });
   it("fails closed on incomplete OAuth configuration", () => {
     expect(() => oauthConfigFromEnv({})).toThrow();
-    expect(() => oauthConfigFromEnv({
-      PCE_MCP_OAUTH_ISSUER: "http://unsafe.synthetic",
-      PCE_MCP_OAUTH_AUDIENCE: oauth.audience,
-      PCE_MCP_OAUTH_JWKS_URL: oauth.jwksUrl,
-      PCE_MCP_OWNER_SUB: oauth.ownerSub,
-      PCE_MCP_RESOURCE_URL: oauth.resourceUrl,
-    })).toThrow();
+    expect(() =>
+      oauthConfigFromEnv({
+        PCE_MCP_OAUTH_ISSUER: "http://unsafe.synthetic",
+        PCE_MCP_OAUTH_AUDIENCE: oauth.audience,
+        PCE_MCP_OAUTH_JWKS_URL: oauth.jwksUrl,
+        PCE_MCP_OWNER_SUB: oauth.ownerSub,
+        PCE_MCP_RESOURCE_URL: oauth.resourceUrl,
+      }),
+    ).toThrow();
   });
 });
