@@ -251,6 +251,7 @@ export async function runIngestionBatch(
       data: {
         leaseOwner: owner,
         leaseUntil: new Date(now().getTime() + LEASE_MS),
+        attemptCount: { increment: 1 },
       },
     });
     if (acquired.count !== 1) continue;
