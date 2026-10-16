@@ -26,7 +26,7 @@ function errorResponse(code: ErrorCode): ApiErrorResponse {
 
 /** Public-only API shell. Private routes MUST NOT be added until auth (#13). */
 export function createApp(options: ApiOptions = {}) {
-  const config = options.config ?? loadApiConfig({});
+  const config = options.config ?? loadApiConfig();
   const checkDatabase = options.dependencies?.checkDatabase;
   if (config.requiresDatabase && !checkDatabase) {
     throw new Error("Mandatory database dependency has no readiness adapter");
