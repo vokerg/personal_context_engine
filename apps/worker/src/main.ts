@@ -1,13 +1,55 @@
-import { workerStatus } from "./worker.js";
+import { isAbsolute } from "node:path";
+import { checkDatabase, createDatabaseClient } from "@pce/db";
+import type { ContentStore } from "./content-store/port.js";
+import { FilesystemContentStore } from "./content-store/filesystem.js";
+import { githubContentStoreFromEnv } from "./content-store/github.js";
+import { runIngestionBatch, workerStatus } from "./worker.js";
 
-console.log(
-  `Worker scaffold started (${workerStatus().state}; no ingestion configured)`,
-);
-// A pending Promise alone does not keep Node alive; remain explicitly idle.
-const heartbeat = setInterval(() => {}, 60_000);
-const stop = () => {
-  clearInterval(heartbeat);
-  console.log("Worker scaffold stopped");
-};
-process.once("SIGTERM", stop);
-process.once("SIGINT", stop);
+// Safe scaffold default. Real writes require an explicit worker mode,
+// destination backend and DB config; no implicit private repository access.
+const mode = process.env.WORKER_MODE;
+if (!mode) {
+  console.log(`Worker scaffold started (${workerStatus().state}; no ingestion configured)`);
+  const heartbeat = setInterval(() => {}, 60_000);
+  const stop = () => {
+    clearInterval(heartbeat);
+    console.log("Worker scaffold stopped");
+  };
+  process.once("SIGTERM", stop);
+  process.once("SIGINT", stop);
+} else {
+  void start(mode).catch(() => {
+    // Never print exception messages: provider exceptions may contain URLs,
+    // tokens, local paths or note data.
+    console.error("Worker failed (configuration, storage or database error).");
+    process.exitCode = 1;
+  });
+}
+
+async function start(mode: string): Promise<void> {
+  if (mode !== "once") throw new Error("Unsupported worker mode.");
+  if (!process.env.DATABASE_URL) throw new Error("Database is required.");
+  let store: ContentStore;
+  if (process.env.WORKER_CONTENT_BACKEND === "filesystem") {
+    const root = process.env.WORKER_CONTENT_ROOT;
+    if (!root || !isAbsolute(root)) throw new Error("Absolute content sandbox required.");
+    store = new FilesystemContentStore(root);
+  } else if (process.env.WORKER_CONTENT_BACKEND === "github") {
+    if (process.env.WORKER_ALLOW_GITHUB_WRITES !== "I_VERIFIED_PRIVATE_REPOSITORY") {
+      throw new Error("Explicit private repository opt-in required.");
+    }
+    store = githubContentStoreFromEnv();
+  } else {
+    throw new Error("Explicit ContentStore backend required.");
+  }
+  const db = createDatabaseClient();
+  try {
+    await db.$connect();
+    await checkDatabase(db);
+    const result = await runIngestionBatch({ db, store });
+    // Counts only; never expose note bodies, paths or identifiers in logs.
+    console.log("Worker pass complete " + JSON.stringify(result));
+  } finally {
+    await db.$disconnect();
+  }
+}
