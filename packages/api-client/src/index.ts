@@ -28,7 +28,6 @@ export async function getHealth(
   return HealthResponseSchema.parse(await response.json());
 }
 
-
 export type AccessTokenProvider = () => string | null | Promise<string | null>;
 
 export interface AuthenticatedRequestOptions {
@@ -58,7 +57,8 @@ async function authenticatedGet<T>(
     !["http:", "https:"].includes(url.protocol) ||
     url.username ||
     url.password
-  ) throw new TypeError("API URL must be HTTP(S) without credentials");
+  )
+    throw new TypeError("API URL must be HTTP(S) without credentials");
   const token = await options.getAccessToken();
   if (token === null) throw new ApiRequestError(401, "UNAUTHORIZED");
   if (token.length > 4096 || !/^[A-Za-z0-9._-]+$/.test(token)) {
@@ -71,20 +71,25 @@ async function authenticatedGet<T>(
   });
   if (!response.ok) {
     const parsed = ApiErrorResponseSchema.safeParse(
-      await response.json().catch(() => null) as unknown,
+      (await response.json().catch(() => null)) as unknown,
     );
     const statusCode = response.status;
     const fallback: ApiErrorResponse["error"]["code"] =
-      statusCode === 401 ? "UNAUTHORIZED" :
-      statusCode === 403 ? "FORBIDDEN" :
-      statusCode === 404 ? "NOT_FOUND" :
-      statusCode === 503 ? "SERVICE_UNAVAILABLE" : "INTERNAL_ERROR";
+      statusCode === 401
+        ? "UNAUTHORIZED"
+        : statusCode === 403
+          ? "FORBIDDEN"
+          : statusCode === 404
+            ? "NOT_FOUND"
+            : statusCode === 503
+              ? "SERVICE_UNAVAILABLE"
+              : "INTERNAL_ERROR";
     throw new ApiRequestError(
       statusCode,
       parsed.success ? parsed.data.error.code : fallback,
     );
   }
-  return parse(await response.json() as unknown);
+  return parse((await response.json()) as unknown);
 }
 
 export function getNotes(
