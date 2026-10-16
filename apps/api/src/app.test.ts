@@ -174,3 +174,168 @@ describe("public API boundary", () => {
     expect(closed).toBe(true);
   });
 });
+
+import { createHmac } from "node:crypto";
+import type { NoteDetail } from "@pce/contracts";
+import { createHmacTokenVerifier } from "./auth.js";
+
+const secret = "synthetic-test-key-32-bytes-minimum----";
+const idAlice = "01K00000000000000000000001";
+const idBob = "01K00000000000000000000002";
+const auth = { issuer: "pce-test-issuer", audience: "pce-test-api", secret };
+
+function signedToken(overrides: Record<string, unknown> = {}): string {
+  const now = Math.floor(Date.now() / 1000);
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" }))
+    .toString("base64url");
+  const claims = Buffer.from(JSON.stringify({
+    iss: auth.issuer,
+    aud: auth.audience,
+    sub: "alice",
+    scope: "notes:read",
+    iat: now - 10,
+    exp: now + 600,
+    ...overrides,
+  })).toString("base64url");
+  const message = header + "." + claims;
+  const signature = createHmac("sha256", secret).update(message)
+    .digest("base64url");
+  return message + "." + signature;
+}
+
+describe("authenticated private read boundary", () => {
+  const alice: NoteDetail = {
+    id: idAlice, title: "Synthetic Alice", summary: "Sample A",
+    body: "Synthetic content A", capturedAt: "2026-10-16T10:00:00+02:00",
+  };
+  const bob: NoteDetail = {
+    id: idBob, title: "Synthetic Bob", summary: "Sample B",
+    body: "Synthetic content B", capturedAt: "2026-10-16T10:00:00+02:00",
+  };
+  const fixtures: Record<string, NoteDetail[]> = { alice: [alice], bob: [bob] };
+  const makeApp = () => createApp({
+    config: { ...loadApiConfig({}), auth },
+    dependencies: {
+      notes: {
+        listByOwner: async (subject) => fixtures[subject]?.map(({ body, ...note }) => note) ?? [],
+        getByOwner: async (subject, noteId) =>
+          fixtures[subject]?.find((note) => note.id === noteId) ?? null,
+      },
+    },
+  });
+
+  it("cannot enable private routes without a verifier", () => {
+    expect(() => createApp({
+      config: loadApiConfig({}),
+      dependencies: {
+        notes: { listByOwner: async () => [], getByOwner: async () => null },
+      },
+    })).toThrow(/authenticated token verifier/);
+  });
+
+  it("rejects missing, malformed, forged and expired credentials", async () => {
+    const app = makeApp();
+    try {
+      const valid = signedToken();
+      const parts = valid.split(".");
+      const forgedPayload = Buffer.from(JSON.stringify({
+        iss: auth.issuer, aud: auth.audience, sub: "bob",
+        scope: "notes:read", iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 300,
+      })).toString("base64url");
+      const forged = parts[0] + "." + forgedPayload + "." + parts[2];
+      const attempts = [
+        undefined, "Basic abc", "Bearer fake", "Bearer " + forged,
+        "Bearer " + signedToken({ exp: 1 }),
+        "Bearer " + signedToken({ aud: "another-api" }),
+        "Bearer " + signedToken({ nbf: 4102444800 }),
+        "Bearer " + signedToken({ iat: 1, exp: 4102444800 }),
+      ];
+      for (const authorization of attempts) {
+        const response = await app.inject({
+          url: "/api/v1/notes",
+          ...(authorization ? { headers: { authorization } } : {}),
+        });
+        expect(response.statusCode).toBe(401);
+        expect(response.json()).toEqual({ error: { code: "UNAUTHORIZED" } });
+        expect(response.body).not.toContain("Sample");
+        expect(response.headers["www-authenticate"]).toBe("Bearer");
+        expect(response.headers["cache-control"]).toBe("no-store");
+      }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("enforces scope and masks other owners' IDs with 404", async () => {
+    const app = makeApp();
+    try {
+      const noScope = await app.inject({
+        url: "/api/v1/notes",
+        headers: { authorization: "Bearer " + signedToken({ scope: "profile:read" }) },
+      });
+      expect(noScope.statusCode).toBe(403);
+      expect(noScope.json()).toEqual({ error: { code: "FORBIDDEN" } });
+      const aliceHeader = { authorization: "Bearer " + signedToken() };
+      const list = await app.inject({ url: "/api/v1/notes", headers: aliceHeader });
+      expect(list.statusCode).toBe(200);
+      expect(list.json()).toEqual({
+        notes: [{ id: alice.id, title: alice.title,
+          summary: alice.summary, capturedAt: alice.capturedAt }],
+      });
+      expect(list.body).not.toContain("Bob");
+      const detail = await app.inject({
+        url: "/api/v1/notes/" + idAlice, headers: aliceHeader,
+      });
+      expect(detail.statusCode).toBe(200);
+      expect(detail.json()).toEqual(alice);
+      for (const otherId of [idBob, "invalid-path"]) {
+        const other = await app.inject({
+          url: "/api/v1/notes/" + otherId, headers: aliceHeader,
+        });
+        expect(other.statusCode).toBe(404);
+        expect(other.json()).toEqual({ error: { code: "NOT_FOUND" } });
+        expect(other.body).not.toContain("Bob");
+      }
+      const bobList = await app.inject({
+        url: "/api/v1/notes",
+        headers: { authorization: "Bearer " + signedToken({ sub: "bob" }) },
+      });
+      expect(bobList.json().notes.map((note: { id: string }) => note.id)).toEqual([idBob]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("supports a replaceable verifier with no production credential in tests", async () => {
+    const verifyToken = async (token: string) =>
+      token === "fake" ? { subject: "fake-principal", scopes: ["notes:read"] } : null;
+    const app = createApp({
+      config: loadApiConfig({}),
+      dependencies: {
+        verifyToken,
+        notes: {
+          listByOwner: async (subject) => subject === "fake-principal" ? [] : [],
+          getByOwner: async () => null,
+        },
+      },
+    });
+    try {
+      expect((await app.inject({
+        url: "/api/v1/notes",
+        headers: { authorization: "Bearer fake" },
+      })).json()).toEqual({ notes: [] });
+    } finally { await app.close(); }
+  });
+
+  it("verifier rejects algorithm confusion and tampering", async () => {
+    const verify = createHmacTokenVerifier(auth);
+    const token = signedToken();
+    expect(await verify(token)).toMatchObject({ subject: "alice" });
+    const unsignedHeader = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" }))
+      .toString("base64url");
+    expect(await verify(unsignedHeader + "." + token.split(".").slice(1).join(".")))
+      .toBeNull();
+    expect(await verify(token + "extra")).toBeNull();
+  });
+});
