@@ -87,6 +87,17 @@ authorization invariants.
 
 P-001/P-004 now have a deterministic opt-in one-shot worker, with ContentStore compare-and-swap transitions, PostgreSQL processing-attempt leases and replayable `PERSISTED` recovery. The default developer process remains inert. Workers never infer reminders from prose or enqueue notifications; captured `due_at` is projected with its original offset, and absent `due_at` stays absent. A content conflict is left for manual repair. This does **not** authorize private GitHub ingestion, a scheduler, active notifications or authenticated DB reads. Five-minute leases and bounded backoff are implementation defaults, not a cross-system ACID guarantee.
 
+## Project capture experiment state (2026-10-16, issue #12)
+
+Versioned ChatGPT Project capture instructions and an offline synthetic-export
+verification script are prepared in [the Project runbook](12-chatgpt-project.md).
+This is **experiment infrastructure, not a go-live decision**. In particular,
+the actual ChatGPT Project write/read-back capability, confirmation friction,
+multi-idea and ambiguous-reminder scenarios, denied-write behavior and
+notification delivery remain unverified. Project mode must be exercised
+manually with synthetic prompts, with sanitized observations recorded in #12,
+before deciding go/no-go or changing the accepted replaceable-capture design.
+
 ## Client integration boundary (2026-10-16, issue #14)
 
 Web and Expo now consume the same `@pce/api-client` typed GET routes.
