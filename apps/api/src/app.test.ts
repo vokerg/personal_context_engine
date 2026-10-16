@@ -24,6 +24,17 @@ describe("public API boundary", () => {
     }
   });
 
+  it("uses validated process environment in the default app factory", () => {
+    const previous = process.env.API_REQUIRE_DB;
+    process.env.API_REQUIRE_DB = "true";
+    try {
+      expect(() => createApp()).toThrow(/readiness adapter/);
+    } finally {
+      if (previous === undefined) delete process.env.API_REQUIRE_DB;
+      else process.env.API_REQUIRE_DB = previous;
+    }
+  });
+
   it("fails closed when a configured database has no adapter", () => {
     const config = loadApiConfig({ API_REQUIRE_DB: "true" });
     expect(() => createApp({ config })).toThrow(/readiness adapter/);
