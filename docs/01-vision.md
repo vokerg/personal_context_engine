@@ -55,3 +55,9 @@ Only the first level and the foundation of the second are MVP goals. The third i
 - Notifications are relevant, permissioned and not duplicated.
 
 These are direction-setting measures, not claimed current metrics.
+
+## Approved next-stage intent (2026-10-16)
+
+Do not interrupt the working low-friction ChatGPT -> private GitHub capture workflow. Increase the value of accumulated notes through accessible reading, searchable context, auditable ledgers and interactive agent tools. The near-term product promise is **capture once, preserve originals, organize/search later**. Neither paid LLM services nor semantic indexing are prerequisites for accepting a note.
+
+Plan a second, authenticated capture path that eventually persists into both PostgreSQL and the private content repository with recoverable eventual synchronization. Maintain current GitHub search until a user-approved opt-in switch; build DB text+semantic search in parallel. Focus on a usable web timeline and clickable tags observed in real captures. No mandatory curated taxonomy yet; multi-user isolation and security must be designed before offering new API/MCP write tools. See [intent](../INTENT.md) and [evolution plan](13-evolution-plan.md).

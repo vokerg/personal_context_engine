@@ -17,7 +17,9 @@ This documentation is the **architecture baseline and project bible** for Person
 | [09 — Security and privacy](09-security-and-privacy.md) | Data minimization, private repo, auditability, credentials |
 | [10 — Roadmap](10-roadmap.md) | Vertical slices, acceptance gates and deferred features |
 | [11 — Decisions](11-decisions.md) | Accepted, proposed, deferred, open questions |
-| [12 — ChatGPT Project](12-chatgpt-project.md) | Draft capture-agent setup and connector validation |
+| [12 — ChatGPT Project](12-chatgpt-project.md) | Current repo-based capture/search, future MCP boundary |
+| [13 — Evolution plan](13-evolution-plan.md) | Progressive dual-store capture, embeddings, token MCP, gated DB search, UX rollout |
+| [Project intent](../INTENT.md) | Concise direction and explicit constraints for future contributors |
 
 ## Authority and change management
 

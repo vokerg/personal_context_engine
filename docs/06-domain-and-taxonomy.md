@@ -67,3 +67,9 @@ Task status, note processing status, review status and notification delivery sta
 Tags and `action_hint` can make a record eligible for **review or scheduling**, but they never directly authorize network calls, issue creation, purchases, calendar mutations or messaging. External actions require explicit, auditable policy and usually human approval.
 
 See [capture contract](04-capture-contract.md) and [clients / notifications](08-clients-and-notifications.md).
+
+## Tag exploration before canonical taxonomy (#51, #53, #54)
+
+The immediate read model should expose **the set of tags that actually occurs in each owner's notes**, with deduplicated lowercase slugs, usage counts and stable owner-scoped filtering. The web UI should show a clickable tag catalog and chips on individual notes: clicking navigates to notes carrying that tag, combinable with date, type and project facets. Empty tags produce an empty state, not a fabricated default list.
+
+**Not decided yet:** globally standardized tags, required categories, model-driven auto-renaming, synonym aliases, user-defined canonical tag management and cross-user shared dictionaries. Existing `tags`, `domains`, `projects` and `kind` remain separate concepts; do not change Markdown v1 syntax or silently rewrite captured tags to implement the first tag browser. See [the evolving intent](13-evolution-plan.md).

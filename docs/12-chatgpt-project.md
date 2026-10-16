@@ -103,3 +103,13 @@ Successful schema validation is **necessary but not sufficient** for faithful ca
 **Not established by this PR:** instructions installed in the user's Project, live Project create/read-back, all scenarios passing, confirmation friction, push delivery or an owner-approved go/no-go decision. Track these as **pending** in issue #12 and record the decision in [the decision register](11-decisions.md). Keep only sanitized metrics and status in public issues and CI.
 
 See [security](09-security-and-privacy.md), [capture contract](04-capture-contract.md), and [reminder model](08-clients-and-notifications.md).
+
+## Current vs proposed ChatGPT tooling (#42; 2026-10-16)
+
+**Current user workflow:** the owner reports successful capture via a reusable ChatGPT prompt/GitHub connector into the private content repository. This does **not** independently prove that a newly configured ChatGPT Project, all chats, or a remote MCP server inherit the full transcript or identical connector permissions. Search/read still uses the existing private-repo interface; maintain that as the default.
+
+**Proposed independent second channel:** a future remote MCP service exposes narrowly scoped `capture_note`, `get_note`, and eventually `search_context` tools behind the PCE API. The user connects with app-authorized short-lived tokens (OAuth authorization code + PKCE where required by the ChatGPT client), not database passwords, OpenAI API keys or GitHub PATs. MCP capture creates a durable DB record and a pending private-GitHub export outbox job; return separate statuses until both destinations confirm persistence.
+
+**Deliberately gated:** pgvector hybrid retrieval is built/tested in parallel and does not replace GitHub-based ChatGPT search until explicit validation and user approval. ChatGPT may invoke evidence tools to produce ledgers interactively; the PCE worker remains deterministic except the future separately authorized embedding API. DeepSeek is unselected. A model only sees the conversation content explicitly available to it; never assume full chat-history export.
+
+See [evolution plan](13-evolution-plan.md), #49/#50 and [security](09-security-and-privacy.md).

@@ -8,7 +8,7 @@ Purpose: code, test fixtures (synthetic only), canonical contract specifications
 
 ### Private content: `vokerg/personal_context_engine_content`
 
-Purpose: personal input files, accepted notes, ledgers and narrow ChatGPT capture guidance. **No application CI** and no application source code. The owner plans to make this repository private; until its actual visibility is changed, **never write personal content to it**.
+Purpose: personal input files, accepted notes, ledgers and narrow ChatGPT capture guidance. **No application CI** and no application source code. Private visibility was verified during the #12/#23 experiment; each runtime connector must still independently verify the configured repository and fail closed if public.
 
 Proposed content layout (created separately when ready):
 
@@ -358,3 +358,16 @@ The polling worker lives inside this developer process. Closing the terminal,
 Ctrl-C or stopping it ends polling; it is not an always-on hosted service.
 The separate default `dev:worker` command remains idle. Live local ingestion
 does not infer reminders, create notifications or generate ledgers.
+
+## Planned additive services (issue #42; not implemented)
+
+Keep the existing `apps/{api,worker,web,mobile}` and `packages/{core,db,contracts,api-client}` monorepo. Add modules inside existing workspaces instead of creating a paid embedding microservice:
+
+- `apps/worker`: independent ingestion, GitHub-export and embedding job runners, database leases/retries, usage budgets and status.
+- `apps/api`: authenticated capture, read/search, tag facets and MCP transport using a common owner-aware service layer.
+- `packages/db`: capture provenance, export outbox, chunk/vector metadata and tenant-filtered retrieval queries.
+- `packages/core`: stable Markdown v1 fidelity, versioned deterministic chunking and provider-neutral interfaces where appropriate.
+
+Initial external embeddings provider: OpenAI `text-embedding-3-small` via **server-only** credentials. Define egress consent/privacy, hard per-run and per-user budgets, provider errors/backoff, opt-in backfill and model migration before activation. The user’s ChatGPT subscription is not an embeddings API credential. Local model support may be added behind a provider adapter; no always-on Ollama/Render service is required for the first iteration.
+
+Production hosting, login/OAuth issuer, schedules and actual MCP tool availability are implementation gates, **not proven** by docs. See [evolution plan](13-evolution-plan.md) and #43–#56.

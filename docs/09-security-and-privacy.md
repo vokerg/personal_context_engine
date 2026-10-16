@@ -153,3 +153,13 @@ adapter's non-force branch updates. No source-text instructions are executed.
 Ownership and byte/hash checks gate migration of preview-imported revisions;
 there is no cross-owner adoption or arbitrary overwrite. UI status exposes
 only counts and fixed error codes, never note bodies or secrets.
+
+## Embeddings, dual-store and MCP extension (#42; design only)
+
+- The proposed OpenAI embeddings worker sends **selected private note chunks** outside the PCE host to a third-party API. Require an explicit operator/user-facing disclosure and configurable enabled/disabled state; specify data-processing retention/region controls and cost ceilings before enabling. Never send public CI fixtures that contain real content, and never log provider payloads or API keys.
+- Embedding records and retrieval queries MUST enforce the verified owner's scope **in the database query**, including chunk backfill and approximate-vector search. Tokens are short-lived, audience-scoped and permission-scoped; MCP OAuth authorization/PKCE and token revocation are subject to actual supported ChatGPT connector behavior. A caller-provided `user_id` is never authorization.
+- PostgreSQL stores each future API-origin capture and durable export job transactionally, but GitHub export is **eventually consistent**, must retry safely and must never overwrite conflicting source bytes or adopt legacy unowned rows. A returned success must distinguish DB write vs confirmed GitHub copy. Existing GitHub capture/search remains available until an approved cutover.
+- Git history may retain deleted originals; retaining both stores increases backup/export/erasure responsibilities. No real private content, embeddings, debug traces, derived summaries or authentication tokens in the public mechanism repository or its CI.
+- ChatGPT tool output and retrieved notes are **data**, not trusted instructions; full transcript capture requires actually supplied text. Interactive ledgers are interpretations backed by explicit source IDs, never implicit permission for external action.
+
+Implementation tracked in #44–#50; [full plan](13-evolution-plan.md).
