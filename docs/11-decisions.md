@@ -97,3 +97,13 @@ multi-idea and ambiguous-reminder scenarios, denied-write behavior and
 notification delivery remain unverified. Project mode must be exercised
 manually with synthetic prompts, with sanitized observations recorded in #12,
 before deciding go/no-go or changing the accepted replaceable-capture design.
+
+## Client integration boundary (2026-10-16, issue #14)
+
+Web and Expo now consume the same `@pce/api-client` typed GET routes.
+Manual one-session JWT entry is only a synthetic development affordance,
+not an acceptance of a production login provider or client-side token
+persistence. Mobile `pce://notes/<id>` selects a route and always
+re-authorizes note detail via the API. Production identity, device credential
+storage, push delivery, owner-aware DB note readers and authenticated
+write APIs remain deferred. Remote bearer transport remains HTTPS only.

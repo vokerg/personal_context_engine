@@ -157,3 +157,212 @@ describe("typed authenticated notes client", () => {
     });
   });
 });
+
+import { ApiTransportError, describeNotesError } from "./index.js";
+
+describe("transport and privacy safe UI errors", () => {
+  it("turns bad success payloads into stable, non-disclosing errors", async () => {
+    await expect(
+      getNotes({
+        baseUrl: "https://api.example",
+        getAccessToken: () => "fake",
+        request: async () =>
+          new Response(JSON.stringify({ notes: [{ secret: "private" }] })),
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  });
+
+  it("does not echo rejected transport exception details", async () => {
+    try {
+      await getNotes({
+        baseUrl: "https://api.example",
+        getAccessToken: () => "fake",
+        request: async () => {
+          throw new Error("token=sensitive-value");
+        },
+      });
+      throw new Error("expected transport failure");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ApiTransportError);
+      expect((error as Error).message).not.toContain("sensitive-value");
+      expect(describeNotesError(error)).toContain("Could not reach");
+    }
+  });
+
+  it("does not fetch after an abort, including async token resolution", async () => {
+    const controller = new AbortController();
+    const request = vi.fn(async () => new Response("{}"));
+    const getAccessToken = vi.fn(async () => {
+      controller.abort();
+      return "fake";
+    });
+    await expect(
+      getNotes({
+        baseUrl: "https://api.example",
+        getAccessToken,
+        signal: controller.signal,
+        request,
+      }),
+    ).rejects.toMatchObject({ code: "CANCELLED" });
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("validates the timeout before requesting credentials", async () => {
+    const getAccessToken = vi.fn(() => "fake");
+    await expect(
+      getNotes({
+        baseUrl: "https://api.example",
+        getAccessToken,
+        timeoutMs: -1,
+      }),
+    ).rejects.toThrow("timeout");
+    expect(getAccessToken).not.toHaveBeenCalled();
+  });
+
+  it("times out a hung transport and removes its credentials from errors", async () => {
+    vi.useFakeTimers();
+    try {
+      const pending = getNotes({
+        baseUrl: "https://api.example",
+        getAccessToken: () => "fake",
+        timeoutMs: 100,
+        request: async (_url, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            (init?.signal as AbortSignal).addEventListener("abort", () =>
+              reject(new Error("hidden bearer")),
+            );
+          }),
+      });
+      const rejection = expect(pending).rejects.toMatchObject({
+        code: "TIMEOUT",
+      });
+      await vi.advanceTimersByTimeAsync(101);
+      await rejection;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("formats auth and disabled routes without leaking server details", () => {
+    expect(
+      describeNotesError(new ApiRequestError(401, "UNAUTHORIZED")),
+    ).toContain("Session");
+    expect(describeNotesError(new ApiRequestError(403, "FORBIDDEN"))).toContain(
+      "notes:read",
+    );
+    expect(describeNotesError(new ApiRequestError(404, "NOT_FOUND"))).toContain(
+      "not enabled",
+    );
+    expect(
+      describeNotesError(new ApiRequestError(404, "NOT_FOUND"), true),
+    ).toContain("unavailable");
+  });
+});
+
+import { createApp } from "../../../apps/api/src/app.js";
+
+describe("synthetic API-to-shared-client integration", () => {
+  const id = "01K00000000000000000000001";
+  const note = {
+    id,
+    title: "Synthetic",
+    summary: "Only test data",
+    capturedAt: "2026-10-16T10:00:00+02:00",
+    body: "Fixture body",
+  };
+
+  it("enforces verified identity and typed list/detail on an injected reader", async () => {
+    const app = createApp({
+      dependencies: {
+        verifyToken: async (token) =>
+          token === "valid"
+            ? { subject: "alice", scopes: ["notes:read"] }
+            : token === "noscope"
+              ? { subject: "alice", scopes: [] }
+              : token === "empty"
+                ? { subject: "empty", scopes: ["notes:read"] }
+                : null,
+        notes: {
+          listByOwner: async (subject) =>
+            subject === "alice"
+              ? [
+                  {
+                    id: note.id,
+                    title: note.title,
+                    summary: note.summary,
+                    capturedAt: note.capturedAt,
+                  },
+                ]
+              : [],
+          getByOwner: async (subject, noteId) =>
+            subject === "alice" && noteId === id ? note : null,
+        },
+      },
+    });
+    const request: typeof fetch = async (input, init) => {
+      const response = await app.inject({
+        method: "GET",
+        url: new URL(input.toString()).pathname,
+        headers: {
+          authorization: new Headers(init?.headers).get("Authorization") ?? "",
+        },
+      });
+      return new Response(response.body, { status: response.statusCode });
+    };
+    try {
+      const options = {
+        baseUrl: "https://api.example",
+        getAccessToken: () => "valid",
+        request,
+      };
+      await expect(getNotes(options)).resolves.toEqual({
+        notes: [
+          {
+            id: note.id,
+            title: note.title,
+            summary: note.summary,
+            capturedAt: note.capturedAt,
+          },
+        ],
+      });
+      await expect(getNote(options, id)).resolves.toEqual(note);
+      await expect(
+        getNotes({ ...options, getAccessToken: () => "empty" }),
+      ).resolves.toEqual({ notes: [] });
+      await expect(
+        getNotes({ ...options, getAccessToken: () => "invalid" }),
+      ).rejects.toMatchObject({ status: 401, code: "UNAUTHORIZED" });
+      await expect(
+        getNotes({ ...options, getAccessToken: () => "noscope" }),
+      ).rejects.toMatchObject({ status: 403, code: "FORBIDDEN" });
+      await expect(
+        getNote({ ...options, getAccessToken: () => "empty" }, id),
+      ).rejects.toMatchObject({ status: 404, code: "NOT_FOUND" });
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+describe("asynchronous token-provider cancellation", () => {
+  it("times out a hung token provider without sending a request", async () => {
+    vi.useFakeTimers();
+    try {
+      const request = vi.fn(async () => new Response("{}"));
+      const pending = getNotes({
+        baseUrl: "https://api.example",
+        getAccessToken: () => new Promise<string | null>(() => undefined),
+        timeoutMs: 100,
+        request,
+      });
+      const rejection = expect(pending).rejects.toMatchObject({
+        code: "TIMEOUT",
+      });
+      await vi.advanceTimersByTimeAsync(101);
+      await rejection;
+      expect(request).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
