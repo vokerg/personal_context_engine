@@ -31,6 +31,7 @@ enum ImportState {
 
 model Note {
   id              String       @id @db.VarChar(36)
+  ownerSubject    String?      @db.VarChar(128)
   captureId       String       @db.VarChar(36)
   capture         Capture      @relation(fields: [captureId], references: [id], onDelete: Restrict)
   schemaVersion   Int
@@ -64,6 +65,7 @@ model Note {
   attempts        ProcessingAttempt[]
 
   @@unique([sourcePath, sourceRevision])
+  @@index([ownerSubject, capturedAt])
   @@index([captureId])
   @@index([state])
   @@map("notes")

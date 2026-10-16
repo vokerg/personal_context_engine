@@ -81,6 +81,40 @@ ${options.original ?? "Synthetic input."}
     await prisma.$disconnect();
   });
 
+  it("keeps explicit ownership stable across replay and rejects adoption or reassignment", async () => {
+    const repository = createNoteRepository(prisma);
+    const input = fixture();
+    await repository.importMarkdown({
+      ...input,
+      ownerSubject: "local-developer",
+    });
+    expect((await repository.getNote(input.noteId))?.ownerSubject).toBe(
+      "local-developer",
+    );
+    expect(
+      (
+        await repository.importMarkdown({
+          ...input,
+          ownerSubject: "local-developer",
+        })
+      ).result,
+    ).toBe("replayed");
+    await expect(
+      repository.importMarkdown({ ...input, ownerSubject: "another-owner" }),
+    ).rejects.toMatchObject({ code: "OWNER_CONFLICT" });
+    await expect(repository.importMarkdown(input)).rejects.toMatchObject({
+      code: "OWNER_CONFLICT",
+    });
+    const unowned = fixture();
+    await repository.importMarkdown(unowned);
+    await expect(
+      repository.importMarkdown({
+        ...unowned,
+        ownerSubject: "local-developer",
+      }),
+    ).rejects.toMatchObject({ code: "OWNER_CONFLICT" });
+  });
+
   it("persists a note with UTC instants and unchanged source offsets", async () => {
     const input = fixture();
     const repository = createNoteRepository(prisma);

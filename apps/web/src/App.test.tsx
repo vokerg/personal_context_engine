@@ -3,6 +3,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { App } from "./App.js";
 
 describe("web authenticated shell", () => {
+  it("offers a local connection without manual token entry in explicit developer mode", () => {
+    const markup = renderToStaticMarkup(
+      <App localDevelopment baseUrl="http://127.0.0.1:3110" />,
+    );
+    expect(markup).toContain("Connect local workspace");
+    expect(markup).not.toContain("Development access token");
+  });
   it("renders a sign-in-required state with no private content or token persistence", () => {
     const markup = renderToStaticMarkup(<App baseUrl="https://api.example" />);
     expect(markup).toContain("Sign-in required");
