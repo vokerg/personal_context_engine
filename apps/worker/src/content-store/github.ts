@@ -310,7 +310,7 @@ export class GitHubContentStore implements ContentStore {
     ) {
       fail("INVALID_CONTENT");
     }
-    const content = decodeContent(blob.content.replace(/\\s/g, ""), blob.size);
+    const content = decodeContent(blob.content.replace(/\s/g, ""), blob.size);
     return { path, revision: entry.sha, content };
   }
 

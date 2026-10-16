@@ -140,3 +140,16 @@ SQL by owner and the current validated checkout IDs. This additive ownership
 model enables this explicit single-user development path only; it does not
 wire the generic API entry point to all DB rows or define a production
 identity provider. Nullable legacy rows remain inaccessible to local reads.
+
+### Local GitHub ingestion opt-in (#40)
+
+`PCE_INGEST_GITHUB=true` authorizes the local development runtime's bounded
+worker passes against the explicitly configured private content repository.
+It checks visibility, matching checkout remote/branch and clean status before
+each pass. GitHub credentials remain server-side; an existing local CLI
+credential is used only for this repository's API requests. Prefer a scoped
+runtime token for long-term use. Only content transitions use the GitHub
+adapter's non-force branch updates. No source-text instructions are executed.
+Ownership and byte/hash checks gate migration of preview-imported revisions;
+there is no cross-owner adoption or arbitrary overwrite. UI status exposes
+only counts and fixed error codes, never note bodies or secrets.

@@ -219,3 +219,202 @@ test("local API refuses missing/forged tokens and serves only the verified owner
     await app.close();
   }
 });
+
+test("Git snapshots use original blob bytes instead of checkout line endings", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const { serializeNoteMarkdown } = await import("@pce/core");
+  const root = await mkdtemp(join(tmpdir(), "pce-git-snapshot-"));
+  const id = "01K00000000000000000000001";
+  const body =
+    "\n# Synthetic note\n\n## Summary\n\nSynthetic summary.\n\n## Original input\n\nSynthetic input.\n";
+  const markdown = serializeNoteMarkdown({
+    metadata: {
+      schema_version: 1,
+      id,
+      capture_id: "01K00000000000000000000000",
+      captured_at: "2026-10-16T10:00:00Z",
+      source: "import",
+      kind: "memo",
+      domains: [],
+      projects: [],
+      tags: [],
+      action_hint: "none",
+      review_required: false,
+      title: "Synthetic note",
+    },
+    body,
+    summary: "Synthetic summary.",
+    originalInput: "Synthetic input.\n",
+  });
+  try {
+    await mkdir(join(root, "inbox"));
+    const path = `inbox/2026-10-16_${id}.md`;
+    await writeFile(join(root, path), markdown);
+    const git = (...args) =>
+      execFileSync("git", ["-C", root, ...args], { stdio: "pipe" });
+    git("init");
+    git("config", "core.autocrlf", "false");
+    git("add", path);
+    git(
+      "-c",
+      "user.name=Synthetic",
+      "-c",
+      "user.email=synthetic@example.invalid",
+      "commit",
+      "-m",
+      "Synthetic capture",
+    );
+    await writeFile(join(root, path), markdown.replaceAll("\n", "\r\n"));
+    const snapshot = await readCaptures(root, { gitSnapshot: true });
+    assert.equal(snapshot.captures[0].markdown, markdown);
+    const hash = git("rev-parse", `HEAD:${path}`).toString().trim();
+    assert.equal(snapshot.captures[0].sourceRevision, hash);
+    await writeFile(join(root, path), markdown + "changed");
+    await assert.rejects(readCaptures(root, { gitSnapshot: true }));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test.skipIf(!process.env.PCE_DB_TEST_URL)(
+  "worker bridges only verified preview line endings, finalizes and replays without duplicate rows",
+  async () => {
+    const { randomUUID, createHash } = await import("node:crypto");
+    const { execFileSync } = await import("node:child_process");
+    const { createNoteRepository, PrismaClient } = await import("@pce/db");
+    const { createOwnedImporter } = await import("./local-runtime.mjs");
+    const { runIngestionBatch } = await import("../apps/worker/dist/worker.js");
+    const { serializeNoteMarkdown } = await import("@pce/core");
+    const db = new PrismaClient({
+      datasources: { db: { url: process.env.PCE_DB_TEST_URL } },
+    });
+    const root = await mkdtemp(join(tmpdir(), "pce-worker-bridge-"));
+    const id = randomUUID(),
+      captureId = randomUUID();
+    const path = `inbox/2026-10-16_${id}.md`;
+    const markdown = serializeNoteMarkdown({
+      metadata: {
+        schema_version: 1,
+        id,
+        capture_id: captureId,
+        captured_at: "2026-10-16T10:00:00Z",
+        source: "import",
+        kind: "memo",
+        domains: [],
+        projects: [],
+        tags: [],
+        action_hint: "none",
+        review_required: false,
+        title: "Synthetic note",
+      },
+      body: "\n# Synthetic note\n\n## Summary\n\nSynthetic summary.\n\n## Original input\n\nSynthetic input.\n",
+      summary: "Synthetic summary.",
+      originalInput: "Synthetic input.\n",
+    });
+    try {
+      await mkdir(join(root, "inbox"));
+      await writeFile(join(root, path), markdown);
+      const git = (...args) =>
+        execFileSync("git", ["-C", root, ...args], { stdio: "pipe" });
+      git("init");
+      git("config", "core.autocrlf", "false");
+      git("add", path);
+      git(
+        "-c",
+        "user.name=Synthetic",
+        "-c",
+        "user.email=synthetic@example.invalid",
+        "commit",
+        "-m",
+        "Synthetic capture",
+      );
+      const revision = git("rev-parse", `HEAD:${path}`).toString().trim();
+      const crlf = markdown.replaceAll("\n", "\r\n");
+      await writeFile(join(root, path), crlf);
+      await createNoteRepository(db).importMarkdown({
+        markdown: crlf,
+        sourcePath: path,
+        sourceRevision: createHash("sha256").update(crlf).digest("hex"),
+        ownerSubject: "local-developer",
+      });
+      const project = createOwnedImporter(db, { checkoutRoot: root });
+      await assert.rejects(
+        project({
+          markdown: markdown.replace("Synthetic summary.", "Changed summary."),
+          sourcePath: path,
+          sourceRevision: "changed",
+        }),
+      );
+      let pending = true,
+        moved = false;
+      const store = {
+        async listPending() {
+          return { files: pending ? [{ path, revision }] : [] };
+        },
+        async read() {
+          return { path, revision, content: markdown };
+        },
+        async stat(target) {
+          return target === path
+            ? pending
+              ? { path, revision }
+              : null
+            : moved
+              ? { path: target, revision }
+              : null;
+        },
+        async finalize(request) {
+          assert.equal(request.expectedRevision, revision);
+          assert.equal(
+            await db.note.count({
+              where: { id, ownerSubject: "local-developer" },
+            }),
+            1,
+          );
+          pending = false;
+          moved = true;
+          return { path: request.destinationPath, revision, status: "moved" };
+        },
+        async reject() {
+          throw new Error("Unexpected rejection");
+        },
+      };
+      const report = await runIngestionBatch({
+        db,
+        store,
+        ownerSubject: "local-developer",
+        importMarkdown: project,
+      });
+      assert.equal(report.finalized, 1);
+      assert.equal(report.rejected, 0);
+      assert.equal(await db.note.count({ where: { id } }), 1);
+      const note = await db.note.findUnique({ where: { id } });
+      assert.equal(note.state, "FINALIZED");
+      assert.equal(note.sourceRevision, revision);
+      assert.equal(note.originalInput, "Synthetic input.\n");
+      const replay = await project({
+        markdown,
+        sourcePath: path,
+        sourceRevision: revision,
+      });
+      assert.equal(replay.result, "replayed");
+      assert.equal(
+        (await db.note.findUnique({ where: { id } })).state,
+        "FINALIZED",
+      );
+      const second = await runIngestionBatch({
+        db,
+        store,
+        ownerSubject: "local-developer",
+        importMarkdown: project,
+      });
+      assert.equal(second.finalized, 0);
+    } finally {
+      await db.processingAttempt.deleteMany({ where: { sourcePath: path } });
+      await db.note.deleteMany({ where: { id } });
+      await db.capture.deleteMany({ where: { id: captureId } });
+      await db.$disconnect();
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);

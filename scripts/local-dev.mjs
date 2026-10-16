@@ -1,11 +1,11 @@
 #!/usr/bin/env node
+import { startLocalIngestion } from "./local-ingestion.mjs";
 import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import {
   localConfig,
-  readCaptures,
   createLocalReader,
   mintSession,
   sessionAllowed,
@@ -14,8 +14,9 @@ import {
 } from "./local-runtime.mjs";
 
 process.chdir(fileURLToPath(new URL("..", import.meta.url)));
-let api, web, db;
+let api, web, db, ingestion;
 async function close() {
+  await ingestion?.close();
   await web?.close();
   await api?.close();
   await db?.$disconnect();
@@ -52,23 +53,21 @@ try {
   await portAvailable(config.apiPort);
   await portAvailable(config.webPort);
   await run(["run", "build"]);
-  const { captures, rejectedCount } = await readCaptures(config.contentRoot);
   await run(["run", "db:migrate"]);
-  const { createDatabaseClient, createNoteRepository, checkDatabase } =
-    await import("@pce/db");
+  const { createDatabaseClient, checkDatabase } = await import("@pce/db");
   const { createApp } = await import("../apps/api/dist/app.js");
   const { createServer: createVite } = await import("vite");
   db = createDatabaseClient();
   await db.$connect();
-  const repo = createNoteRepository(db);
   const ids = [];
-  for (const capture of captures) {
-    const result = await repo.importMarkdown(capture);
-    ids.push(result.noteId);
-  }
-  console.log(
-    `Local workspace ready: ${ids.length} notes imported or replayed; ${rejectedCount} invalid captures skipped. Content checkout unchanged.`,
-  );
+  ingestion = startLocalIngestion({
+    db,
+    contentRoot: config.contentRoot,
+    ids,
+    env: process.env,
+  });
+  await ingestion.refresh();
+  if (ingestion.status.error) throw new Error("Initial ingestion failed");
   const secret = randomBytes(32).toString("hex");
   api = createApp({
     config: {
@@ -103,7 +102,8 @@ try {
         name: "pce-local-session",
         configureServer(server) {
           server.middlewares.use((req, res, next) => {
-            if (req.url !== "/__pce/session") return next();
+            if (!["/__pce/session", "/__pce/ingestion"].includes(req.url))
+              return next();
             res.setHeader("Cache-Control", "no-store");
             res.setHeader("X-Content-Type-Options", "nosniff");
             if (!sessionAllowed(req, config.origin)) {
@@ -112,7 +112,13 @@ try {
               return;
             }
             res.setHeader("Content-Type", "application/json");
-            res.end(JSON.stringify({ token: mintSession(secret) }));
+            res.end(
+              JSON.stringify(
+                req.url === "/__pce/ingestion"
+                  ? ingestion.status
+                  : { token: mintSession(secret) },
+              ),
+            );
           });
         },
       },
@@ -120,6 +126,7 @@ try {
   });
   await api.listen({ host: "127.0.0.1", port: config.apiPort });
   await web.listen();
+  ingestion.start();
   console.log(
     `Open ${config.origin} — local read-only session connects automatically.`,
   );

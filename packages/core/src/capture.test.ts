@@ -62,6 +62,36 @@ function invalid(source: string, code: NoteValidationError["code"]): void {
 }
 
 describe("version 1 Markdown capture contract", () => {
+  it("accepts bare and mixed quoted flow slugs without changing source text", () => {
+    const input = idea
+      .replace("domains:\n  - development", "domains: [learning]")
+      .replace("tags:\n  - training", "tags: ['synthetic', extra-tag]");
+    const parsed = parseNoteMarkdown(input);
+    expect(parsed.metadata.domains).toEqual(["learning"]);
+    expect(parsed.metadata.tags).toEqual(["synthetic", "extra-tag"]);
+    expect(parsed.originalInput).toBe(parseNoteMarkdown(idea).originalInput);
+    expect(parseNoteMarkdown(serializeNoteMarkdown(parsed))).toEqual(parsed);
+  });
+
+  it("rejects unsafe or ambiguous flow-array syntax", () => {
+    for (const value of [
+      "[&anchor x]",
+      "[*alias]",
+      "[!tag x]",
+      "[{x: y}]",
+      "[x,]",
+      "[x # comment]",
+      "[x, [y]]",
+      "[x: y]",
+    ]) {
+      expect(() =>
+        parseNoteMarkdown(
+          idea.replace("domains:\n  - development", "domains: " + value),
+        ),
+      ).toThrow(NoteValidationError);
+    }
+  });
+
   it("round-trips synthetic idea verbatim, including source offset and original text", () => {
     const note = parseNoteMarkdown(idea);
     const serialized = serializeNoteMarkdown(note);

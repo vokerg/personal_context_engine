@@ -129,7 +129,10 @@ class FakeGitHub {
       return bytes
         ? json({
             encoding: "base64",
-            content: bytes.toString("base64"),
+            // GitHub wraps its base64 blob payload at 60 columns.
+            content:
+              (bytes.toString("base64").match(/.{1,60}/g) ?? []).join("\n") +
+              "\n",
             size: bytes.length,
           })
         : json({}, 404);
