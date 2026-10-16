@@ -17,9 +17,8 @@ describe("public API boundary", () => {
         expect(response.json()).toEqual({ error: { code: "NOT_FOUND" } });
         expect(response.headers["cache-control"]).toBe("no-store");
       }
-      expect((await app.inject("/health")).headers["x-content-type-options"]).toBe(
-        "nosniff",
-      );
+      const healthHeaders = (await app.inject("/health")).headers;
+      expect(healthHeaders["x-content-type-options"]).toBe("nosniff");
     } finally {
       await app.close();
     }
