@@ -82,8 +82,11 @@ issued by a trusted server-side token issuer. The strict profile requires:
 `typ=JWT`, `alg=HS256`, matching single-string `iss` and `aud`,
 nonempty opaque `sub`, space-delimited `scope`, integer `iat` and `exp`,
 expiration in the future, lifetime at most one hour, and non-future `nbf`
-when supplied. Tokens must be delivered over HTTPS outside disposable
-loopback development. The signing secret must never enter Vite, Expo, GitHub
+when supplied. The shared authenticated API client rejects non-loopback
+plain HTTP **before obtaining a token**, so bearer credentials are not sent
+unencrypted; HTTP is permitted only for literal `localhost`, `127.0.0.1`,
+or `[::1]` development targets. Tokens must be delivered over HTTPS outside
+disposable loopback development. The signing secret must never enter Vite, Expo, GitHub
 Actions, API responses, crash reports or client storage outside a secure
 session credential holder. No issuance/login/revocation API is implemented;
 integrate a trusted issuer before a real user session is enabled. Rotating
