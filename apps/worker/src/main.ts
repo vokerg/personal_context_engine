@@ -9,7 +9,9 @@ import { runIngestionBatch, workerStatus } from "./worker.js";
 // destination backend and DB config; no implicit private repository access.
 const mode = process.env.WORKER_MODE;
 if (!mode) {
-  console.log(`Worker scaffold started (${workerStatus().state}; no ingestion configured)`);
+  console.log(
+    `Worker scaffold started (${workerStatus().state}; no ingestion configured)`,
+  );
   const heartbeat = setInterval(() => {}, 60_000);
   const stop = () => {
     clearInterval(heartbeat);
@@ -32,10 +34,13 @@ async function start(mode: string): Promise<void> {
   let store: ContentStore;
   if (process.env.WORKER_CONTENT_BACKEND === "filesystem") {
     const root = process.env.WORKER_CONTENT_ROOT;
-    if (!root || !isAbsolute(root)) throw new Error("Absolute content sandbox required.");
+    if (!root || !isAbsolute(root))
+      throw new Error("Absolute content sandbox required.");
     store = new FilesystemContentStore(root);
   } else if (process.env.WORKER_CONTENT_BACKEND === "github") {
-    if (process.env.WORKER_ALLOW_GITHUB_WRITES !== "I_VERIFIED_PRIVATE_REPOSITORY") {
+    if (
+      process.env.WORKER_ALLOW_GITHUB_WRITES !== "I_VERIFIED_PRIVATE_REPOSITORY"
+    ) {
       throw new Error("Explicit private repository opt-in required.");
     }
     store = githubContentStoreFromEnv();

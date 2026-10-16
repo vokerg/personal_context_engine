@@ -7,8 +7,12 @@ describe("worker scaffold", () => {
   });
 
   it("derives canonical date partitions from the captured offset, not UTC", () => {
-    expect(canonicalNotePath("2026-10-15T00:30:00+14:00", "01K00000000000000000000001"))
-      .toBe("notes/2026/10/01K00000000000000000000001.md");
+    expect(
+      canonicalNotePath(
+        "2026-10-15T00:30:00+14:00",
+        "01K00000000000000000000001",
+      ),
+    ).toBe("notes/2026/10/01K00000000000000000000001.md");
   });
 
   it("caps exponential retries", () => {

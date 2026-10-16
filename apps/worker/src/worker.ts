@@ -11,7 +11,11 @@ import {
   type ImportMarkdownInput,
   type ImportOutcome,
 } from "@pce/db";
-import { ContentStoreError, type ContentRef, type ContentStore } from "./content-store/port.js";
+import {
+  ContentStoreError,
+  type ContentRef,
+  type ContentStore,
+} from "./content-store/port.js";
 
 export function workerStatus() {
   return { state: "idle" as const, imported: 0 };
@@ -47,10 +51,15 @@ function bounded(value: number, upper: number): boolean {
 }
 
 /** Uses captured local calendar date, not UTC date or an inferred deadline. */
-export function canonicalNotePath(capturedAtRaw: string, noteId: string): string {
+export function canonicalNotePath(
+  capturedAtRaw: string,
+  noteId: string,
+): string {
   if (
     !/^\d{4}-(0[1-9]|1[0-2])-\d{2}T/.test(capturedAtRaw) ||
-    !/^(?:[0-7][0-9A-HJKMNP-TV-Z]{25}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/.test(noteId)
+    !/^(?:[0-7][0-9A-HJKMNP-TV-Z]{25}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/.test(
+      noteId,
+    )
   ) {
     throw new Error("Invalid canonical note metadata.");
   }
@@ -58,22 +67,30 @@ export function canonicalNotePath(capturedAtRaw: string, noteId: string): string
 }
 
 export function retryDelayMs(attemptCount: number): number {
-  return Math.min(60 * 60_000, 5_000 * 2 ** Math.min(10, Math.max(0, attemptCount - 1)));
+  return Math.min(
+    60 * 60_000,
+    5_000 * 2 ** Math.min(10, Math.max(0, attemptCount - 1)),
+  );
 }
 
 function errorCode(error: unknown): string {
   if (error instanceof NoteValidationError) return "VALIDATION_" + error.code;
-  if (error instanceof ProjectionConflictError) return "PROJECTION_" + error.code;
+  if (error instanceof ProjectionConflictError)
+    return "PROJECTION_" + error.code;
   if (error instanceof ContentStoreError) return "CONTENT_" + error.code;
   if (
     error instanceof Prisma.PrismaClientKnownRequestError &&
     /^[A-Z][0-9]{4}$/.test(error.code)
-  ) return "DB_" + error.code;
+  )
+    return "DB_" + error.code;
   return "TRANSIENT_FAILURE";
 }
 
 function isUniqueConflict(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  );
 }
 
 /**
@@ -81,22 +98,39 @@ function isUniqueConflict(error: unknown): boolean {
  * injected, allowing synthetic filesystem/PostgreSQL tests. No LLM calls and
  * no task/reminder execution occur here.
  */
-export async function runIngestionBatch(options: IngestionOptions): Promise<WorkerReport> {
+export async function runIngestionBatch(
+  options: IngestionOptions,
+): Promise<WorkerReport> {
   const { store, db } = options;
   const now = options.now ?? (() => new Date());
   const owner = options.workerId ?? randomUUID();
   const batchSize = options.batchSize ?? 50;
   const scanLimit = options.scanLimit ?? 500;
-  if (!bounded(batchSize, MAX_BATCH) || !bounded(scanLimit, MAX_SCAN) || !owner || owner.length > 128) {
+  if (
+    !bounded(batchSize, MAX_BATCH) ||
+    !bounded(scanLimit, MAX_SCAN) ||
+    !owner ||
+    owner.length > 128
+  ) {
     throw new Error("Invalid ingestion batch configuration.");
   }
-  const project = options.importMarkdown ?? createNoteRepository(db).importMarkdown;
+  const project =
+    options.importMarkdown ?? createNoteRepository(db).importMarkdown;
   const report: WorkerReport = {
-    scanned: 0, imported: 0, finalized: 0, reconciled: 0,
-    rejected: 0, retried: 0, deferred: 0,
+    scanned: 0,
+    imported: 0,
+    finalized: 0,
+    reconciled: 0,
+    rejected: 0,
+    retried: 0,
+    deferred: 0,
   };
 
-  function leaseWhere(path: string, revision: string, status: "LEASED" | "PERSISTED") {
+  function leaseWhere(
+    path: string,
+    revision: string,
+    status: "LEASED" | "PERSISTED",
+  ) {
     return {
       sourcePath: path,
       sourceRevision: revision,
@@ -112,10 +146,17 @@ export async function runIngestionBatch(options: IngestionOptions): Promise<Work
     failure: unknown,
   ): Promise<void> {
     const record = await db.processingAttempt.findUnique({
-      where: { sourcePath_sourceRevision: { sourcePath: ref.path, sourceRevision: ref.revision } },
+      where: {
+        sourcePath_sourceRevision: {
+          sourcePath: ref.path,
+          sourceRevision: ref.revision,
+        },
+      },
       select: { attemptCount: true },
     });
-    const delayedUntil = new Date(now().getTime() + retryDelayMs(record?.attemptCount ?? 1));
+    const delayedUntil = new Date(
+      now().getTime() + retryDelayMs(record?.attemptCount ?? 1),
+    );
     const update = await db.processingAttempt.updateMany({
       where: leaseWhere(ref.path, ref.revision, status),
       data: {
@@ -143,9 +184,16 @@ export async function runIngestionBatch(options: IngestionOptions): Promise<Work
     if (update.count === 1) report.rejected += 1;
   }
 
-  async function finishPersisted(ref: ContentRef, noteId: string): Promise<void> {
+  async function finishPersisted(
+    ref: ContentRef,
+    noteId: string,
+  ): Promise<void> {
     const note = await db.note.findUnique({ where: { id: noteId } });
-    if (!note || note.sourcePath !== ref.path || note.sourceRevision !== ref.revision) {
+    if (
+      !note ||
+      note.sourcePath !== ref.path ||
+      note.sourceRevision !== ref.revision
+    ) {
       throw new ProjectionConflictError("SOURCE_CONFLICT");
     }
     const destinationPath = canonicalNotePath(note.capturedAtRaw, noteId);
@@ -160,7 +208,8 @@ export async function runIngestionBatch(options: IngestionOptions): Promise<Work
       where: { id: noteId, sourcePath: ref.path, sourceRevision: ref.revision },
       data: { state: "FINALIZED", canonicalPath: destinationPath },
     });
-    if (updated.count !== 1) throw new ProjectionConflictError("REVISION_CONFLICT");
+    if (updated.count !== 1)
+      throw new ProjectionConflictError("REVISION_CONFLICT");
     const completed = await db.processingAttempt.updateMany({
       where: leaseWhere(ref.path, ref.revision, "PERSISTED"),
       data: {
@@ -194,11 +243,15 @@ export async function runIngestionBatch(options: IngestionOptions): Promise<Work
   for (const attempt of pending) {
     const acquired = await db.processingAttempt.updateMany({
       where: {
-        id: attempt.id, status: "PERSISTED",
+        id: attempt.id,
+        status: "PERSISTED",
         OR: [{ leaseUntil: null }, { leaseUntil: { lte: now() } }],
         AND: [{ OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now() } }] }],
       },
-      data: { leaseOwner: owner, leaseUntil: new Date(now().getTime() + LEASE_MS) },
+      data: {
+        leaseOwner: owner,
+        leaseUntil: new Date(now().getTime() + LEASE_MS),
+      },
     });
     if (acquired.count !== 1) continue;
     processed += 1;
@@ -233,18 +286,24 @@ export async function runIngestionBatch(options: IngestionOptions): Promise<Work
       }
       const claimed = await db.processingAttempt.updateMany({
         where: {
-          sourcePath: ref.path, sourceRevision: ref.revision,
+          sourcePath: ref.path,
+          sourceRevision: ref.revision,
           OR: [
             { status: "PENDING" },
-            { status: "RETRY", OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now() } }] },
+            {
+              status: "RETRY",
+              OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now() } }],
+            },
             { status: "LEASED", leaseUntil: { lte: now() } },
           ],
         },
         data: {
-          status: "LEASED", leaseOwner: owner,
+          status: "LEASED",
+          leaseOwner: owner,
           leaseUntil: new Date(now().getTime() + LEASE_MS),
           attemptCount: { increment: 1 },
-          nextRetryAt: null, lastErrorCode: null,
+          nextRetryAt: null,
+          lastErrorCode: null,
         },
       });
       if (claimed.count !== 1) {
@@ -257,7 +316,10 @@ export async function runIngestionBatch(options: IngestionOptions): Promise<Work
         const file = await store.read(ref.path);
         if (file.revision !== ref.revision) {
           // A stale discovery revision must never move a newer file.
-          await markRejected(ref, new ContentStoreError("REVISION_CONFLICT", "Revision changed."));
+          await markRejected(
+            ref,
+            new ContentStoreError("REVISION_CONFLICT", "Revision changed."),
+          );
           continue;
         }
         let parsed;
@@ -267,7 +329,10 @@ export async function runIngestionBatch(options: IngestionOptions): Promise<Work
         } catch (error) {
           if (!(error instanceof NoteValidationError)) throw error;
           try {
-            await store.reject({ sourcePath: ref.path, expectedRevision: ref.revision });
+            await store.reject({
+              sourcePath: ref.path,
+              expectedRevision: ref.revision,
+            });
             await markRejected(ref, error);
           } catch (transitionError) {
             await markRetry(ref, "LEASED", transitionError);
@@ -282,9 +347,14 @@ export async function runIngestionBatch(options: IngestionOptions): Promise<Work
         });
         const recorded = await db.processingAttempt.updateMany({
           where: leaseWhere(ref.path, ref.revision, "LEASED"),
-          data: { status: "PERSISTED", noteId: result.noteId, committedAt: now() },
+          data: {
+            status: "PERSISTED",
+            noteId: result.noteId,
+            committedAt: now(),
+          },
         });
-        if (recorded.count !== 1) throw new Error("Ingestion lease expired after DB commit.");
+        if (recorded.count !== 1)
+          throw new Error("Ingestion lease expired after DB commit.");
         if (result.result !== "replayed") report.imported += 1;
       } catch (error) {
         if (error instanceof ProjectionConflictError) {
