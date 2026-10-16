@@ -176,7 +176,12 @@ export class GitHubChatContextWriter {
       existing.metadata.title !== note.metadata.title ||
       existing.metadata.kind !== "memo" ||
       existing.metadata.source !== "chatgpt_text" ||
-      !existing.metadata.tags.includes(input.mode) ||
+      existing.metadata.tags.length !== 2 ||
+      existing.metadata.tags[0] !== "chat-context" ||
+      existing.metadata.tags[1] !== input.mode ||
+      existing.metadata.review_required !== (input.mode === "brief") ||
+      existing.metadata.action_hint !== "none" ||
+      existing.body !== note.body ||
       existing.summary !== note.summary ||
       existing.originalInput !== input.source_text
     )
