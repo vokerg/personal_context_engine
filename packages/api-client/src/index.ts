@@ -59,6 +59,12 @@ async function authenticatedGet<T>(
     url.password
   )
     throw new TypeError("API URL must be HTTP(S) without credentials");
+  if (
+    url.protocol !== "https:" &&
+    !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
+  ) {
+    throw new TypeError("Authenticated API requests require HTTPS except loopback");
+  }
   const token = await options.getAccessToken();
   if (token === null) throw new ApiRequestError(401, "UNAUTHORIZED");
   if (token.length > 4096 || !/^[A-Za-z0-9._-]+$/.test(token)) {
