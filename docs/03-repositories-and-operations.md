@@ -148,28 +148,27 @@ mode. No private note routes are exposed before #13.
 
 See [full projection contract](../packages/db/README.md).
 
-
 ### Interim auth configuration and local synthetic testing (#13)
 
-\`NODE_ENV=production\` requires all of \`API_AUTH_ISSUER\`,
-\`API_AUTH_AUDIENCE\`, and \`API_AUTH_HS256_SECRET\` (server-only secret,
+`NODE_ENV=production` requires all of `API_AUTH_ISSUER`,
+`API_AUTH_AUDIENCE`, and `API_AUTH_HS256_SECRET` (server-only secret,
 minimum 32 UTF-8 bytes). Any partially configured group is rejected. In
 development/test, all three may be absent: the normal entry point exposes
 public diagnostics only. Set the variables in a trusted local shell/secret
-manager, **never** in \`.env.example\`, public CI secrets, mobile or web
-bundles. The issuer must mint standard HS256 JWTs with matching \`iss\`,
-\`aud\`, verified \`sub\`, \`scope: "notes:read"\`, \`iat\` and \`exp\` (at
+manager, **never** in `.env.example`, public CI secrets, mobile or web
+bundles. The issuer must mint standard HS256 JWTs with matching `iss`,
+`aud`, verified `sub`, `scope: "notes:read"`, `iat` and `exp` (at
 most 3600 seconds apart). This API does not issue tokens.
 
-\`createApp({ dependencies: { notes, verifyToken } })\` enables
-synthetic scoped reads in tests; omitting \`notes\` disables all private
+`createApp({ dependencies: { notes, verifyToken } })` enables
+synthetic scoped reads in tests; omitting `notes` disables all private
 routes. The reader's methods must filter by the verified subject.
-\`GET /api/v1/notes\` and \`GET /api/v1/notes/:id\` have typed contracts
-in \`@pce/contracts\`. Both clients can use \`getNotes({ baseUrl,
-getAccessToken })\` and \`getNote(options, id)\`; tokens are provided per
-request, with optional \`request\` (mock transport) and \`signal\` (abort).
+`GET /api/v1/notes` and `GET /api/v1/notes/:id` have typed contracts
+in `@pce/contracts`. Both clients can use `getNotes({ baseUrl,
+getAccessToken })` and `getNote(options, id)`; tokens are provided per
+request, with optional `request` (mock transport) and `signal` (abort).
 A production deployment additionally requires TLS ingress rate limiting,
 a trusted token issuer, secure key storage, and persisted data ownership
 before connecting the live notes projection. Local test:
-\`npx vitest run apps/api/src/app.test.ts apps/api/src/config.test.ts
-packages/api-client/src/index.test.ts\`.
+`npx vitest run apps/api/src/app.test.ts apps/api/src/config.test.ts
+packages/api-client/src/index.test.ts`.
