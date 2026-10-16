@@ -75,7 +75,10 @@ export function createApp(options: ApiOptions = {}) {
     reply.code(404).send(errorResponse("NOT_FOUND")),
   );
   app.setErrorHandler((error, _request, reply) => {
-    const status = error.statusCode;
+    const status =
+      typeof error === "object" && error !== null && "statusCode" in error
+        ? error.statusCode
+        : undefined;
     const safeStatus =
       typeof status === "number" && status >= 400 && status < 600
         ? status
