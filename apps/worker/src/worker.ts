@@ -170,7 +170,7 @@ export async function runIngestionBatch(
     if (update.count === 1) report.retried += 1;
   }
 
-  async function markRejected(ref: ContentRef, error: unknown): Promise<void> {
+  async function markRejected(ref: ContentRef, error: unknown): Promise<boolean> {
     const update = await db.processingAttempt.updateMany({
       where: leaseWhere(ref.path, ref.revision, "LEASED"),
       data: {
@@ -182,6 +182,7 @@ export async function runIngestionBatch(
       },
     });
     if (update.count === 1) report.rejected += 1;
+    return update.count === 1;
   }
 
   async function finishPersisted(
@@ -308,6 +309,31 @@ export async function runIngestionBatch(
         },
       });
       if (claimed.count !== 1) {
+        // A validator failure is durable before the rejected/ move.
+        // Reconcile a failed/interrupted move without parsing or deleting
+        // changed source bytes. Identity conflicts remain for human repair.
+        const prior = await db.processingAttempt.findUnique({
+          where: {
+            sourcePath_sourceRevision: {
+              sourcePath: ref.path,
+              sourceRevision: ref.revision,
+            },
+          },
+          select: { status: true, lastErrorCode: true },
+        });
+        if (
+          prior?.status === "REJECTED" &&
+          prior.lastErrorCode?.startsWith("VALIDATION_")
+        ) {
+          try {
+            await store.reject({
+              sourcePath: ref.path,
+              expectedRevision: ref.revision,
+            });
+          } catch {
+            report.retried += 1;
+          }
+        }
         report.deferred += 1;
         continue;
       }
@@ -329,14 +355,20 @@ export async function runIngestionBatch(
           verifyInboxNotePath(ref.path, parsed.metadata);
         } catch (error) {
           if (!(error instanceof NoteValidationError)) throw error;
-          try {
-            await store.reject({
-              sourcePath: ref.path,
-              expectedRevision: ref.revision,
-            });
-            await markRejected(ref, error);
-          } catch (transitionError) {
-            await markRetry(ref, "LEASED", transitionError);
+          // Commit the validation error before moving the source, so a
+          // crash or DB outage cannot strand a moved file without a reason.
+          const recorded = await markRejected(ref, error);
+          if (recorded) {
+            try {
+              await store.reject({
+                sourcePath: ref.path,
+                expectedRevision: ref.revision,
+              });
+            } catch {
+              // REJECTED remains durable; the next bounded scan retries
+              // only this revision's pending content transition.
+              report.retried += 1;
+            }
           }
           continue;
         }
