@@ -167,7 +167,9 @@ routes. The reader's methods must filter by the verified subject.
 in `@pce/contracts`. Both clients can use `getNotes({ baseUrl,
 getAccessToken })` and `getNote(options, id)`; tokens are provided per
 request, with optional `request` (mock transport) and `signal` (abort).
-A production deployment additionally requires TLS ingress rate limiting,
+The client refuses non-loopback HTTP before retrieving a bearer token; local
+HTTP is limited to localhost or literal IPv4/IPv6 loopback. A production
+deployment additionally requires TLS ingress rate limiting,
 a trusted token issuer, secure key storage, and persisted data ownership
 before connecting the live notes projection. Local test:
 `npx vitest run apps/api/src/app.test.ts apps/api/src/config.test.ts
