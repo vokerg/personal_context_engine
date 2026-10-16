@@ -121,3 +121,7 @@ narrow CORS, non-trusted proxy headers) does not substitute for these
 controls; CORS is not authentication and JWT possession alone does not
 provide logout/revocation. The final identity provider and token refresh
 mechanism remain deferred.
+
+## ChatGPT custom MCP write adapter (issue #28)
+
+A separate remote MCP endpoint may write only to the configured **private** inbox with OAuth owner/issuer/audience/scope verification and server-side GitHub credentials. The endpoint must remain loopback-only behind an HTTPS proxy; do not confuse the OAuth identity token with the GitHub content token. Full chat transcripts are **not** automatically available to plugins and must be explicitly supplied and confirmed before saving. Private Git history may retain saved transcripts. See [MCP setup and threat boundaries](13-chatgpt-mcp.md).
