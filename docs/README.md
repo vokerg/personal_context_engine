@@ -36,3 +36,5 @@ Where a contract remains proposed, implement a test-backed specification before 
 - Distinguish `captured_at` from `occurred_at` and `due_at`. Timestamps should include UTC offsets; projections normalize to UTC while retaining the user's IANA timezone.
 - Use RFC 2119-style MUST/SHOULD language for guarantees and write down exceptions.
 - Prefer small adapter contracts and domain invariants to speculative infrastructure.
+
+- [13 — ChatGPT custom MCP capture app](13-chatgpt-mcp.md) — save user-selected conversation excerpts or confirmed transcripts through authenticated tools.
