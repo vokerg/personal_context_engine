@@ -1,0 +1,22 @@
+# TEMPORARY, deleted once a resolved lockfile is committed.
+name: Temporary lockfile resolution
+on:
+  push:
+    branches: [feat/issue-8-prisma-foundation]
+permissions:
+  contents: read
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Export resolved lockfile as transport chunks
+        run: |
+          node -e 'const s=require("fs").readFileSync("package-lock.json").toString("base64"); for(let i=0,j=0;i<s.length;i+=6000,j++) console.log("PCE_LOCK_CHUNK_"+String(j).padStart(4,"0")+"="+s.slice(i,i+6000))'
