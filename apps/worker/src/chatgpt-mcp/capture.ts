@@ -24,23 +24,39 @@ export interface ChatContextInput {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export class CaptureInputError extends Error {
-  constructor(public readonly code: "INVALID_INPUT" | "TRANSCRIPT_NOT_CONFIRMED") {
+  constructor(
+    public readonly code: "INVALID_INPUT" | "TRANSCRIPT_NOT_CONFIRMED",
+  ) {
     super(code);
   }
 }
 
 function uuidFromKey(key: string, namespace: string): string {
-  const hex = createHash("sha256").update(namespace).update(":").update(key).digest("hex").slice(0, 32);
+  const hex = createHash("sha256")
+    .update(namespace)
+    .update(":")
+    .update(key)
+    .digest("hex")
+    .slice(0, 32);
   // UUID version 5-shaped stable ID (SHA-256-derived; not RFC 4122 UUIDv5).
-  const value = hex.slice(0, 12) + "5" + hex.slice(13, 16) + "8" + hex.slice(17);
-  return [value.slice(0, 8), value.slice(8, 12), value.slice(12, 16), value.slice(16, 20), value.slice(20)].join("-");
+  const value =
+    hex.slice(0, 12) + "5" + hex.slice(13, 16) + "8" + hex.slice(17);
+  return [
+    value.slice(0, 8),
+    value.slice(8, 12),
+    value.slice(12, 16),
+    value.slice(16, 20),
+    value.slice(20),
+  ].join("-");
 }
 
 function textField(value: unknown, max: number): value is string {
-  return typeof value === "string" &&
+  return (
+    typeof value === "string" &&
     value.trim().length > 0 &&
     Buffer.byteLength(value, "utf8") <= max &&
-    !value.includes("\u0000");
+    !value.includes("\u0000")
+  );
 }
 
 /** Pure, deterministic except for the injected server-side capture clock. */
@@ -48,16 +64,21 @@ export function buildChatContextNote(
   raw: unknown,
   capturedAt: string,
 ): { path: string; markdown: string; note: Note } {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new CaptureInputError("INVALID_INPUT");
+  if (!raw || typeof raw !== "object" || Array.isArray(raw))
+    throw new CaptureInputError("INVALID_INPUT");
   const input = raw as Partial<ChatContextInput>;
   if (
-    typeof input.request_id !== "string" || !UUID.test(input.request_id) ||
+    typeof input.request_id !== "string" ||
+    !UUID.test(input.request_id) ||
     (input.mode !== "brief" && input.mode !== "full") ||
-    !textField(input.title, 200) || input.title.includes("\n") || input.title !== input.title.trim() ||
+    !textField(input.title, 200) ||
+    input.title.includes("\n") ||
+    input.title !== input.title.trim() ||
     !textField(input.summary, 20_000) ||
     !textField(input.source_text, 700_000) ||
-    input.source_text.includes("\r") && !input.source_text.includes("\n")
-  ) throw new CaptureInputError("INVALID_INPUT");
+    (input.source_text.includes("\r") && !input.source_text.includes("\n"))
+  )
+    throw new CaptureInputError("INVALID_INPUT");
 
   if (input.mode === "full" && input.full_transcript_confirmed !== true) {
     throw new CaptureInputError("TRANSCRIPT_NOT_CONFIRMED");
@@ -80,13 +101,18 @@ export function buildChatContextNote(
     review_required: input.mode === "brief",
     title: input.title,
   };
-  const body = "\n# " + input.title +
-    "\n\n## Summary\n\n" + input.summary +
-    "\n\n## Context\n\nCapture mode: " + input.mode +
+  const body =
+    "\n# " +
+    input.title +
+    "\n\n## Summary\n\n" +
+    input.summary +
+    "\n\n## Context\n\nCapture mode: " +
+    input.mode +
     (input.mode === "brief"
       ? "\nCoverage: selected verbatim excerpt, NOT the complete chat."
       : "\nCoverage: full transcript explicitly confirmed by the user.") +
-    "\n\n## Original input\n\n" + input.source_text;
+    "\n\n## Original input\n\n" +
+    input.source_text;
   // Reparse the serialized artifact through the canonical strict v1 validator.
   const proposed: Note = {
     metadata,
