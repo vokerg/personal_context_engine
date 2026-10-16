@@ -3,7 +3,7 @@ import { createApp } from "./app.js";
 import { loadApiConfig } from "./config.js";
 
 describe("public API boundary", () => {
-  it("returns typed operational responses without any private note route", async () => {
+  it("returns typed public endpoints and denies private notes", async () => {
     const app = createApp();
     try {
       expect((await app.inject("/health")).json()).toEqual({ status: "ok" });
@@ -30,7 +30,7 @@ describe("public API boundary", () => {
     expect(() => createApp({ config })).toThrow(/readiness adapter/);
   });
 
-  it("distinguishes failed readiness from liveness and hides dependency errors", async () => {
+  it("separates failed readiness from liveness without leaks", async () => {
     const config = loadApiConfig({ API_REQUIRE_DB: "true" });
     const checkDatabase = async (): Promise<boolean> => {
       throw new Error("synthetic sensitive database connection string");
@@ -48,7 +48,7 @@ describe("public API boundary", () => {
     }
   });
 
-  it("reports healthy mandatory dependencies through an injected probe", async () => {
+  it("uses an injected healthy dependency probe", async () => {
     const config = loadApiConfig({ API_REQUIRE_DB: "true" });
     let called = 0;
     const app = createApp({
@@ -68,7 +68,7 @@ describe("public API boundary", () => {
     }
   });
 
-  it("normalizes unexpected exceptions without leaking their content", async () => {
+  it("normalizes exceptions without leaking details", async () => {
     const app = createApp();
     app.get("/synthetic-failure", async () => {
       throw new Error("synthetic-private-token");
@@ -83,7 +83,7 @@ describe("public API boundary", () => {
     }
   });
 
-  it("normalizes schema validation errors without echoing bad request bodies", async () => {
+  it("redacts invalid request bodies on schema errors", async () => {
     const app = createApp();
     app.post(
       "/synthetic-validated-input",
@@ -112,7 +112,7 @@ describe("public API boundary", () => {
     }
   });
 
-  it("allows only the explicitly configured CORS origin and GET preflights", async () => {
+  it("allows configured CORS origins and GET preflights", async () => {
     const config = loadApiConfig({ API_CORS_ORIGIN: "http://127.0.0.1:4200" });
     const app = createApp({ config });
     try {
