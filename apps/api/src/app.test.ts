@@ -378,6 +378,41 @@ describe("authenticated private read boundary", () => {
     }
   });
 
+  it("fails closed when an injected verifier returns an invalid principal", async () => {
+    const listByOwner = vi.fn(async () => []);
+    const getByOwner = vi.fn(async () => null);
+    let syntheticPrincipal: unknown = null;
+    const app = createApp({
+      config: loadApiConfig({}),
+      dependencies: {
+        verifyToken: async () => syntheticPrincipal as AuthenticatedPrincipal | null,
+        notes: { listByOwner, getByOwner },
+      },
+    });
+    try {
+      for (const invalidPrincipal of [
+        { subject: "", scopes: ["notes:read"] },
+        { subject: "alice\n", scopes: ["notes:read"] },
+        { subject: "alice", scopes: null },
+        { subject: "alice", scopes: ["notes:read", 3] },
+      ]) {
+        syntheticPrincipal = invalidPrincipal;
+        for (const url of ["/api/v1/notes", "/api/v1/notes/" + idAlice]) {
+          const response = await app.inject({
+            url,
+            headers: { authorization: "Bearer synthetic" },
+          });
+          expect(response.statusCode).toBe(401);
+          expect(response.json()).toEqual({ error: { code: "UNAUTHORIZED" } });
+        }
+      }
+      expect(listByOwner).not.toHaveBeenCalled();
+      expect(getByOwner).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
   it("verifier rejects algorithm confusion and tampering", async () => {
     const verify = createHmacTokenVerifier(auth);
     const token = signedToken();
