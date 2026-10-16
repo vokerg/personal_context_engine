@@ -70,12 +70,11 @@ preservation, restricted capture deletion and noncascading attempt metadata
 are deliberate compatibility rules. No private API reads, ownership mappings
 or worker finalization are added here; those require #13 and #10.
 
-
 ## Interim authentication constraint (2026-10-16, issue #13)
 
 D-012 implements a token **verification** adapter and opt-in synthetic private
 note routes. Production-like startup requires issuer/audience/key config and
-fails closed if absent. An authenticated \`notes:read\` principal is scoped
+fails closed if absent. An authenticated `notes:read` principal is scoped
 by the trusted reader; missing/forged tokens get 401, insufficient scopes
 403, and other-owner note IDs 404. The API does not mint tokens or connect
 the unowned DB projection to note routes. Adding persisted ownership
