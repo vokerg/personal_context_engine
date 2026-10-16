@@ -18,7 +18,9 @@ async function start(): Promise<void> {
     console.log("Public API listening on configured bind address");
   } catch {
     // Avoid echoing environment values, tokens or connection URLs.
-    console.error("API startup failed: invalid configuration or unavailable required dependency");
+    console.error(
+      "API startup failed: invalid configuration or unavailable required dependency",
+    );
     if (app) await app.close();
     process.exitCode = 1;
   }
