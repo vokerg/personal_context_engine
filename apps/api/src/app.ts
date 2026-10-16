@@ -37,6 +37,7 @@ export function createApp(options: ApiOptions = {}) {
     logger: false,
     trustProxy: false,
     bodyLimit: 16 * 1024,
+    ajv: { customOptions: { coerceTypes: false, removeAdditional: false } },
   });
 
   app.addHook("onRequest", async (request, reply) => {
