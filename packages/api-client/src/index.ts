@@ -1,4 +1,14 @@
-import { HealthResponseSchema, type HealthResponse } from "@pce/contracts";
+import {
+  HealthResponseSchema,
+  type HealthResponse,
+  ApiErrorResponseSchema,
+  NoteDetailSchema,
+  NoteIdSchema,
+  NotesListResponseSchema,
+  type ApiErrorResponse,
+  type NoteDetail,
+  type NotesListResponse,
+} from "@pce/contracts";
 
 /** Explicit URL injection; do not embed backend secrets or presume device localhost. */
 export async function getHealth(
@@ -18,16 +28,6 @@ export async function getHealth(
   return HealthResponseSchema.parse(await response.json());
 }
 
-
-import {
-  ApiErrorResponseSchema,
-  NoteDetailSchema,
-  NoteIdSchema,
-  NotesListResponseSchema,
-  type ApiErrorResponse,
-  type NoteDetail,
-  type NotesListResponse,
-} from "@pce/contracts";
 
 export type AccessTokenProvider = () => string | null | Promise<string | null>;
 
