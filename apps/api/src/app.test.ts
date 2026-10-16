@@ -217,7 +217,10 @@ describe("authenticated private read boundary", () => {
     config: { ...loadApiConfig({}), auth },
     dependencies: {
       notes: {
-        listByOwner: async (subject) => fixtures[subject]?.map(({ body, ...note }) => note) ?? [],
+        listByOwner: async (subject) => fixtures[subject]?.map((note) => ({
+          id: note.id, title: note.title, summary: note.summary,
+          capturedAt: note.capturedAt,
+        })) ?? [],
         getByOwner: async (subject, noteId) =>
           fixtures[subject]?.find((note) => note.id === noteId) ?? null,
       },
@@ -315,7 +318,7 @@ describe("authenticated private read boundary", () => {
       dependencies: {
         verifyToken,
         notes: {
-          listByOwner: async (subject) => subject === "fake-principal" ? [] : [],
+          listByOwner: async () => [],
           getByOwner: async () => null,
         },
       },
