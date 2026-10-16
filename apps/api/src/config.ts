@@ -7,7 +7,10 @@ export interface ApiConfig {
   requiresDatabase: boolean;
 }
 
-function parseOrigin(value: string, environment: ApiConfig["environment"]): string {
+function parseOrigin(
+  value: string,
+  environment: ApiConfig["environment"],
+): string {
   let url: URL;
   try {
     url = new URL(value);
