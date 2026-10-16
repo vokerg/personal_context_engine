@@ -63,7 +63,9 @@ async function authenticatedGet<T>(
     url.protocol !== "https:" &&
     !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
   ) {
-    throw new TypeError("Authenticated API requests require HTTPS except loopback");
+    throw new TypeError(
+      "Authenticated API requests require HTTPS except loopback",
+    );
   }
   const token = await options.getAccessToken();
   if (token === null) throw new ApiRequestError(401, "UNAUTHORIZED");
