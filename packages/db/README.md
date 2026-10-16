@@ -53,8 +53,8 @@ inbox path; computes SHA-256 of the supplied UTF-8 bytes; and uses a
   their optional note foreign key is set null rather than cascading.
   There is **no automatic deletion when a Markdown source disappears**.
 - The `processing_attempts` table reserves unique per-revision attempt
-  state, lease timestamps and retry metadata. Issue #10 must implement the
-  lease state machine and finalize only after persistence.
+  state, lease timestamps and retry metadata. The opt-in issue #10 worker owns the
+  lease state machine and finalizes only after persistence.
 - Never log connection strings, Markdown bodies, SQL error text or private
   repository URLs. The API wires only a database health probe when the
   database is configured. It still exposes **no private notes endpoints**
@@ -64,7 +64,7 @@ inbox path; computes SHA-256 of the supplied UTF-8 bytes; and uses a
 
 **Known limits:** Cross-system Git/DB commits are not atomic; import does not
 yet finalize files, reject bad inputs in ContentStore, or reconcile interrupted
-moves. The issue #10 worker must implement those with source revision checks.
+moves. The issue #10 worker now implements these with revision checks and restart reconciliation; real private-repository deployment remains unverified.
 Ownership/auth storage is deliberately deferred to issue #13, before any
 private HTTP routes. A real PostgreSQL service, migration check and
 concurrency tests are verified only by the hosted Actions job, not by a local
