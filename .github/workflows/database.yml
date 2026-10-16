@@ -60,7 +60,21 @@ jobs:
         run: |
           npm run db:migrate
           npm run db:migrate
+      - name: Check database schema matches Prisma schema
+        run: npx prisma migrate diff --from-schema-datamodel packages/db/prisma/schema.prisma --to-url "$DATABASE_URL" --exit-code
       - run: npm run build -w @pce/core
       - run: npm run build -w @pce/db
+      - run: npm run build -w @pce/contracts
+      - run: npm run build -w @pce/api
+      - name: Database-dependent API readiness smoke
+        run: |
+          API_PORT=32123 node apps/api/dist/main.js > /tmp/pce-db-api.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:32123/ready > /tmp/pce-db-ready.json; then break; fi
+            sleep 0.5
+          done
+          node -e 'const v=require("/tmp/pce-db-ready.json"); if(v.status!=="ready")process.exit(1)'
       - name: PostgreSQL integration tests (synthetic records only)
         run: npx vitest run packages/db/src/index.integration.test.ts
