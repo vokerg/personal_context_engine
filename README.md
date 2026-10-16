@@ -50,6 +50,7 @@ Start at **[docs/README.md](docs/README.md)**. In particular:
 - [Delivery roadmap](docs/10-roadmap.md)
 - [Decision register](docs/11-decisions.md)
 - [ChatGPT Project setup](docs/12-chatgpt-project.md)
+- [ChatGPT custom MCP capture app](docs/13-chatgpt-mcp.md)
 
 Agent instructions: [AGENTS.md](AGENTS.md).
 
