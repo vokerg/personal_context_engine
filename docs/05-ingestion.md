@@ -230,3 +230,14 @@ WORKER_MODE=once WORKER_CONTENT_BACKEND=filesystem \\
 Build first with `npm run build`; schedule subsequent once-mode executions using an external, separately configured job scheduler. To opt into the GitHub-backed store instead, a trusted runtime **must** set `WORKER_CONTENT_BACKEND=github`, `WORKER_ALLOW_GITHUB_WRITES=I_VERIFIED_PRIVATE_REPOSITORY`, `CONTENT_REPOSITORY`, `CONTENT_BRANCH` and a server-only `CONTENT_GITHUB_TOKEN`. This string is an intentional operator acknowledgement, **not** a substitute for verifying privacy or permissions. Never configure the public CI with content credentials.
 
 The PostgreSQL 16 integration job validates the synthetic filesystem path and crash/retry/concurrency cases. Real private GitHub writes, a device, persistent scheduler, process-kill testing at every instruction, and end-to-end private capture remain unverified. Lease expiry during a long content transition can permit concurrent recovery; the ContentStore's compare-and-swap semantics protect against overwritten revisions. As with any non-ACID Git/DB operation, an unrecoverable destination conflict requires manual inspection rather than destructive overwrite.
+
+### Local activation (#40)
+
+`npm run dev:local` with `PCE_INGEST_GITHUB=true` runs this actual worker
+state machine on startup and every 30 seconds against the explicitly
+configured verified private GitHub repository. It persists before committing
+canonical moves, fast-forwards the local checkout, refreshes browsing and
+exposes sanitized pass status in the local UI. Retry/rejection records remain
+durable. The default standalone worker is still idle; this local polling loop
+exists only while the developer process is running. See the operations guide
+for credentials, checkout validation and preview revision bridging.

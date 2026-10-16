@@ -94,7 +94,7 @@ Proposed inbox path: `inbox/<captured-date>_<note-id>.md`, for example `inbox/20
 
 ## Executable v1 conventions
 
-The validator deliberately accepts a **restricted, deterministic subset of YAML**: one top-level mapping with unique, known keys; unquoted plain strings, single-quoted strings, or JSON-style double-quoted strings; literal `true`/`false`, integer `schema_version`, and string arrays as `[]`, JSON flow arrays or indented `- value` lines. It rejects aliases, anchors, tags, nested mappings, folded/literal block scalars, comments, ambiguous scalar syntax, unknown keys and duplicate fields. This restriction protects against unsafe YAML interpretation across parsers; YAML features outside the subset are not silently converted. The canonical serializer emits quoted strings.
+The validator deliberately accepts a **restricted, deterministic subset of YAML**: one top-level mapping with unique, known keys; unquoted plain strings, single-quoted strings, or JSON-style double-quoted strings; literal `true`/`false`, integer `schema_version`, and string arrays as `[]`, JSON flow arrays, bare/single-quoted lowercase slug flow arrays for `domains`, `projects` and `tags`, or indented `- value` lines. It rejects aliases, anchors, tags, nested mappings, folded/literal block scalars, comments, ambiguous scalar syntax, unknown keys and duplicate fields. This restriction protects against unsafe YAML interpretation across parsers; YAML features outside the subset are not silently converted. The canonical serializer emits quoted strings.
 
 - Input is strict UTF-8 (no replacement decoding and no UTF-8 byte-order mark), at most **1 MiB** with frontmatter at most **16 KiB**.
 - IDs are uppercase Crockford ULIDs or canonical lowercase hyphenated UUIDs. The note and capture IDs differ; note IDs must be globally unique across a batch.
@@ -116,3 +116,18 @@ The **version 1 schema** is an executable interchange contract, not a claim that
 - Forward-compatibility requires explicit versioned migrations.
 
 See [domain taxonomy](06-domain-and-taxonomy.md), [ingestion rules](05-ingestion.md), and [ChatGPT Project setup](12-chatgpt-project.md).
+
+### Capture validation and formatting recovery (#40)
+
+Before creating a note, use the executable validator where tools permit:
+`npm run capture:validate -- /path/to/YYYY-MM-DD_<note-id>.md`.
+It reports `valid`, or a content-free `code` and `field`. Correct formatting
+and retry validation before saving. Never invent missing facts or alter the
+original input to force validation. The canonical serializer still emits
+quoted strings; the reader also accepts harmless `[personal, learning]` and
+mixed quoted slug lists. This does not enable general YAML parsing, aliases,
+anchors, tags, nested structures, comments or implicit scalar coercion.
+Existing valid bytes are imported unchanged, including unquoted slug syntax.
+Unrecoverable captures go through the worker's durable rejection flow and
+remain under `rejected/`; a repaired revision is a new explicit capture-repair
+operation, never silent deletion or model-invented content.

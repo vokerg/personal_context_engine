@@ -34,6 +34,7 @@
     "db:validate": "prisma validate --schema=packages/db/prisma/schema.prisma",
     "db:migrate": "prisma migrate deploy --schema=packages/db/prisma/schema.prisma",
     "db:migrate:dev": "prisma migrate dev --schema=packages/db/prisma/schema.prisma",
+    "capture:validate": "npm run build -w @pce/core && node scripts/validate-capture.mjs",
     "capture:verify": "npm run build -w @pce/core && node scripts/verify-chatgpt-capture.mjs"
   },
   "devDependencies": {

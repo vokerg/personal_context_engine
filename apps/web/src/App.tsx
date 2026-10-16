@@ -24,6 +24,13 @@ export function App({
   const [draft, setDraft] = useState("");
   const [token, setToken] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [ingestion, setIngestion] = useState<{
+    enabled: boolean;
+    running: boolean;
+    lastRun: string | null;
+    error: string | null;
+    report: { finalized: number; rejected: number; retried: number } | null;
+  } | null>(null);
   const [listState, setListState] = useState<LoadState>("loading");
   const [listError, setListError] = useState("");
   const [notes, setNotes] = useState<NotePreview[]>([]);
@@ -60,6 +67,30 @@ export function App({
   }
 
   useEffect(() => {
+    if (!localDevelopment) return;
+    let active = true;
+    const refresh = async () => {
+      try {
+        const response = await fetch("/__pce/ingestion", {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        if (response.ok && active) setIngestion(await response.json());
+      } catch {
+        /* Status failure never grants or alters a session. */
+      }
+    };
+    void refresh();
+    const timer = setInterval(() => {
+      void refresh();
+    }, 10000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [localDevelopment]);
+
+  useEffect(() => {
     if (localDevelopment) void connectLocal();
   }, [localDevelopment]);
 
@@ -93,7 +124,7 @@ export function App({
       active = false;
       controller.abort();
     };
-  }, [baseUrl, token]);
+  }, [baseUrl, token, ingestion?.lastRun]);
 
   useEffect(() => {
     if (!token || !selectedId) return;
@@ -158,6 +189,41 @@ export function App({
           ? "Local workspace. Browse your captured notes; editing and reminders are not available yet."
           : "Read-only client preview. No login, token issuance, editing or reminders yet."}
       </p>
+      {localDevelopment && ingestion && (
+        <section aria-label="Ingestion worker status">
+          <h2>Ingestion worker</h2>
+          <p>
+            {ingestion.enabled
+              ? ingestion.running
+                ? "Processing GitHub inbox…"
+                : "Watching GitHub every 30 seconds."
+              : "GitHub ingestion is disabled; showing a local snapshot."}
+          </p>
+          {ingestion.lastRun && (
+            <p>
+              Last successful check:{" "}
+              {new Date(ingestion.lastRun).toLocaleString()}
+            </p>
+          )}
+          {ingestion.report && (
+            <p>
+              Last pass: {ingestion.report.finalized} finalized,{" "}
+              {ingestion.report.rejected} rejected, {ingestion.report.retried}{" "}
+              retries.
+            </p>
+          )}
+          {ingestion.error && (
+            <p role="alert">
+              Ingestion needs attention. Check repository access, clean checkout
+              and note ownership. Previous notes remain available.
+            </p>
+          )}
+          <p>
+            Rejected captures remain recoverable in the repository; use
+            capture:validate to diagnose their fields.
+          </p>
+        </section>
+      )}
       {!token ? (
         <section aria-label="Sign-in required">
           <h2>Sign-in required</h2>

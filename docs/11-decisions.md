@@ -119,3 +119,15 @@ content import never changes the checkout. Legacy ownership is not guessed.
 This is a local development implementation, not a production login/provider
 decision, a mobile session mechanism, a scheduled ingestion deployment or
 reminder delivery. Generic API/worker startup retains existing defaults.
+
+## Developer ingestion and harmless capture syntax (#40)
+
+The v1 parser accepts explicit bare or quoted lowercase slug flow arrays
+for domains/projects/tags while retaining the restricted YAML security
+boundary and unchanged original input. An opt-in `dev:local` worker polls
+the configured verified private repository every 30 seconds while running,
+persists then finalizes notes, refreshes the checkout and reports status.
+This is an implementation of local ingestion, not hosted scheduling,
+reminder delivery or a production authentication decision. Legacy preview
+revisions are bridged only through same-owner/path and exact-byte proof,
+with a narrowly verified Git CRLF checkout conversion where needed.

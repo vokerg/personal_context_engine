@@ -1,3 +1,6 @@
+import { promisify } from "node:util";
+import { execFile } from "node:child_process";
+const execGit = promisify(execFile);
 import { createHash, createHmac } from "node:crypto";
 import { lstat, readdir, readFile, realpath } from "node:fs/promises";
 import { join, resolve, relative, sep } from "node:path";
@@ -11,6 +14,11 @@ export function localConfig(env) {
     throw new Error("Local startup requires development mode.");
   if (env.API_HOST && env.API_HOST !== "127.0.0.1")
     throw new Error("Local startup requires API_HOST=127.0.0.1.");
+  if (
+    env.PCE_INGEST_GITHUB !== undefined &&
+    !["true", "false"].includes(env.PCE_INGEST_GITHUB)
+  )
+    throw new Error("PCE_INGEST_GITHUB must be true or false");
   if (!env.DATABASE_URL) throw new Error("Set DATABASE_URL in the root .env.");
   const port = (value, fallback) => {
     if (value !== undefined && !/^\d{1,5}$/.test(value))
@@ -33,7 +41,7 @@ export function localConfig(env) {
 }
 
 // Validate every file before making any DB write. Never follow content symlinks.
-export async function readCaptures(root) {
+export async function readCaptures(root, { gitSnapshot = false } = {}) {
   const { parseNoteMarkdown, verifyInboxNotePath, NoteValidationError } =
     await import("@pce/core");
   const canonicalRoot = await realpath(root);
@@ -50,7 +58,22 @@ export async function readCaptures(root) {
         const stat = await lstat(path);
         if (stat.size > 1024 * 1024)
           throw new Error("Content file exceeds size limit.");
-        const markdown = await readFile(path, "utf8");
+        let markdown = await readFile(path, "utf8");
+        if (gitSnapshot) {
+          const actual = relative(canonicalRoot, path).split(sep).join("/");
+          const blob = (
+            await execGit(
+              "git",
+              ["-C", canonicalRoot, "show", `HEAD:${actual}`],
+              { maxBuffer: 2 * 1024 * 1024 },
+            )
+          ).stdout;
+          if (
+            markdown.replaceAll("\r\n", "\n") !== blob.replaceAll("\r\n", "\n")
+          )
+            throw new Error("Checkout differs from Git snapshot");
+          markdown = blob;
+        }
         let metadata;
         try {
           ({ metadata } = parseNoteMarkdown(markdown));
@@ -73,7 +96,10 @@ export async function readCaptures(root) {
           markdown,
           sourcePath,
           ownerSubject: subject,
-          sourceRevision: createHash("sha256").update(markdown).digest("hex"),
+          sourceRevision: createHash("sha1")
+            .update(`blob ${Buffer.byteLength(markdown)}\0`)
+            .update(markdown)
+            .digest("hex"),
         });
       }
     }
@@ -151,4 +177,60 @@ export function sessionAllowed(request, origin) {
     ) &&
     ["127.0.0.1", "::ffff:127.0.0.1"].includes(request.socket.remoteAddress)
   );
+}
+
+// The old preview importer used SHA-256; GitHub uses Git blob IDs. Bridge only
+// verified snapshots with the same trusted owner/path, including proven Git
+// checkout line-ending conversions. Never adopt arbitrary changed bytes.
+export function createOwnedImporter(db, { checkoutRoot } = {}) {
+  return async (input) => {
+    const { parseNoteMarkdown, verifyInboxNotePath } =
+      await import("@pce/core");
+    const { createNoteRepository } = await import("@pce/db");
+    const metadata = parseNoteMarkdown(input.markdown).metadata;
+    verifyInboxNotePath(input.sourcePath, metadata);
+    const id = metadata.id;
+    const existing = await db.note.findUnique({ where: { id } });
+    const sameOwnerPath =
+      existing &&
+      existing.ownerSubject === subject &&
+      existing.sourcePath === input.sourcePath;
+    let sameBytes =
+      sameOwnerPath &&
+      existing.contentHash ===
+        createHash("sha256").update(input.markdown).digest("hex");
+    if (sameOwnerPath && !sameBytes && checkoutRoot) {
+      const oldBytes = await readFile(
+        join(checkoutRoot, input.sourcePath),
+        "utf8",
+      );
+      const blob = (
+        await execGit(
+          "git",
+          ["-C", checkoutRoot, "show", `HEAD:${input.sourcePath}`],
+          { maxBuffer: 2 * 1024 * 1024 },
+        )
+      ).stdout;
+      sameBytes =
+        existing.contentHash ===
+          createHash("sha256").update(oldBytes).digest("hex") &&
+        oldBytes.replaceAll("\r\n", "\n") ===
+          input.markdown.replaceAll("\r\n", "\n") &&
+        blob === input.markdown;
+    }
+    if (
+      existing &&
+      existing.sourceRevision === input.sourceRevision &&
+      sameBytes
+    ) {
+      return { noteId: id, result: "replayed" };
+    }
+    return createNoteRepository(db).importMarkdown({
+      ...input,
+      ownerSubject: subject,
+      ...(sameBytes
+        ? { expectedPreviousRevision: existing.sourceRevision }
+        : {}),
+    });
+  };
 }

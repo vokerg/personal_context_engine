@@ -202,6 +202,22 @@ function parseFrontmatter(source: string): Record<string, unknown> {
         } catch {
           // Not an allowed flow array.
         }
+        // Harmless LLM variation: explicit string slugs, never general YAML.
+        if (
+          ["domains", "projects", "tags"].includes(field) &&
+          value.startsWith("[") &&
+          value.endsWith("]")
+        ) {
+          const values = value
+            .slice(1, -1)
+            .split(",")
+            .map((item) => item.trim());
+          const slugs = values.map((item) => parseScalar(item, field));
+          if (slugs.every((item) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item))) {
+            result[field] = slugs;
+            continue;
+          }
+        }
         fail("UNSAFE_YAML", field);
       }
       const items: string[] = [];

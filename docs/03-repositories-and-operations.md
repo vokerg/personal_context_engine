@@ -324,3 +324,37 @@ Validation: `npm run build`, `npx vitest run scripts/local-runtime.test.mjs`,
 `npm test`, `npm run lint`, `npm run typecheck`, `npm run docs:check`.
 The database integration suite verifies persisted ownership replay and
 rejects reassignment/adoption using synthetic records in a disposable DB.
+
+## Live developer GitHub ingestion (#40)
+
+In the local ignored `.env`, set `PCE_INGEST_GITHUB=true`,
+`CONTENT_REPOSITORY=owner/your-private-content-repo`, and `CONTENT_BRANCH=main`.
+Run `npm run dev:local`. Existing local `gh auth` credentials are read only
+into the server process, or set a repository-scoped `CONTENT_GITHUB_TOKEN`.
+The launcher verifies private visibility, exact checkout remote/branch and
+clean worktree before each pass. A dirty checkout, inaccessible repository,
+visibility change or source/ownership conflict is reported without granting
+access or overwriting source. No workflow secrets are provisioned.
+
+A real bounded ingestion worker pass runs before serving the initial UI and
+then every 30 seconds, never overlapping itself. It persists valid inbox
+notes before committing byte-preserving moves to `notes/YYYY/MM/` through
+the GitHub adapter. It then fast-forwards the content checkout and refreshes
+the allowed browsing snapshot. Invalid inputs get durable reason codes and
+are preserved under `rejected/`. The local web shows worker status, last
+successful check and pass counts; it refreshes the note list after a pass.
+Use `capture:validate` to diagnose a rejected file without logging its text.
+
+Git blob revisions and original Git bytes are used for the browsing snapshot.
+Legacy preview-imported revisions may be bridged only with the same owner
+and source path and a matching content hash. For Git's CRLF checkout
+conversion, the previous stored hash must match the exact worktree bytes,
+the new bytes must match `git show HEAD:<source>`, and their only difference
+may be CRLF versus LF. This preserves content and prevents a line-ending
+conversion from becoming an uncoordinated source edit. A finalized row stays
+finalized when the browsing snapshot replays it.
+
+The polling worker lives inside this developer process. Closing the terminal,
+Ctrl-C or stopping it ends polling; it is not an always-on hosted service.
+The separate default `dev:worker` command remains idle. Live local ingestion
+does not infer reminders, create notifications or generate ledgers.

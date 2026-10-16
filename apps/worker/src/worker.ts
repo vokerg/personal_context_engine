@@ -39,10 +39,12 @@ export interface IngestionOptions {
   store: ContentStore;
   db: PrismaClient;
   workerId?: string;
+  /** Scope persisted recovery to this trusted owner when provided. */
+  ownerSubject?: string;
   now?: () => Date;
   batchSize?: number;
   scanLimit?: number;
-  /** Test seam only: inject a failing projection without changing ContentStore. */
+  /** Trusted projection adapter; supports explicit ownership and synthetic failures. */
   importMarkdown?: (input: ImportMarkdownInput) => Promise<ImportOutcome>;
 }
 
@@ -237,6 +239,9 @@ export async function runIngestionBatch(
   const pending = await db.processingAttempt.findMany({
     where: {
       status: "PERSISTED",
+      ...(options.ownerSubject
+        ? { note: { ownerSubject: options.ownerSubject } }
+        : {}),
       OR: [{ leaseUntil: null }, { leaseUntil: { lte: now() } }],
       AND: [{ OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now() } }] }],
     },
