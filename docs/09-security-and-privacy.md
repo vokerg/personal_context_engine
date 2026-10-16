@@ -2,7 +2,7 @@
 
 ## Critical repository privacy precondition
 
-`vokerg/personal_context_engine_content` is **intended** to be private. Repository visibility must be verified as **Private** before putting any personal, sensitive or production content into it. The owner has indicated this visibility change will be done separately. Until verified, use only synthetic test notes.
+`vokerg/personal_context_engine_content` was verified **Private** during the #12/#23 setup. Each new runtime integration must independently verify the configured content repository remains private and fail closed otherwise; public repos and public CI accept **synthetic data only**.
 
 A private GitHub repository reduces public visibility; it is **not** end-to-end encryption, a deletion guarantee, or a substitute for access controls.
 
