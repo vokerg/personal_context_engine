@@ -95,8 +95,8 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
       !secret ||
       issuer.trim() !== issuer ||
       audience.trim() !== audience ||
-      !/^[^\s\x00-\x1f]{1,256}$/.test(issuer) ||
-      !/^[^\s\x00-\x1f]{1,256}$/.test(audience) ||
+      !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/.test(issuer) ||
+      !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/.test(audience) ||
       Buffer.byteLength(secret, "utf8") < 32
     ) {
       throw new Error("API authentication requires issuer, audience and a strong server-side key");
