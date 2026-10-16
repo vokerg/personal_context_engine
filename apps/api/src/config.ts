@@ -99,7 +99,9 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
       !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/.test(audience) ||
       Buffer.byteLength(secret, "utf8") < 32
     ) {
-      throw new Error("API authentication requires issuer, audience and a strong server-side key");
+      throw new Error(
+        "API authentication requires issuer, audience and a strong server-side key",
+      );
     }
     auth = { issuer, audience, secret };
   }
