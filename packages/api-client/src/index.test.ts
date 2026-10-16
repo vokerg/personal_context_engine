@@ -37,40 +37,52 @@ describe("health client", () => {
   });
 });
 
-
 import { ApiRequestError, getNote, getNotes } from "./index.js";
 
 describe("typed authenticated notes client", () => {
   const id = "01K00000000000000000000001";
   const record = {
-    id, title: "Synthetic", summary: "Synthetic summary",
+    id,
+    title: "Synthetic",
+    summary: "Synthetic summary",
     capturedAt: "2026-10-16T10:00:00+02:00",
   };
 
   it("injects a bearer token and validates note responses", async () => {
-    const request = vi.fn(async () => new Response(JSON.stringify({ notes: [record] })));
+    const request = vi.fn(
+      async () => new Response(JSON.stringify({ notes: [record] })),
+    );
     const getAccessToken = vi.fn(async () => "synthetic.jwt.token");
     const options = { baseUrl: "https://api.example", getAccessToken, request };
     await expect(getNotes(options)).resolves.toEqual({ notes: [record] });
     expect(request).toHaveBeenCalledWith(
       new URL("https://api.example/api/v1/notes"),
-      { method: "GET", headers: { Authorization: "Bearer synthetic.jwt.token" } },
+      {
+        method: "GET",
+        headers: { Authorization: "Bearer synthetic.jwt.token" },
+      },
     );
-    const detailRequest = vi.fn(async () =>
-      new Response(JSON.stringify({ ...record, body: "Synthetic body" })));
-    await expect(getNote({ ...options, request: detailRequest }, id))
-      .resolves.toEqual({ ...record, body: "Synthetic body" });
+    const detailRequest = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ ...record, body: "Synthetic body" })),
+    );
+    await expect(
+      getNote({ ...options, request: detailRequest }, id),
+    ).resolves.toEqual({ ...record, body: "Synthetic body" });
   });
 
   it("refuses to transmit without a token or with injected line breaks", async () => {
     const request = vi.fn(async () => new Response("{}"));
     const options = { baseUrl: "https://api.example", request };
-    await expect(getNotes({ ...options, getAccessToken: () => null }))
-      .rejects.toMatchObject({ status: 401, code: "UNAUTHORIZED" });
-    await expect(getNotes({ ...options, getAccessToken: () => "fake\nHeader: stolen" }))
-      .rejects.toThrow("Invalid access token");
-    await expect(getNote({ ...options, getAccessToken: () => "fake" }, "../other"))
-      .rejects.toThrow();
+    await expect(
+      getNotes({ ...options, getAccessToken: () => null }),
+    ).rejects.toMatchObject({ status: 401, code: "UNAUTHORIZED" });
+    await expect(
+      getNotes({ ...options, getAccessToken: () => "fake\nHeader: stolen" }),
+    ).rejects.toThrow("Invalid access token");
+    await expect(
+      getNote({ ...options, getAccessToken: () => "fake" }, "../other"),
+    ).rejects.toThrow();
     expect(request).not.toHaveBeenCalled();
   });
 
@@ -78,10 +90,11 @@ describe("typed authenticated notes client", () => {
     const options = {
       baseUrl: "https://api.example",
       getAccessToken: () => "fake",
-      request: async () => new Response(
-        JSON.stringify({ error: { code: "FORBIDDEN", private: "hidden" } }),
-        { status: 403 },
-      ),
+      request: async () =>
+        new Response(
+          JSON.stringify({ error: { code: "FORBIDDEN", private: "hidden" } }),
+          { status: 403 },
+        ),
     };
     try {
       await getNotes(options);
@@ -97,14 +110,20 @@ describe("typed authenticated notes client", () => {
     const controller = new AbortController();
     const request = vi.fn(async (...args: Parameters<typeof fetch>) => {
       expect(args).toHaveLength(2);
-      return new Response(JSON.stringify({ notes: [{ ...record, id: "invalid" }] }));
+      return new Response(
+        JSON.stringify({ notes: [{ ...record, id: "invalid" }] }),
+      );
     });
-    await expect(getNotes({
-      baseUrl: "https://api.example",
-      getAccessToken: () => "fake",
+    await expect(
+      getNotes({
+        baseUrl: "https://api.example",
+        getAccessToken: () => "fake",
+        signal: controller.signal,
+        request,
+      }),
+    ).rejects.toThrow();
+    expect(request.mock.calls[0]?.[1]).toMatchObject({
       signal: controller.signal,
-      request,
-    })).rejects.toThrow();
-    expect(request.mock.calls[0]?.[1]).toMatchObject({ signal: controller.signal });
+    });
   });
 });
