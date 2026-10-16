@@ -35,17 +35,20 @@ export const ApiErrorResponseSchema = z
   .strict();
 export type ApiErrorResponse = z.infer<typeof ApiErrorResponseSchema>;
 
-
 /** Synthetic read DTOs: IDs are canonical ULIDs or lowercase UUIDs only. */
-export const NoteIdSchema = z.string().regex(
-  /^(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/,
-);
-export const NotePreviewSchema = z.object({
-  id: NoteIdSchema,
-  title: z.string().min(1).max(200),
-  summary: z.string().min(1),
-  capturedAt: z.string().datetime({ offset: true }),
-}).strict();
+export const NoteIdSchema = z
+  .string()
+  .regex(
+    /^(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/,
+  );
+export const NotePreviewSchema = z
+  .object({
+    id: NoteIdSchema,
+    title: z.string().min(1).max(200),
+    summary: z.string().min(1),
+    capturedAt: z.string().datetime({ offset: true }),
+  })
+  .strict();
 export type NotePreview = z.infer<typeof NotePreviewSchema>;
 
 export const NoteDetailSchema = NotePreviewSchema.extend({
@@ -53,7 +56,9 @@ export const NoteDetailSchema = NotePreviewSchema.extend({
 }).strict();
 export type NoteDetail = z.infer<typeof NoteDetailSchema>;
 
-export const NotesListResponseSchema = z.object({
-  notes: z.array(NotePreviewSchema),
-}).strict();
+export const NotesListResponseSchema = z
+  .object({
+    notes: z.array(NotePreviewSchema),
+  })
+  .strict();
 export type NotesListResponse = z.infer<typeof NotesListResponseSchema>;
