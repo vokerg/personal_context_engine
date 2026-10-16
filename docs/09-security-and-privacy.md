@@ -52,3 +52,19 @@ A ChatGPT GitHub integration may have different read/write permissions depending
 - Document hosting jurisdictions/provider retention and allow switching adapters without data loss.
 
 See [repository operations](03-repositories-and-operations.md) and [ChatGPT setup](12-chatgpt-project.md).
+
+## Public API skeleton boundary (issue #9)
+
+The initial Fastify API serves only `/health`, `/ready` and `/api/v1` (version marker).
+**No note, ledger, reminder or other private resource routes are registered.**
+Authenticated browsing is blocked on #13; database-backed readiness needs an
+explicit trusted dependency adapter from #8. Configuring `DATABASE_URL` or
+`API_REQUIRE_DB=true` without this adapter refuses startup rather than claiming
+readiness. A failed mandatory dependency returns generic HTTP 503.
+
+The skeleton disables request logging, does not trust forwarding headers, limits
+JSON bodies to 16 KiB, responds without caching, and defaults to loopback binding.
+CORS is denied by default; `API_CORS_ORIGIN` may allow one exact HTTP(S) origin.
+Production non-loopback origins require HTTPS. This is not a complete authentication,
+rate-limiting, TLS or deployment hardening implementation. These controls must
+precede any private route exposure.
