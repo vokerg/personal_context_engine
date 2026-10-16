@@ -177,7 +177,10 @@ describe("public API boundary", () => {
 
 import { createHmac } from "node:crypto";
 import type { NoteDetail } from "@pce/contracts";
-import { createHmacTokenVerifier } from "./auth.js";
+import {
+  createHmacTokenVerifier,
+  type AuthenticatedPrincipal,
+} from "./auth.js";
 
 const secret = "synthetic-test-key-32-bytes-minimum----";
 const idAlice = "01K00000000000000000000001";
