@@ -1,16 +1,38 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import {
   ApiErrorResponseSchema,
   ApiVersionResponseSchema,
+  NoteDetailSchema,
+  NoteIdSchema,
+  NotesListResponseSchema,
+  type NoteDetail,
+  type NotePreview,
   HealthResponseSchema,
   ReadyResponseSchema,
   type ApiErrorResponse,
 } from "@pce/contracts";
 import { loadApiConfig, type ApiConfig } from "./config.js";
+import { createHmacTokenVerifier, type AuthenticatedPrincipal, type TokenVerifier } from "./auth.js";
+
+declare module "fastify" {
+  interface FastifyRequest {
+    authenticatedPrincipal: AuthenticatedPrincipal | null;
+  }
+}
+
+/** Owner filtering must occur in the trusted adapter query, not in the client. */
+export interface PrivateNoteReader {
+  listByOwner(subject: string): Promise<NotePreview[]>;
+  getByOwner(subject: string, noteId: string): Promise<NoteDetail | null>;
+}
+
 
 export interface ApiDependencies {
   /** A trusted adapter supplied by the DB integration; never a user request. */
   checkDatabase?: () => Promise<boolean>;
+  verifyToken?: TokenVerifier;
+  /** Omit to keep all private routes disabled until a vetted adapter exists. */
+  notes?: PrivateNoteReader;
 }
 
 export interface ApiOptions {
@@ -24,10 +46,16 @@ function errorResponse(code: ErrorCode): ApiErrorResponse {
   return ApiErrorResponseSchema.parse({ error: { code } });
 }
 
-/** Public-only API shell. Private routes MUST NOT be added until auth (#13). */
+/** Public diagnostics plus explicitly gated, owner-scoped private reads. */
 export function createApp(options: ApiOptions = {}) {
   const config = options.config ?? loadApiConfig();
   const checkDatabase = options.dependencies?.checkDatabase;
+  const notes = options.dependencies?.notes;
+  const verifyToken = options.dependencies?.verifyToken ??
+    (config.auth ? createHmacTokenVerifier(config.auth) : undefined);
+  if (notes && !verifyToken) {
+    throw new Error("Private notes require an authenticated token verifier");
+  }
   if (config.requiresDatabase && !checkDatabase) {
     throw new Error("Mandatory database dependency has no readiness adapter");
   }
@@ -39,6 +67,8 @@ export function createApp(options: ApiOptions = {}) {
     bodyLimit: 16 * 1024,
     ajv: { customOptions: { coerceTypes: false, removeAdditional: false } },
   });
+
+  app.decorateRequest("authenticatedPrincipal", null);
 
   app.addHook("onRequest", async (request, reply) => {
     reply.header("X-Content-Type-Options", "nosniff");
@@ -118,5 +148,53 @@ export function createApp(options: ApiOptions = {}) {
   app.get("/api/v1", async () =>
     ApiVersionResponseSchema.parse({ version: "v1" }),
   );
+
+  if (notes) {
+    const requireNoteRead = async (
+      request: FastifyRequest,
+      reply: FastifyReply,
+    ) => {
+      const authorization = request.headers.authorization;
+      const match = /^Bearer ([A-Za-z0-9._-]{1,4096})$/i.exec(
+        authorization ?? "",
+      );
+      let principal: AuthenticatedPrincipal | null = null;
+      if (match?.[1]) {
+        try {
+          principal = await verifyToken!(match[1]);
+        } catch {
+          // Identity provider errors do not grant access or leak credentials.
+        }
+      }
+      if (!principal) {
+        reply.header("WWW-Authenticate", "Bearer");
+        return reply.code(401).send(errorResponse("UNAUTHORIZED"));
+      }
+      if (!principal.scopes.includes("notes:read")) {
+        return reply.code(403).send(errorResponse("FORBIDDEN"));
+      }
+      request.authenticatedPrincipal = principal;
+    };
+    app.get("/api/v1/notes", { preHandler: requireNoteRead }, async (request) => {
+      const principal = request.authenticatedPrincipal!;
+      const records = await notes.listByOwner(principal.subject);
+      return NotesListResponseSchema.parse({ notes: records });
+    });
+    app.get<{ Params: { id: string } }>(
+      "/api/v1/notes/:id",
+      { preHandler: requireNoteRead },
+      async (request, reply) => {
+        if (!NoteIdSchema.safeParse(request.params.id).success) {
+          return reply.code(404).send(errorResponse("NOT_FOUND"));
+        }
+        const record = await notes.getByOwner(
+          request.authenticatedPrincipal!.subject,
+          request.params.id,
+        );
+        if (!record) return reply.code(404).send(errorResponse("NOT_FOUND"));
+        return NoteDetailSchema.parse(record);
+      },
+    );
+  }
   return app;
 }
