@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { createNoteRepository, ProjectionConflictError } from "./index.js";
+import { createNoteRepository } from "./index.js";
 
 const url = process.env.PCE_DB_TEST_URL;
 // Real PostgreSQL only. The normal public workspace suite remains synthetic
@@ -12,13 +12,15 @@ describe.skipIf(!url)("PostgreSQL note projection integration", () => {
   const captureIds: string[] = [];
   const sourcePaths: string[] = [];
 
-  function fixture(options: {
-    noteId?: string;
-    captureId?: string;
-    capturedAt?: string;
-    summary?: string;
-    original?: string;
-  } = {}) {
+  function fixture(
+    options: {
+      noteId?: string;
+      captureId?: string;
+      capturedAt?: string;
+      summary?: string;
+      original?: string;
+    } = {},
+  ) {
     const noteId = options.noteId ?? randomUUID();
     const captureId = options.captureId ?? randomUUID();
     const capturedAt = options.capturedAt ?? "2026-10-15T08:30:00+02:00";
@@ -97,8 +99,12 @@ ${options.original ?? "Synthetic input."}
     expect(note?.tags).toEqual(["synthetic"]);
     expect(note?.originalInput).toBe("Synthetic input.\n");
     expect(note?.state).toBe("PERSISTED");
-    expect((await prisma.capture.findUnique({ where: { id: input.captureId } }))?.id).toBe(input.captureId);
-    expect(await repository.importMarkdown(input)).toMatchObject({ result: "replayed" });
+    expect(
+      (await prisma.capture.findUnique({ where: { id: input.captureId } }))?.id,
+    ).toBe(input.captureId);
+    expect(await repository.importMarkdown(input)).toMatchObject({
+      result: "replayed",
+    });
     expect(await prisma.note.count({ where: { id: input.noteId } })).toBe(1);
   });
 
@@ -119,12 +125,18 @@ ${options.original ?? "Synthetic input."}
     await repository.importMarkdown(input);
     await prisma.note.update({
       where: { id: input.noteId },
-      data: { state: "FINALIZED", canonicalPath: "notes/2026/10/" + input.noteId + ".md" },
+      data: {
+        state: "FINALIZED",
+        canonicalPath: "notes/2026/10/" + input.noteId + ".md",
+      },
     });
     const updated = {
       ...input,
       sourceRevision: "r-" + randomUUID(),
-      markdown: input.markdown.replace("Synthetic summary.", "Updated synthetic summary."),
+      markdown: input.markdown.replace(
+        "Synthetic summary.",
+        "Updated synthetic summary.",
+      ),
     };
     await expect(repository.importMarkdown(updated)).rejects.toMatchObject({
       code: "REVISION_CONFLICT",
@@ -151,7 +163,10 @@ ${options.original ?? "Synthetic input."}
     await expect(
       repository.importMarkdown({
         ...input,
-        markdown: input.markdown.replace("Synthetic summary.", "Changed summary."),
+        markdown: input.markdown.replace(
+          "Synthetic summary.",
+          "Changed summary.",
+        ),
       }),
     ).rejects.toMatchObject({ code: "REVISION_CONFLICT" });
   });
@@ -177,8 +192,12 @@ ${options.original ?? "Synthetic input."}
     const outcomes = await Promise.all(
       Array.from({ length: 4 }, () => repository.importMarkdown(input)),
     );
-    expect(outcomes.filter((value) => value.result === "created")).toHaveLength(1);
-    expect(outcomes.filter((value) => value.result === "replayed")).toHaveLength(3);
+    expect(outcomes.filter((value) => value.result === "created")).toHaveLength(
+      1,
+    );
+    expect(
+      outcomes.filter((value) => value.result === "replayed"),
+    ).toHaveLength(3);
     expect(await prisma.note.count({ where: { id: input.noteId } })).toBe(1);
   });
 
@@ -186,11 +205,17 @@ ${options.original ?? "Synthetic input."}
     const input = fixture();
     await createNoteRepository(prisma).importMarkdown(input);
     await prisma.processingAttempt.create({
-      data: { sourcePath: input.sourcePath, sourceRevision: input.sourceRevision },
+      data: {
+        sourcePath: input.sourcePath,
+        sourceRevision: input.sourceRevision,
+      },
     });
     await expect(
       prisma.processingAttempt.create({
-        data: { sourcePath: input.sourcePath, sourceRevision: input.sourceRevision },
+        data: {
+          sourcePath: input.sourcePath,
+          sourceRevision: input.sourceRevision,
+        },
       }),
     ).rejects.toMatchObject({ code: "P2002" });
     await expect(
@@ -201,9 +226,15 @@ ${options.original ?? "Synthetic input."}
   it("preserves existing state after an invalid input", async () => {
     const input = fixture();
     await createNoteRepository(prisma).importMarkdown(input);
-    const invalid = input.markdown.replace("schema_version: 1", "schema_version: 2");
+    const invalid = input.markdown.replace(
+      "schema_version: 1",
+      "schema_version: 2",
+    );
     await expect(
-      createNoteRepository(prisma).importMarkdown({ ...input, markdown: invalid }),
+      createNoteRepository(prisma).importMarkdown({
+        ...input,
+        markdown: invalid,
+      }),
     ).rejects.toMatchObject({ code: "SCHEMA_VERSION" });
     expect(await prisma.note.count({ where: { id: input.noteId } })).toBe(1);
   });
