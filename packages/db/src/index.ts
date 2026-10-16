@@ -5,9 +5,7 @@ import { parseNoteMarkdown, verifyInboxNotePath } from "@pce/core";
 export { PrismaClient } from "@prisma/client";
 
 export type ProjectionConflictCode =
-  | "CAPTURE_CONFLICT"
-  | "SOURCE_CONFLICT"
-  | "REVISION_CONFLICT";
+  "CAPTURE_CONFLICT" | "SOURCE_CONFLICT" | "REVISION_CONFLICT";
 
 export class ProjectionConflictError extends Error {
   constructor(public readonly code: ProjectionConflictCode) {
