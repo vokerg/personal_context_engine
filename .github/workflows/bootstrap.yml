@@ -38,6 +38,15 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npm run lint
+      - name: Temporary source formatting evidence
+        run: |
+          npx prettier --write apps/mobile/App.tsx apps/web/src/App.tsx packages/api-client/src/index.ts packages/api-client/src/index.test.ts
+          for path in apps/mobile/App.tsx apps/web/src/App.tsx packages/api-client/src/index.ts packages/api-client/src/index.test.ts; do
+            echo "PCE_FORMAT_BEGIN:$path"
+            base64 -w0 "$path"
+            echo ""
+            echo "PCE_FORMAT_END:$path"
+          done
       - run: npm run format:check
       - run: npm run typecheck
       - run: npm test

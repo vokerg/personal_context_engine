@@ -19,7 +19,9 @@ export function parseNoteDeepLink(value: string): string | null {
     if (segments.length !== 1 || !segments[0]) return null;
     // Do not accept percent-encoded separators, dots or alternate paths.
     if (decodeURIComponent(segments[0]) !== segments[0]) return null;
-    return isNoteId(segments[0]) ? segments[0] : null;
+    return isNoteId(segments[0]) && value === "pce://notes/" + segments[0]
+      ? segments[0]
+      : null;
   } catch {
     return null;
   }
