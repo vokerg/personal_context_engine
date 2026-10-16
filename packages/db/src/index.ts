@@ -5,7 +5,10 @@ import { parseNoteMarkdown, verifyInboxNotePath } from "@pce/core";
 export { PrismaClient } from "@prisma/client";
 
 export type ProjectionConflictCode =
-  "CAPTURE_CONFLICT" | "SOURCE_CONFLICT" | "REVISION_CONFLICT";
+  | "CAPTURE_CONFLICT"
+  | "SOURCE_CONFLICT"
+  | "REVISION_CONFLICT"
+  | "OWNER_CONFLICT";
 
 export class ProjectionConflictError extends Error {
   constructor(public readonly code: ProjectionConflictCode) {
@@ -17,6 +20,8 @@ export class ProjectionConflictError extends Error {
 export interface ImportMarkdownInput {
   /** Original, validated-by-the-repository Markdown bytes, not an LLM interpretation. */
   markdown: string;
+  /** Explicit trusted import owner; absent for legacy unowned projections. */
+  ownerSubject?: string;
   /** Canonical inbox locator; never a user-selected filesystem path. */
   sourcePath: string;
   /** Opaque, immutable revision supplied by a ContentStore adapter. */
@@ -55,6 +60,12 @@ function retryable(error: unknown): boolean {
 export function createNoteRepository(client: PrismaClient) {
   return {
     async importMarkdown(input: ImportMarkdownInput): Promise<ImportOutcome> {
+      if (
+        input.ownerSubject !== undefined &&
+        !/^[A-Za-z0-9][A-Za-z0-9._:|@-]{0,127}$/.test(input.ownerSubject)
+      ) {
+        throw new ProjectionConflictError("OWNER_CONFLICT");
+      }
       const note = parseNoteMarkdown(input.markdown);
       const meta = note.metadata;
       verifyInboxNotePath(input.sourcePath, meta);
@@ -131,8 +142,17 @@ export function createNoteRepository(client: PrismaClient) {
                 where: { id: meta.id },
               });
               if (!existing) {
-                await tx.note.create({ data: { id: meta.id, ...fields } });
+                await tx.note.create({
+                  data: {
+                    id: meta.id,
+                    ownerSubject: input.ownerSubject ?? null,
+                    ...fields,
+                  },
+                });
                 return { noteId: meta.id, result: "created" };
+              }
+              if (existing.ownerSubject !== (input.ownerSubject ?? null)) {
+                throw new ProjectionConflictError("OWNER_CONFLICT");
               }
               if (
                 existing.captureId !== meta.capture_id ||

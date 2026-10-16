@@ -121,3 +121,22 @@ narrow CORS, non-trusted proxy headers) does not substitute for these
 controls; CORS is not authentication and JWT possession alone does not
 provide logout/revocation. The final identity provider and token refresh
 mechanism remain deferred.
+
+## Explicit local workspace boundary (#38)
+
+`npm run dev:local` is a separate development entry point, rejected outside
+`NODE_ENV=development`, with API/web bound to `127.0.0.1`. It mints
+15-minute local sessions using an ephemeral signing key held only in the
+launcher process. The same-origin session endpoint validates Host, Origin,
+fetch-site metadata and the loopback peer. Tokens are returned with
+`Cache-Control: no-store`; signing keys and DB credentials are never
+serialized to the browser. Access is available to the trusted local user
+and local processes; do not expose the dev server through a tunnel/proxy.
+
+Persisted `ownerSubject` is assigned only on a new trusted import. Existing
+unowned rows cannot be claimed by supplying a subject; owned rows cannot
+be reassigned or modified through an unowned importer. Local reads filter
+SQL by owner and the current validated checkout IDs. This additive ownership
+model enables this explicit single-user development path only; it does not
+wire the generic API entry point to all DB rows or define a production
+identity provider. Nullable legacy rows remain inaccessible to local reads.

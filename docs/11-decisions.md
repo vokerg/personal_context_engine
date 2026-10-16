@@ -107,3 +107,15 @@ persistence. Mobile `pce://notes/<id>` selects a route and always
 re-authorizes note detail via the API. Production identity, device credential
 storage, push delivery, owner-aware DB note readers and authenticated
 write APIs remain deferred. Remote bearer transport remains HTTPS only.
+
+## Local single-user development workspace (#38)
+
+The explicit `dev:local` entry point connects a trusted local Markdown
+checkout, PostgreSQL and read-only web UI. It assigns persisted ownership
+on new imports, filters SQL reads by the verified local subject plus
+validated checkout IDs, and issues short-lived sessions from a loopback,
+same-origin development endpoint. Its signing key is ephemeral and its
+content import never changes the checkout. Legacy ownership is not guessed.
+This is a local development implementation, not a production login/provider
+decision, a mobile session mechanism, a scheduled ingestion deployment or
+reminder delivery. Generic API/worker startup retains existing defaults.

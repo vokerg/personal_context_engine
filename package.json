@@ -18,6 +18,7 @@
     "apps/mobile"
   ],
   "scripts": {
+    "dev:local": "node scripts/local-dev.mjs",
     "dev": "concurrently -k -n api,worker,web \"npm run dev:api\" \"npm run dev:worker\" \"npm run dev:web\"",
     "dev:api": "npm run build -w @pce/contracts && npm run dev -w @pce/api",
     "dev:worker": "npm run dev -w @pce/worker",

@@ -15,9 +15,11 @@ type LoadState = "loading" | "ready" | "error";
  * Tokens and note bodies stay in component memory (no browser storage).
  */
 export function App({
+  localDevelopment = import.meta.env.VITE_PCE_LOCAL_DEV === "true",
   baseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:3000",
 }: {
   baseUrl?: string;
+  localDevelopment?: boolean;
 }) {
   const [draft, setDraft] = useState("");
   const [token, setToken] = useState<string | null>(null);
@@ -38,6 +40,28 @@ export function App({
     setSelectedId(null);
     setDetail(null);
   }
+
+  async function connectLocal() {
+    try {
+      setNotice("");
+      const response = await fetch("/__pce/session", {
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error("Session unavailable");
+      const session = (await response.json()) as { token?: unknown };
+      if (typeof session.token !== "string") throw new Error("Invalid session");
+      setToken(session.token);
+    } catch {
+      setNotice(
+        "Local session unavailable. Start the workspace with npm run dev:local.",
+      );
+    }
+  }
+
+  useEffect(() => {
+    if (localDevelopment) void connectLocal();
+  }, [localDevelopment]);
 
   useEffect(() => {
     if (!token) return;
@@ -130,42 +154,55 @@ export function App({
     >
       <h1>Personal Context Engine</h1>
       <p>
-        Read-only client preview. No login, token issuance, editing or reminders
-        yet.
+        {localDevelopment
+          ? "Local workspace. Browse your captured notes; editing and reminders are not available yet."
+          : "Read-only client preview. No login, token issuance, editing or reminders yet."}
       </p>
       {!token ? (
         <section aria-label="Sign-in required">
           <h2>Sign-in required</h2>
           {notice && <p role="alert">{notice}</p>}
-          <p>
-            For synthetic development only, enter a short-lived notes:read JWT
-            from a trusted issuer. The token is never persisted in browser
-            storage.
-          </p>
-          <form onSubmit={connect}>
-            <label htmlFor="access-token">Development access token</label>
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                flexWrap: "wrap",
-                marginTop: 8,
+          {localDevelopment ? (
+            <button
+              onClick={() => {
+                void connectLocal();
               }}
             >
-              <input
-                id="access-token"
-                aria-label="Development access token"
-                type="password"
-                autoComplete="off"
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                style={{ flex: "1 1 260px", padding: 8 }}
-              />
-              <button type="submit" disabled={!draft.trim()}>
-                Connect
-              </button>
-            </div>
-          </form>
+              Connect local workspace
+            </button>
+          ) : (
+            <>
+              <p>
+                For synthetic development only, enter a short-lived notes:read
+                JWT from a trusted issuer. The token is never persisted in
+                browser storage.
+              </p>
+              <form onSubmit={connect}>
+                <label htmlFor="access-token">Development access token</label>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap",
+                    marginTop: 8,
+                  }}
+                >
+                  <input
+                    id="access-token"
+                    aria-label="Development access token"
+                    type="password"
+                    autoComplete="off"
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    style={{ flex: "1 1 260px", padding: 8 }}
+                  />
+                  <button type="submit" disabled={!draft.trim()}>
+                    Connect
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
         </section>
       ) : (
         <section>

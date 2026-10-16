@@ -53,6 +53,23 @@ Start at **[docs/README.md](docs/README.md)**. In particular:
 
 Agent instructions: [AGENTS.md](AGENTS.md).
 
+## Start a local workspace
+
+With a root `.env` containing `DATABASE_URL` and the content checkout beside this repository:
+
+```bash
+npm ci
+npm run dev:local
+```
+
+Open `http://127.0.0.1:4310`. The local web session connects automatically;
+no manually generated JWT is needed. The launcher builds the workspaces,
+applies migrations and imports valid Markdown from the content checkout
+without modifying it. API defaults to loopback port 3110. See
+[local workspace configuration](docs/03-repositories-and-operations.md#local-workspace-startup-38).
+This is a single-user local read-only workspace; hosted login, mobile login,
+editing, scheduled ingestion and reminders remain separate work.
+
 ## Local development (bootstrap)
 
 Use Node.js 22.12+ and npm 10+ (`.nvmrc` pins the Node major). From the repository root:

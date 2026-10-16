@@ -279,3 +279,48 @@ packages/api-client/src/index.test.ts apps/web/src/App.test.tsx
 apps/mobile/links.test.ts`, then `npm run typecheck`, `npm test`,
 `npm run build` and `npm run docs:check`. Browser interaction, device
 behavior and remote HTTPS termination require separate manual verification.
+
+## Local workspace startup (#38)
+
+Run `npm ci` once, then `npm run dev:local` from the mechanism repository.
+The launcher loads root `.env`, builds packages, validates all discovered
+Markdown, applies checked-in migrations and imports a read-only snapshot of
+`inbox/` and canonical `notes/YYYY/MM/` files. It never moves, edits, commits
+or pushes content. Other content directories are excluded; symlinks,
+noncanonical paths and duplicate note IDs fail startup. Invalid note content
+is skipped with a count; the original file remains untouched for repair.
+Only counts are logged. Install Node 22.12+ and npm 10+ first.
+
+Required: `DATABASE_URL` in ignored root `.env`. Optional:
+`PCE_CONTENT_ROOT` (default sibling `../personal_context_engine_content`),
+`API_PORT` (default 3110), `PCE_WEB_PORT` (default 4310).
+An existing `API_PORT` in `.env` takes precedence. Ports must be free;
+stop earlier API/web instances before running. The API and web listen only
+on `127.0.0.1`. Open the printed web URL using that exact hostname.
+Ctrl-C stops both services. Ordinary `npm run dev`, the worker and Expo
+remain unchanged; they do not acquire local workspace credentials.
+
+The web obtains a 15-minute `notes:read` session automatically from its
+same-origin development server. Clear session removes it from memory;
+Connect local workspace obtains another. No token or signing key is
+written to disk or browser storage. Restart generates a new server key.
+The session endpoint rejects alternate Host/Origin, cross-site requests,
+non-loopback peers and non-GET methods. This assumes a trusted local OS
+account and browser; it is not a hosted login solution.
+
+The additive migration gives notes nullable `ownerSubject`. This launcher
+assigns `local-developer` when creating rows and SQL-scopes reads by both
+that owner and IDs validated from the configured checkout. Legacy unowned
+rows and different owners are not adopted or exposed. Importing such an
+ID fails; resolve ownership explicitly before retrying. A changed source
+revision also fails rather than silently overwriting another importer.
+For new GitHub captures, pull the content checkout and restart this command.
+An unchanged snapshot replays idempotently. No deletion is inferred when a
+source disappears. Authentication for mobile and hosted users, source
+conflict repair, scheduled refresh and production ownership provisioning
+are outside this local startup path.
+
+Validation: `npm run build`, `npx vitest run scripts/local-runtime.test.mjs`,
+`npm test`, `npm run lint`, `npm run typecheck`, `npm run docs:check`.
+The database integration suite verifies persisted ownership replay and
+rejects reassignment/adoption using synthetic records in a disposable DB.
