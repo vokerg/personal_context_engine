@@ -10,7 +10,7 @@ Both clients share typed HTTP contracts and an API client, but platform-specific
 
 ## API boundary
 
-- Clients authenticate to the Fastify API. Auth mechanism is **not selected** yet.
+- Clients authenticate to the Fastify API. Issue #13 implements an interim one-hour HS256 JWT bearer verifier and `notes:read` scope; the final identity provider/login/token refresh mechanism is **not selected**. The shared API client accepts a per-request token provider, but neither UI implements login yet.
 - API owns authorization, read projections and user-approved commands.
 - Clients never receive GitHub personal access tokens, `DATABASE_URL`, worker credentials, or private content repository write access.
 - Note creation through mobile will go through an authenticated API ingestion path; it must create a durable capture and maintain the same schema/provenance guarantees as ChatGPT ingestion.
