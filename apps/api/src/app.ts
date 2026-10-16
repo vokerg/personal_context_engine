@@ -33,7 +33,11 @@ export function createApp(options: ApiOptions = {}) {
   }
 
   // Never log headers, tokens, query strings, or personal note content by default.
-  const app = Fastify({ logger: false, trustProxy: false, bodyLimit: 16 * 1024 });
+  const app = Fastify({
+    logger: false,
+    trustProxy: false,
+    bodyLimit: 16 * 1024,
+  });
 
   app.addHook("onRequest", async (request, reply) => {
     reply.header("X-Content-Type-Options", "nosniff");
@@ -52,11 +56,17 @@ export function createApp(options: ApiOptions = {}) {
       request.method === "OPTIONS" &&
       request.headers["access-control-request-method"] !== undefined
     ) {
-      if (!allowed || request.headers["access-control-request-method"] !== "GET") {
+      if (
+        !allowed ||
+        request.headers["access-control-request-method"] !== "GET"
+      ) {
         return reply.code(403).send(errorResponse("FORBIDDEN"));
       }
       reply.header("Access-Control-Allow-Methods", "GET");
-      reply.header("Access-Control-Allow-Headers", "Authorization, Content-Type");
+      reply.header(
+        "Access-Control-Allow-Headers",
+        "Authorization, Content-Type",
+      );
       return reply.code(204).send();
     }
   });
