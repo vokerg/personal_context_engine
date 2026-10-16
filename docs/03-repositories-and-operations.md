@@ -64,11 +64,11 @@ npm run dev              # API :3000, idle worker and Vite web :4200
 npm run dev:mobile       # separate Expo/Metro dev session
 ```
 
-The API binds to `127.0.0.1:3000` by default, with `API_PORT` supported. Its only route is `GET /health`. The worker starts/stops without ingesting data. React web is a static scaffold and the Expo app is a native scaffold; neither reads private content. Running Expo on a real device needs local Expo tooling, a compatible emulator/device, and separate device-reachable API configuration when auth arrives. CI does **not** claim native simulator validation. `db:migrate` is **not implemented** until issue #8.
+The API binds to `127.0.0.1:3000` by default; `API_HOST` and `API_PORT` are validated at startup. Public `GET /health`, `GET /ready` and `GET /api/v1` are implemented. Private note routes are **not** registered until authentication (#13) and projection access (#8) are ready. The worker starts/stops without ingesting data. React web is a static scaffold and the Expo app is a native scaffold; neither reads private content. Running Expo on a real device needs local Expo tooling, a compatible emulator/device, and separate device-reachable API configuration when auth arrives. CI does **not** claim native simulator validation. `db:migrate` is **not implemented** until issue #8.
 
 ## Environment and credentials
 
-Future **server-only** configuration (examples, not current environment variables; only `API_PORT` exists today):
+Server-side configuration (only non-secret API settings are implemented by #9; other adapters are future work):
 
 ```dotenv
 DATABASE_URL=postgresql://...
@@ -77,12 +77,15 @@ CONTENT_REPOSITORY=vokerg/personal_context_engine_content
 CONTENT_BRANCH=main
 CONTENT_STORE_PROVIDER=github
 CONTENT_GITHUB_TOKEN=...
+API_REQUIRE_DB=false
+API_CORS_ORIGIN=http://127.0.0.1:4200
 API_AUTH_MODE=...
 LLM_PROVIDER=disabled
 PUSH_PROVIDER=disabled
 ```
 
-- The secret names and exact provisioning method are implementation proposals.
+- `API_HOST`, `API_PORT`, `API_REQUIRE_DB` and optional single-origin `API_CORS_ORIGIN` are implemented. CORS is denied by default; production non-loopback origins require HTTPS. `DATABASE_URL` or `API_REQUIRE_DB=true` makes the database mandatory and startup **fails** until #8 wires a trusted readiness adapter. `/health` does not imply database readiness.
+- Other secret names and exact provisioning methods remain implementation proposals.
 - Tokens must be scoped to necessary repository paths/operations where possible; do not commit values.
 - Runtime content credentials belong to deployed API/worker secret storage, **not public CI** and **never clients**.
 - Backend must fail safely when a provider is unavailable; do not silently invoke paid LLM APIs.
@@ -104,3 +107,24 @@ Select hosting, database provider, user authentication, push infrastructure, sch
 ## Operational recovery
 
 Backup the database (including state and device registrations with appropriate protection) and the content repo independently. Test reimport from Markdown, replay after a worker crash, reconciliation of incomplete Git moves, and safe schema migrations. Remember Git history may retain supposedly deleted content; repository privacy is not an erasure policy.
+
+### API public endpoints and dependency failure behavior (#9)
+
+No private read endpoints are available. Run `npm run dev:api` and check:
+
+```bash
+curl -i http://127.0.0.1:3000/health  # 200 {"status":"ok"}
+curl -i http://127.0.0.1:3000/ready   # 200 {"status":"ready"} with no mandatory dependencies
+curl -i http://127.0.0.1:3000/api/v1  # 200 {"version":"v1"}
+curl -i http://127.0.0.1:3000/api/v1/notes # 404 {"error":{"code":"NOT_FOUND"}}
+API_PORT=not-a-port npm run dev:api   # nonzero exit
+API_REQUIRE_DB=true npm run dev:api   # nonzero exit until #8 wires a DB probe
+```
+
+The `createApp` dependency interface accepts an injected `checkDatabase` probe
+for tests and future repository integration. A false or throwing mandatory
+probe produces `GET /ready` HTTP 503 `{"status":"not_ready"}` while
+`/health` stays 200. No live PostgreSQL was used in issue #9.
+SIGINT/SIGTERM close Fastify. Logs intentionally exclude HTTP request bodies,
+headers and environment values. Before private endpoints, #13 must implement
+authentication/authorization and a production rate-limiting policy.
