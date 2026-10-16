@@ -117,8 +117,8 @@ curl -i http://127.0.0.1:3000/health  # 200 {"status":"ok"}
 curl -i http://127.0.0.1:3000/ready   # 200 {"status":"ready"} with no mandatory dependencies
 curl -i http://127.0.0.1:3000/api/v1  # 200 {"version":"v1"}
 curl -i http://127.0.0.1:3000/api/v1/notes # 404 {"error":{"code":"NOT_FOUND"}}
-API_PORT=not-a-port npm run dev:api   # nonzero exit
-API_REQUIRE_DB=true npm run dev:api   # nonzero exit until #8 wires a DB probe
+API_PORT=not-a-port node apps/api/dist/main.js   # nonzero exit
+API_REQUIRE_DB=true node apps/api/dist/main.js   # nonzero exit until #8 wires a DB probe
 ```
 
 The `createApp` dependency interface accepts an injected `checkDatabase` probe
