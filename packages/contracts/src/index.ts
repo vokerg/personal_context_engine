@@ -1,7 +1,9 @@
 import { z } from "zod";
 
 /** Public liveness: does not inspect the database or reveal private state. */
-export const HealthResponseSchema = z.object({ status: z.literal("ok") }).strict();
+export const HealthResponseSchema = z
+  .object({ status: z.literal("ok") })
+  .strict();
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;
 
 /** Readiness can fail without affecting process liveness. */
