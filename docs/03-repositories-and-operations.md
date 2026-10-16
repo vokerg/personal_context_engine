@@ -64,7 +64,7 @@ npm run dev              # API :3000, idle worker and Vite web :4200
 npm run dev:mobile       # separate Expo/Metro dev session
 ```
 
-The API binds to `127.0.0.1:3000` by default; `API_HOST` and `API_PORT` are validated at startup. Public `GET /health`, `GET /ready` and `GET /api/v1` are implemented. Private note routes are **not** registered until authentication (#13) and projection access (#8) are ready. The worker starts/stops without ingesting data. React web is a static scaffold and the Expo app is a native scaffold; neither reads private content. Running Expo on a real device needs local Expo tooling, a compatible emulator/device, and separate device-reachable API configuration when auth arrives. CI does **not** claim native simulator validation. `db:migrate` is **not implemented** until issue #8.
+The API binds to `127.0.0.1:3000` by default; `API_HOST` and `API_PORT` are validated at startup. Public `GET /health`, `GET /ready` and `GET /api/v1` are implemented. Private note routes are **not** registered until authentication and authorization (#13) are ready; the DB projection package alone does not permit private API reads. The worker starts/stops without ingesting data. React web is a static scaffold and the Expo app is a native scaffold; neither reads private content. Running Expo on a real device needs local Expo tooling, a compatible emulator/device, and separate device-reachable API configuration when auth arrives. CI does **not** claim native simulator validation. `db:migrate` applies the checked-in Prisma/PostgreSQL projection migration (issue #8); see [DB setup](../packages/db/README.md).
 
 ## Environment and credentials
 
@@ -84,7 +84,7 @@ LLM_PROVIDER=disabled
 PUSH_PROVIDER=disabled
 ```
 
-- `API_HOST`, `API_PORT`, `API_REQUIRE_DB` and optional single-origin `API_CORS_ORIGIN` are implemented. CORS is denied by default; production non-loopback origins require HTTPS. `DATABASE_URL` or `API_REQUIRE_DB=true` makes the database mandatory and startup **fails** until #8 wires a trusted readiness adapter. `/health` does not imply database readiness.
+- `API_HOST`, `API_PORT`, `API_REQUIRE_DB` and optional single-origin `API_CORS_ORIGIN` are implemented. CORS is denied by default; production non-loopback origins require HTTPS. `DATABASE_URL` or `API_REQUIRE_DB=true` makes the database mandatory; startup requires a live PostgreSQL connection and `/ready` uses a trusted DB probe (#8). `/health` does not imply database readiness.
 - Other secret names and exact provisioning methods remain implementation proposals.
 - Tokens must be scoped to necessary repository paths/operations where possible; do not commit values.
 - Runtime content credentials belong to deployed API/worker secret storage, **not public CI** and **never clients**.
@@ -118,7 +118,7 @@ curl -i http://127.0.0.1:3000/ready   # 200 {"status":"ready"} with no mandatory
 curl -i http://127.0.0.1:3000/api/v1  # 200 {"version":"v1"}
 curl -i http://127.0.0.1:3000/api/v1/notes # 404 {"error":{"code":"NOT_FOUND"}}
 API_PORT=not-a-port node apps/api/dist/main.js   # nonzero exit
-API_REQUIRE_DB=true node apps/api/dist/main.js   # nonzero exit until #8 wires a DB probe
+API_REQUIRE_DB=true node apps/api/dist/main.js   # nonzero exit without a configured, reachable DB
 ```
 
 The `createApp` dependency interface accepts an injected `checkDatabase` probe
@@ -128,3 +128,22 @@ probe produces `GET /ready` HTTP 503 `{"status":"not_ready"}` while
 SIGINT/SIGTERM close Fastify. Logs intentionally exclude HTTP request bodies,
 headers and environment values. Before private endpoints, #13 must implement
 authentication/authorization and a production rate-limiting policy.
+
+
+### PostgreSQL/Prisma projection baseline (#8)
+
+Start a disposable local PostgreSQL 16 instance with `docker compose --profile
+db up -d postgres`, set `DATABASE_URL` in your shell (never check in actual
+secrets), and run `npm run db:validate`, `npm run prisma:generate`, then
+`npm run db:migrate`. For development only, the local Compose test URL is
+`postgresql://pce:pce_dev_only@127.0.0.1:5432/pce?schema=public`.
+
+Run `PCE_DB_TEST_URL="$DATABASE_URL" npx vitest run
+packages/db/src/index.integration.test.ts` against that disposable DB.
+PostgreSQL 16 GitHub Actions verifies migration replay and concurrency tests
+using synthetic fixtures and read-only repository permissions.
+The API now **fails closed** on a configured but unreachable database; without
+`DATABASE_URL` and with `API_REQUIRE_DB=false` it retains the safe public-only
+mode. No private note routes are exposed before #13.
+
+See [full projection contract](../packages/db/README.md).

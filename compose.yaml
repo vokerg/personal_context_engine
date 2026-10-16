@@ -1,0 +1,20 @@
+# Local fake development credentials only. Never expose PostgreSQL publicly.
+services:
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["db"]
+    environment:
+      POSTGRES_DB: pce
+      POSTGRES_USER: pce
+      POSTGRES_PASSWORD: pce_dev_only
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pce -d pce"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    volumes:
+      - pce-postgres-data:/var/lib/postgresql/data
+volumes:
+  pce-postgres-data:

@@ -6,7 +6,7 @@ These instructions apply to the **public mechanism repository**, not to a person
 
 Build a replaceable-channel personal context engine: capture (voice/text) -> durable Markdown -> deterministic ingestion -> queryable projections -> contextual ledgers, reminders and deliberate external actions. Optimize for lossless capture, privacy, recoverability, low capture friction, and explainable results.
 
-**Current state:** issue #4 introduced runnable scaffold processes, shared packages and app shells; issue #6 adds a pure v1 Markdown capture parser/serializer in `@pce/core`. Data ingestion, authenticated APIs, database models, connectors and push delivery are not implemented. Inspect source and tests before making changes.
+**Current state:** the runnable scaffold, v1 Markdown parser, ContentStore adapters, public-only Fastify API and Prisma/PostgreSQL projection package exist. The worker remains idle; authentication, private API browsing, push delivery and live content ingestion are not implemented. Inspect source and tests before making changes.
 
 ## Read before working
 

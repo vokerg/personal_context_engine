@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// PostgreSQL is a replayable projection, never an independently editable
+// source of personal notes. IDs and source metadata come from validated v1.
+model Capture {
+  id            String   @id @db.VarChar(36)
+  capturedAt    DateTime @db.Timestamptz(3)
+  capturedAtRaw String   @db.VarChar(40)
+  source        String   @db.VarChar(32)
+  timezone      String?  @db.VarChar(128)
+  originalInput String   @db.Text
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+  notes         Note[]
+
+  @@map("captures")
+}
+
+enum ImportState {
+  PERSISTED
+  FINALIZED
+  REJECTED
+  RETRY
+}
+
+model Note {
+  id              String       @id @db.VarChar(36)
+  captureId       String       @db.VarChar(36)
+  capture         Capture      @relation(fields: [captureId], references: [id], onDelete: Restrict)
+  schemaVersion   Int
+  capturedAt      DateTime     @db.Timestamptz(3)
+  capturedAtRaw   String       @db.VarChar(40)
+  source          String       @db.VarChar(32)
+  title           String       @db.VarChar(200)
+  kind            String       @db.VarChar(32)
+  domains         String[]     @default([])
+  projects        String[]     @default([])
+  tags            String[]     @default([])
+  relatedNoteIds  String[]     @default([])
+  actionHint      String       @db.VarChar(32)
+  reviewRequired  Boolean
+  occurredAt      DateTime?    @db.Timestamptz(3)
+  occurredAtRaw   String?      @db.VarChar(40)
+  dueAt           DateTime?    @db.Timestamptz(3)
+  dueAtRaw        String?      @db.VarChar(40)
+  timezone        String?      @db.VarChar(128)
+  processingModel String?      @db.VarChar(256)
+  summary         String       @db.Text
+  body            String       @db.Text
+  originalInput   String       @db.Text
+  sourcePath      String       @db.Text
+  sourceRevision  String       @db.VarChar(128)
+  contentHash     String       @db.Char(64)
+  canonicalPath   String?      @db.Text
+  state           ImportState  @default(PERSISTED)
+  createdAt       DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @db.Timestamptz(3)
+  attempts        ProcessingAttempt[]
+
+  @@unique([sourcePath, sourceRevision])
+  @@index([captureId])
+  @@index([state])
+  @@map("notes")
+}
+
+enum AttemptStatus {
+  PENDING
+  LEASED
+  PERSISTED
+  FINALIZED
+  RETRY
+  REJECTED
+}
+
+// Issue #10 owns lease acquisition, retry transitions and reconciliation.
+// The table is durable already; never use an in-memory lock as a substitute.
+model ProcessingAttempt {
+  id             String        @id @default(uuid()) @db.Uuid
+  sourcePath     String        @db.Text
+  sourceRevision String        @db.VarChar(128)
+  noteId         String?       @db.VarChar(36)
+  note           Note?         @relation(fields: [noteId], references: [id], onDelete: SetNull)
+  status         AttemptStatus @default(PENDING)
+  attemptCount   Int           @default(0)
+  leaseOwner     String?       @db.VarChar(128)
+  leaseUntil     DateTime?     @db.Timestamptz(3)
+  nextRetryAt    DateTime?     @db.Timestamptz(3)
+  lastErrorCode  String?       @db.VarChar(64)
+  committedAt    DateTime?     @db.Timestamptz(3)
+  finalizedAt    DateTime?     @db.Timestamptz(3)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @db.Timestamptz(3)
+
+  @@unique([sourcePath, sourceRevision])
+  @@index([status, nextRetryAt])
+  @@index([leaseUntil])
+  @@map("processing_attempts")
+}

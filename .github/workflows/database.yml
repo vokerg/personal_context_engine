@@ -1,0 +1,80 @@
+name: PostgreSQL integration
+
+on:
+  pull_request:
+    paths:
+      - "packages/db/**"
+      - "packages/core/**"
+      - "apps/api/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.base.json"
+      - ".github/workflows/database.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/db/**"
+      - "packages/core/**"
+      - "apps/api/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.base.json"
+      - ".github/workflows/database.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: pce_test
+          POSTGRES_USER: pce_test
+          POSTGRES_PASSWORD: synthetic_ci_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pce_test -d pce_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://pce_test:synthetic_ci_only@127.0.0.1:5432/pce_test?schema=public
+      PCE_DB_TEST_URL: postgresql://pce_test:synthetic_ci_only@127.0.0.1:5432/pce_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run db:validate
+      - run: npm run prisma:generate
+      - name: Apply checked-in migrations twice to verify idempotence
+        run: |
+          npm run db:migrate
+          npm run db:migrate
+      - name: Check database schema matches Prisma schema
+        run: npx prisma migrate diff --from-schema-datamodel packages/db/prisma/schema.prisma --to-url "$DATABASE_URL" --exit-code
+      - run: npm run build -w @pce/core
+      - run: npm run build -w @pce/db
+      - run: npm run build -w @pce/contracts
+      - run: npm run build -w @pce/api
+      - name: Database-dependent API readiness smoke
+        run: |
+          API_PORT=32123 node apps/api/dist/main.js > /tmp/pce-db-api.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:32123/ready > /tmp/pce-db-ready.json; then break; fi
+            sleep 0.5
+          done
+          node -e 'const v=require("/tmp/pce-db-ready.json"); if(v.status!=="ready")process.exit(1)'
+      - name: PostgreSQL integration tests (synthetic records only)
+        run: npx vitest run packages/db/src/index.integration.test.ts

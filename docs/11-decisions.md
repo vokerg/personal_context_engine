@@ -57,3 +57,14 @@
 6. **Notification model:** specify timezones, permissions, duplicates, quiet hours and failure semantics before promising alerts.
 
 When a deferred item is decided, add a numbered decision with date and migration consequences.
+
+
+## Implemented projection constraint (2026-10-16, issue #8)
+
+D-004/D-006 now have an initial Prisma 6/PostgreSQL 16 projection schema,
+checked-in SQL migration and serializable typed import repository. This is a
+replayable **projection**, not a change to the Markdown source-of-truth policy.
+Note ID uniqueness, opaque content revision compare-and-swap, original-offset
+preservation, restricted capture deletion and noncascading attempt metadata
+are deliberate compatibility rules. No private API reads, ownership mappings
+or worker finalization are added here; those require #13 and #10.
