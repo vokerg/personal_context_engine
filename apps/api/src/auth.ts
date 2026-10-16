@@ -17,8 +17,7 @@ const subjectPattern = /^[A-Za-z0-9][A-Za-z0-9._:|@-]{0,127}$/;
 function decodePart(value: string): unknown {
   if (!base64Url.test(value)) return null;
   const raw = Buffer.from(value, "base64url");
-  if (raw.toString("base64url") !== value || raw.byteLength > 4096)
-    return null;
+  if (raw.toString("base64url") !== value || raw.byteLength > 4096) return null;
   try {
     return JSON.parse(raw.toString("utf8")) as unknown;
   } catch {
@@ -45,7 +44,11 @@ export function createHmacTokenVerifier(
     const header = decodePart(encodedHeader);
     const claims = decodePart(encodedClaims);
     if (!record(header) || !record(claims)) return null;
-    if (header.alg !== "HS256" || header.typ !== "JWT" || header.crit !== undefined)
+    if (
+      header.alg !== "HS256" ||
+      header.typ !== "JWT" ||
+      header.crit !== undefined
+    )
       return null;
     if (!base64Url.test(encodedMac)) return null;
     const mac = Buffer.from(encodedMac, "base64url");
@@ -66,7 +69,8 @@ export function createHmacTokenVerifier(
       !Number.isSafeInteger(claims.iat) ||
       !Number.isSafeInteger(claims.exp) ||
       (claims.nbf !== undefined && !Number.isSafeInteger(claims.nbf))
-    ) return null;
+    )
+      return null;
 
     const issued = claims.iat as number;
     const expires = claims.exp as number;
@@ -76,7 +80,8 @@ export function createHmacTokenVerifier(
       expires <= issued ||
       expires - issued > 3600 ||
       (claims.nbf !== undefined && (claims.nbf as number) > now)
-    ) return null;
+    )
+      return null;
     const scopes = claims.scope.split(" ").filter(Boolean);
     return { subject: claims.sub, scopes };
   };
