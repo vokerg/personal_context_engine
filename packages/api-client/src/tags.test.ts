@@ -68,12 +68,12 @@ describe("tag API client", () => {
   it("rejects invalid filters before requesting a token", async () => {
     const getAccessToken = vi.fn(() => "fake");
     const request = vi.fn(async () => new Response("{}"));
-    await expect(
+    expect(() =>
       getNotes(
         { baseUrl: "https://api.example", getAccessToken, request },
         { tag: "not valid" },
       ),
-    ).rejects.toThrow();
+    ).toThrow();
     expect(getAccessToken).not.toHaveBeenCalled();
     expect(request).not.toHaveBeenCalled();
   });

@@ -66,8 +66,7 @@ export const TagSlugSchema = z
 function validDateOnly(value: string): boolean {
   const day = new Date(value + "T00:00:00.000Z");
   return (
-    !Number.isNaN(day.getTime()) &&
-    day.toISOString().slice(0, 10) === value
+    !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === value
   );
 }
 
