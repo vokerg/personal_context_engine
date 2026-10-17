@@ -236,7 +236,8 @@ export function App({
     event.preventDefault();
     const value = draft.trim();
     if (!value) return;
-    setSelectedId(null);
+    // Preserve a validated deep link during initial manual sign-in.
+    // Switching users requires Clear session, which removes the URL note ID.
     setNotes([]);
     setDetail(null);
     setNotice("");
