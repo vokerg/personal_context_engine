@@ -38,9 +38,12 @@ export function filterTimeline(
   const query = filters.query.trim().normalize("NFKC").toLocaleLowerCase();
   return notes
     .filter((note) => {
-      const day = localDayKey(note.capturedAt, timeZone);
-      if (filters.from && day < filters.from) return false;
-      if (filters.to && day > filters.to) return false;
+      // Avoid expensive calendar conversion for query-only navigation.
+      if (filters.from || filters.to) {
+        const day = localDayKey(note.capturedAt, timeZone);
+        if (filters.from && day < filters.from) return false;
+        if (filters.to && day > filters.to) return false;
+      }
       if (!query) return true;
       return `${note.title}\n${note.summary}`
         .normalize("NFKC")
