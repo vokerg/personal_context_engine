@@ -11,13 +11,21 @@ export interface TimelineFilters {
 export const PAGE_SIZE = 24;
 
 /** Calendar day in the viewer's timezone (not the original ISO offset). */
+const dateFormatters = new Map<string, Intl.DateTimeFormat>();
+
 export function localDayKey(capturedAt: string, timeZone?: string): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
+  const key = timeZone ?? "__viewer_local__";
+  let formatter = dateFormatters.get(key);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-US", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
     ...(timeZone ? { timeZone } : {}),
-  }).formatToParts(new Date(capturedAt));
+    });
+    dateFormatters.set(key, formatter);
+  }
+  const parts = formatter.formatToParts(new Date(capturedAt));
   const get = (type: string) => parts.find((part) => part.type === type)?.value;
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
