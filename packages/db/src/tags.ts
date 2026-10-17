@@ -17,7 +17,9 @@ export function createTagFacetRepository(
       const snapshot = allowedIds
         ? Prisma.sql`AND n.id IN (${Prisma.join(allowedIds)})`
         : Prisma.empty;
-      const rows = await client.$queryRaw<Array<{ slug: string; noteCount: bigint }>>(
+      const rows = await client.$queryRaw<
+        Array<{ slug: string; noteCount: bigint }>
+      >(
         Prisma.sql`
           SELECT t.slug AS "slug", COUNT(DISTINCT n.id)::bigint AS "noteCount"
           FROM notes AS n CROSS JOIN LATERAL unnest(n.tags) AS t(slug)
