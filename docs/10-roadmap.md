@@ -2,7 +2,7 @@
 
 **Delivery principle:** implement thin end-to-end slices. Validate the risk in ChatGPT-to-private-GitHub capture before investing in a full UI and automated intelligence stack. Stages describe intent, **not completed milestones**.
 
-## Active next-stage sequence (2026-10-16; future delivery, not shipped)
+## Active next-stage sequence (revised 2026-10-17; future delivery, not shipped)
 
 **North-star constraint (revised 2026-10-17):** keep the current ChatGPT -> private GitHub capture and repo search usable while moving toward independent GitHub/API/MCP capture inputs and PostgreSQL as the sole operational source of truth. No mandatory GitHub output replication or forced search cutover. The baseline phases below remain historical acceptance definitions, not a claim all tasks are complete. [Epic #42](https://github.com/vokerg/personal_context_engine/issues/42) tracks the additive work.
 
