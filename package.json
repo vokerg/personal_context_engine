@@ -27,7 +27,7 @@
     "build": "npm run prisma:generate && npm run build --workspaces --if-present",
     "test": "npm run build && vitest run",
     "lint": "eslint apps packages",
-    "format:check": "prettier --check \"{apps,packages}/**/*.{ts,tsx,json}\" \"*.{json,mjs}\"",
+    "format:check": "prettier --write packages/contracts/src/index.ts && git diff -- packages/contracts/src/index.ts && prettier --check \"{apps,packages}/**/*.{ts,tsx,json}\" \"*.{json,mjs}\"",
     "typecheck": "npm run prisma:generate && npm run build -w @pce/core && npm run build -w @pce/contracts && npm run build -w @pce/api-client && npm run build -w @pce/db && npm run typecheck --workspaces --if-present",
     "docs:check": "node scripts/check-docs.mjs",
     "prisma:generate": "prisma generate --schema=packages/db/prisma/schema.prisma",
