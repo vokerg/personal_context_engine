@@ -5,6 +5,10 @@ import {
   NoteDetailSchema,
   NoteIdSchema,
   NotesListResponseSchema,
+  NotesQuerySchema,
+  TagFacetsResponseSchema,
+  type NotesQuery,
+  type TagFacetsResponse,
   type NoteDetail,
   type NotePreview,
   HealthResponseSchema,
@@ -27,7 +31,9 @@ declare module "fastify" {
 
 /** Owner filtering must occur in the trusted adapter query, not in the client. */
 export interface PrivateNoteReader {
-  listByOwner(subject: string): Promise<NotePreview[]>;
+  listByOwner(subject: string, filters?: NotesQuery): Promise<NotePreview[]>;
+  /** Optional until a trusted owner-filtered facets adapter is attached. */
+  listTagsByOwner?(subject: string): Promise<TagFacetsResponse>;
   getByOwner(subject: string, noteId: string): Promise<NoteDetail | null>;
 }
 
@@ -183,12 +189,34 @@ export function createApp(options: ApiOptions = {}) {
     app.get(
       "/api/v1/notes",
       { preHandler: requireNoteRead },
-      async (request) => {
-        const principal = request.authenticatedPrincipal!;
-        const records = await notes.listByOwner(principal.subject);
+      async (request, reply) => {
+        const filters = NotesQuerySchema.safeParse(request.query);
+        if (!filters.success) {
+          return reply.code(400).send(errorResponse("BAD_REQUEST"));
+        }
+        const records = await notes.listByOwner(
+          request.authenticatedPrincipal!.subject,
+          filters.data,
+        );
         return NotesListResponseSchema.parse({ notes: records });
       },
     );
+    if (notes.listTagsByOwner) {
+      app.get(
+        "/api/v1/tags",
+        { preHandler: requireNoteRead },
+        async (request, reply) => {
+          if (Object.keys(request.query as Record<string, unknown>).length) {
+            return reply.code(400).send(errorResponse("BAD_REQUEST"));
+          }
+          return TagFacetsResponseSchema.parse(
+            await notes.listTagsByOwner!(
+              request.authenticatedPrincipal!.subject,
+            ),
+          );
+        },
+      );
+    }
     app.get<{ Params: { id: string } }>(
       "/api/v1/notes/:id",
       { preHandler: requireNoteRead },

@@ -82,6 +82,25 @@ The current web UI is a functional local-development preview, not the target exp
 
 Next, expose **observed, per-user tag facets** via the authenticated API, show clickable tag chips and an exploratory tag browser with counts, and allow combined filtering plus easy reset/back navigation. Do **not** ship fixed standard tags or arbitrary implicit note mutations yet; tag normalization/taxonomy needs a separate product decision (#54). Web redesign (#52) may use lexical filtering while DB hybrid search remains gated, and the mobile product stays a future workstream. Notification scheduler, real push and device testing are not delivered by this documentation work.
 
+
+### Owner-scoped observed tag API (#51)
+
+For an explicitly enabled private note adapter, `GET /api/v1/tags` provides
+up to **200** observed slug/count pairs in bytewise slug order; `truncated:
+true` indicates more than 200 distinct tags, rather than inventing a standard
+dictionary. Each count is the number of distinct accessible notes tagged
+with that slug. The opt-in local reader further limits counts to note IDs in
+the current content snapshot, excluding stale/removed file records.
+
+`GET /api/v1/notes` accepts optional `tag`, `project`, `kind`, `from`
+and `to` query parameters; combined filters are conjunctive. Slugs follow
+Markdown v1 and the date range is over inclusive **UTC** calendar days of
+`capturedAt`. Invalid values, duplicate keys and unknown fields get a
+generic 400 without echoing private inputs. A verified `notes:read` token
+is required for both routes. Owner scoping is enforced at the database query,
+not in the browser. Production identity (#44), note pagination (#52), curated
+tags (#54) and DB search (#48) remain separate work.
+
 ## Web timeline shell implementation (#52, staged)
 
 The opt-in local/development React client now has a responsive **read-only timeline shell** with
@@ -96,9 +115,9 @@ exposes only ID/title/summary/capture timestamp. Consequently, keyword and local
 calendar-date filters operate **only on the returned list**; "Show more"
 reveals another bounded page of already fetched notes rather than requesting
 more from PostgreSQL. Results are not comprehensive if the API limits its
-response. Project, kind, observed-tag facets and server search must wait for
-the corresponding owner-scoped contract and backend integrations (#51 and #53),
-and must not be faked by the browser. Production authentication (#44), viewport
+response. Project, kind and observed-tag facets are now available through the owner-scoped
+API (#51), but their web controls still require #53 integration. Full-text server
+search remains separate (#48); neither capability should be faked by the browser. Production authentication (#44), viewport
 screenshots and trusted real-data validation remain separate rollout gates.
 
 The UI keeps separate loading, retryable failure, missing-detail and no-results

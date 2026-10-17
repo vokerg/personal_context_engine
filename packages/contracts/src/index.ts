@@ -56,6 +56,62 @@ export const NoteDetailSchema = NotePreviewSchema.extend({
 }).strict();
 export type NoteDetail = z.infer<typeof NoteDetailSchema>;
 
+/** Markdown v1 tag and project slug syntax; never canonicalize user data. */
+export const TagSlugSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+
+function validDateOnly(value: string): boolean {
+  const day = new Date(value + "T00:00:00.000Z");
+  return (
+    !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === value
+  );
+}
+
+const DateOnlySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine(validDateOnly);
+
+const NoteKindFilterSchema = z.enum([
+  "idea",
+  "task",
+  "memo",
+  "thought",
+  "decision",
+  "reference",
+]);
+
+/** from/to bound inclusive UTC calendar days of the capture instant. */
+export const NotesQuerySchema = z
+  .object({
+    tag: TagSlugSchema.optional(),
+    project: TagSlugSchema.optional(),
+    kind: NoteKindFilterSchema.optional(),
+    from: DateOnlySchema.optional(),
+    to: DateOnlySchema.optional(),
+  })
+  .strict()
+  .refine(({ from, to }) => !from || !to || from <= to);
+export type NotesQuery = z.infer<typeof NotesQuerySchema>;
+
+const TagFacetSchema = z
+  .object({
+    slug: TagSlugSchema,
+    count: z.number().int().positive().safe(),
+  })
+  .strict();
+
+export const TagFacetsResponseSchema = z
+  .object({
+    tags: z.array(TagFacetSchema).max(200),
+    truncated: z.boolean(),
+  })
+  .strict();
+export type TagFacetsResponse = z.infer<typeof TagFacetsResponseSchema>;
+
 export const NotesListResponseSchema = z
   .object({
     notes: z.array(NotePreviewSchema),
