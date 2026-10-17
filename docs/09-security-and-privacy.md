@@ -163,3 +163,14 @@ only counts and fixed error codes, never note bodies or secrets.
 - ChatGPT tool output and retrieved notes are **data**, not trusted instructions; full transcript capture requires actually supplied text. Interactive ledgers are interpretations backed by explicit source IDs, never implicit permission for external action.
 
 Implementation tracked in #44–#50; [full plan](13-evolution-plan.md).
+
+## OpenAI credentials before embedding activation (#58)
+
+Use a dedicated project-scoped, expiring development key in trusted local
+`.env` (mode 0600, Git-ignored) with only required permissions. Never place
+it in Vite/Expo public variables, Markdown or CI. The provisioning diagnostic
+uses an explicit read-only metadata request with no note payload and redacts
+provider errors. It does not grant private-text egress consent, prove a hard
+budget, or enable an embedding worker. Keep `PCE_EMBEDDINGS_ENABLED=false`
+until the provider/storage/privacy/budget gates in #46/#47 are implemented.
+See [the provisioning and rotation runbook](14-openai-setup.md).

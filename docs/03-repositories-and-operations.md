@@ -373,3 +373,13 @@ Initial external embeddings provider: OpenAI `text-embedding-3-small` via **serv
 **Target operational boundary:** a GitHub write may succeed during PCE downtime; periodic polling/reconciliation must import it after restart, with an acknowledged durable Git revision/checkpoint only after PostgreSQL persistence. Webhooks are optional accelerators, not a sole change feed. API/MCP capture depends on PCE/PostgreSQL availability, not GitHub. Run DB jobs independently of the GitHub connector; no automatic API-to-GitHub export. Verify encrypted PostgreSQL backups, restoration and portable export (#61), since API-origin notes/derived records have no required GitHub copies. The current opt-in importer still finalizes/moves GitHub files; its migration requires #43, not this documentation change.
 
 Production hosting, login/OAuth issuer, schedules, backup plan and actual MCP tool availability are implementation gates, **not proven** by docs. See [evolution plan](13-evolution-plan.md), #43–#56 and #61.
+
+## OpenAI provisioning groundwork (#58)
+
+See [OpenAI setup](14-openai-setup.md) for a dedicated application project,
+restricted expiring local key, ignored root `.env` and `npm run openai:check`.
+The optional `--live` check reads model metadata only. Embeddings remain
+disabled; #46 adds storage and #47 implements the asynchronous provider worker.
+API credits, project configuration and successful metadata access do not
+prove that private-note indexing is active. No account key belongs in the
+content repository, browser/mobile configuration or public CI.
