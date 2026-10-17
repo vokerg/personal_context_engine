@@ -411,7 +411,7 @@ export function App({
                 <button className="ghost" type="button" onClick={() => navigateToNote(null)}>
                   ← Back to timeline
                 </button>
-                {detailState === "loading" && <p role="status">Loading detail…</p>}
+                {(detailState === "loading" || (detailState === "ready" && detail?.id !== selectedId)) && <p role="status">Loading detail…</p>}
                 {detailState === "error" && (
                   <div className="error" role="alert">
                     <p>{detailError}</p>
@@ -420,7 +420,7 @@ export function App({
                     </button>
                   </div>
                 )}
-                {detailState === "ready" && detail && (
+                {detailState === "ready" && detail?.id === selectedId && (
                   <article>
                     <p className="eyebrow">Captured note</p>
                     <h2 className="detail-title" ref={detailHeading} tabIndex={-1}>
