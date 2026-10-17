@@ -56,7 +56,7 @@ Only the first level and the foundation of the second are MVP goals. The third i
 
 These are direction-setting measures, not claimed current metrics.
 
-## Approved next-stage intent (2026-10-16)
+## Approved next-stage intent (2026-10-16; revised 2026-10-17)
 
 Do not interrupt the working low-friction ChatGPT -> private GitHub capture workflow. Increase the value of accumulated notes through accessible reading, searchable context, auditable ledgers and interactive agent tools. The near-term product promise is **capture once, preserve originals, organize/search later**. Neither paid LLM services nor semantic indexing are prerequisites for accepting a note.
 
