@@ -61,10 +61,33 @@ describe("local timeline", () => {
     ]);
   });
 
+  it("applies local calendar boundaries across a DST transition", () => {
+    const springNotes: NotePreview[] = [
+      {
+        id: id(4),
+        title: "Spring note",
+        summary: "Before the DST jump",
+        capturedAt: "2026-03-28T23:30:00Z",
+      },
+      {
+        id: id(5),
+        title: "Later note",
+        summary: "After the local date changed",
+        capturedAt: "2026-03-29T22:30:00Z",
+      },
+    ];
+    const result = filterTimeline(
+      springNotes,
+      { query: "", from: "2026-03-29", to: "2026-03-29" },
+      "Europe/Prague",
+    );
+    expect(result.map((note) => note.id)).toEqual([id(4)]);
+  });
+
   it("matches summary, avoids mutating API order and has bounded pages", () => {
     const copy = [...notes];
     expect(
-      filterTimeline(notes, { query: "context", from: "", to: "" }).map(
+      filterTimeline(notes, { query: "context", from: "", to: "" }, "Invalid/Zone").map(
         (note) => note.id,
       ),
     ).toEqual([id(2)]);
