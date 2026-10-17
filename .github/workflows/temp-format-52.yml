@@ -1,0 +1,31 @@
+name: Temporary branch formatter
+on:
+  push:
+    branches:
+      - feat/52-web-timeline-shell
+permissions:
+  contents: write
+jobs:
+  format-branch:
+    if: github.repository == 'vokerg/personal_context_engine'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Apply repository Prettier version to PR files
+        run: npx prettier --write apps/web/src/App.tsx apps/web/src/timeline.ts apps/web/src/timeline.test.ts
+      - name: Commit formatting on this temporary feature branch only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/src/App.tsx apps/web/src/timeline.ts apps/web/src/timeline.test.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "style(web): apply Prettier to timeline (#52)"
+            git push origin HEAD:feat/52-web-timeline-shell
+          fi
