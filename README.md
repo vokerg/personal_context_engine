@@ -2,7 +2,15 @@
 
 **Personal Context Engine (PCE)** is an extensible, self-hostable system for capturing unstructured thoughts, preserving their original meaning, turning them into structured records, and surfacing relevant context later.
 
-**Status: foundation with local deterministic ingestion and synthetic API authentication boundary.** This repository has starter API/worker processes, React/Vite and Expo read-only client previews, shared TypeScript workspaces, and pure synthetic-tested v1 Markdown capture validation/serialization in `@pce/core`. An opt-in one-shot worker supports filesystem/PostgreSQL ingestion and crash reconciliation; the normal worker command stays idle. The browser/Expo clients now have development-only, memory-scoped bearer entry and typed list/detail API requests. There is no real login, owner-scoped database reader, production private-note ingestion, notification delivery or deployment. The documents distinguish agreed direction from implemented functionality.
+**Status (2026-10-16): foundation with opt-in local GitHub ingestion, owner-scoped development browsing and synthetic authentication.** This repository has starter API/worker processes, React/Vite and Expo read-only client previews, shared TypeScript workspaces, and pure synthetic-tested v1 Markdown capture validation/serialization in `@pce/core`. An opt-in one-shot worker supports filesystem/PostgreSQL ingestion and crash reconciliation; the normal worker command stays idle. The browser/Expo clients now have development-only, memory-scoped bearer entry and typed list/detail API requests. There is no production login, hosted private-note ingestion, notification delivery or deployment; owner-scoped local-development browsing exists behind explicit opt-in. The documents distinguish agreed direction from implemented functionality.
+
+## Next direction: preserve capture while adding retrieval intelligence
+
+**Current:** ChatGPT can use the private GitHub content repository as a capture/search surface where the connector permits it; an explicitly opted-in local GitHub worker can import and finalize Markdown into PostgreSQL. These are *not* hosted background ingestion, MCP deployment, semantic search, automatic ledgers or push notifications.
+
+**Agreed evolution (not implemented yet):** preserve the existing GitHub capture and repo search, develop parallel token-authenticated API/MCP capture with **both PostgreSQL persistence and durable GitHub export**, and add a separate OpenAI `text-embedding-3-small` indexing worker plus pgvector/hybrid search behind a feature gate. Use ChatGPT interactively for ledger synthesis; DeepSeek selection is deferred. Improve the web timeline and add clickable, observed tag filters without imposing a canonical tag list.
+
+See [the project intent](INTENT.md), [coexistence plan](docs/13-evolution-plan.md) and [delivery epic #42](https://github.com/vokerg/personal_context_engine/issues/42). **No current capture route is being removed by this plan.**
 
 ## Two-repository design
 

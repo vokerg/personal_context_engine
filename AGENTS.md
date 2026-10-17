@@ -8,6 +8,20 @@ Build a replaceable-channel personal context engine: capture (voice/text) -> dur
 
 **Current state:** the runnable scaffold, v1 Markdown parser, ContentStore adapters, public-only Fastify API and Prisma/PostgreSQL projection package exist. An explicit opt-in, once-mode deterministic ingestion worker is implemented under #10; the default development worker remains idle. An interim JWT verification boundary and opt-in owner-scoped synthetic note routes are implemented (#13); the default API still has no private reads. A separate `dev:local` entry point imports a local snapshot with persisted single-user ownership and supplies loopback-only short-lived web sessions (#38). Its explicit `PCE_INGEST_GITHUB=true` mode runs real bounded worker passes against the configured verified private repo every 30 seconds, finalizes notes and refreshes the checkout (#40). Production login, push delivery and private-repository ingestion deployment are not implemented. Inspect source and tests before making changes.
 
+## Active future intent (2026-10-16; design, not shipped)
+
+Read [INTENT.md](INTENT.md), [docs/13-evolution-plan.md](docs/13-evolution-plan.md) and [issue #42](https://github.com/vokerg/personal_context_engine/issues/42) before implementing new capture, search, embeddings, MCP, ledger or web UX work.
+
+- **Do not replace or disable the working private-GitHub capture / current ChatGPT repository search path**. The owner will continue using it until an explicitly validated, reversible cutover.
+- **Dual-store destination, not fragile client-side double write:** existing GitHub -> deterministic worker -> PostgreSQL is the first path. Future API/MCP capture is durable in PostgreSQL with a transactional outbox and asynchronous create-only GitHub export; distinguish DB-persisted from GitHub-exported states. Preserve IDs and provenance and reconcile loops/conflicts.
+- **OpenAI embeddings are a separate future worker**, not a requirement for a capture to succeed. Default planned model: `text-embedding-3-small`; keep a replaceable provider port, versioned chunks and hashes, pgvector indexing, explicit cost/privacy handling, and all external API calls out of public CI.
+- **Search phase gate:** ChatGPT keeps searching the private content repository for now. New PostgreSQL lexical/hybrid retrieval may be built and tested behind a feature gate, not silently activated.
+- **MCP trust boundary:** authenticated HTTPS tools accept short-lived, audience/scope-verified user tokens from an app-authorized OAuth flow; resolve owner from the verified identity, not caller parameters. Never expose DB or GitHub credentials, OpenAI keys, or note bodies in logs.
+- **ChatGPT remains the interactive reasoning/ledger agent**; DeepSeek and unattended LLM synthesis are *not* selected. An LLM-generated tag/reminder/ledger never authorizes external actions.
+- **UI and tags:** prioritize usable timeline/search/navigation and clickable tags observed in each owner's notes. Curated/default tags and destructive normalization are deferred; see #51–#54.
+
+**Scope discipline:** These bullets are an agreed *direction*, not implemented code. Follow #42's issue sequence and implementation gates. Existing D-004 (Markdown first-stage source of truth) is intentionally **not yet superseded**.
+
 ## Read before working
 
 1. [docs/README.md](docs/README.md) — documentation map and authority.

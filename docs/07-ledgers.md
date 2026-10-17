@@ -68,3 +68,9 @@ Each significant aggregate assertion should be traceable to source note IDs or s
 - Use full-text search first; introduce embeddings/vector search only when supported by measured retrieval gaps.
 
 See [domain model](06-domain-and-taxonomy.md) and [security](09-security-and-privacy.md).
+
+## First intelligence execution path (#55)
+
+The worker computes **deterministic evidence**, not unsupervised narrative: bounded period windows in the user's timezone, counts, changed state, source note IDs/revisions and stale-input flags. During the first iteration, the user invokes ChatGPT interactively to retrieve a bounded evidence pack using authorized tools (or the present private-repo reading workflow) and to write an attributed narrative. This avoids selecting a new paid unattended LLM runtime prematurely.
+
+OpenAI embeddings serve **semantic retrieval only**, not narrative synthesis. DeepSeek and unattended ledger generation/scheduling remain undecided; neither can be assumed to be covered by ChatGPT subscription usage. Persist a verified, attributed ledger only through an explicitly designed safe write API or private repo operation; no inference becomes a fact or reminder merely because a model proposed it. Separate late-note invalidation and regeneration from daily note capture.

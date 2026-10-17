@@ -2,6 +2,21 @@
 
 **Delivery principle:** implement thin end-to-end slices. Validate the risk in ChatGPT-to-private-GitHub capture before investing in a full UI and automated intelligence stack. Stages describe intent, **not completed milestones**.
 
+## Active next-stage sequence (2026-10-16; future delivery, not shipped)
+
+**North-star constraint:** keep the user's current ChatGPT -> private GitHub capture and repository search usable. Do not introduce a mandatory migration to direct-DB capture/search. The baseline phases below remain historical acceptance definitions, not a claim all tasks are complete. [Epic #42](https://github.com/vokerg/personal_context_engine/issues/42) tracks the additive work.
+
+| Stage | Work / dependencies | Gate before proceeding |
+| --- | --- | --- |
+| 1: protect today's workflow | #43 GitHub ingestion reliability and owner-scoped visibility | Real, private note arrives in DB with replay/reconciliation; repo capture/search still works |
+| 2: foundation for parallel writes | #44 user identity and scoped tokens -> #45 transactional DB capture + GitHub export outbox | Same ID/bytes in DB and GitHub, statuses truthful under outages; no cross-user leak |
+| 3: prepare retrieval index | #46 chunk/pgvector schema -> #47 OpenAI embeddings worker -> #48 hybrid DB API | Resumable indexing, multilingual retrieval quality, costs and tenant isolation measured |
+| 4: connect ChatGPT safely | #49 MCP tools/auth and #50 repo-first retrieval/cutover plan | Working auth/token exchange and capture verified; ChatGPT repo search stays default until explicit approval |
+| 5: make notes useful | #51 owner-scoped tag facets -> #52 web UX -> #53 clickable tag browser; #55 interactive sourced ledgers | Genuine browse/filter and evidence-backed summary; #54 canonical tag rules remain deferred |
+| 6: optional switch | #56 coexistence, migration and rollback acceptance | No lost notes/dupes and an explicit user-approved switch of any default |
+
+Stages 1–5 may proceed in parallel **after their listed dependencies**, not as a promise of already-operational hosted services. No automated DeepSeek or other unattended LLM-ledger provider is selected. Full design in [13 — Evolution plan](13-evolution-plan.md).
+
 ## Phase 0 — Foundation and privacy
 
 - [ ] Make content repository **Private** and verify permissions.

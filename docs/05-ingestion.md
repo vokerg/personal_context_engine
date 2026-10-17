@@ -241,3 +241,11 @@ exposes sanitized pass status in the local UI. Retry/rejection records remain
 durable. The default standalone worker is still idle; this local polling loop
 exists only while the developer process is running. See the operations guide
 for credentials, checkout validation and preview revision bridging.
+
+## Parallel-ingestion contract (future work; #43, #45, #56)
+
+**Existing, do not regress:** private GitHub `inbox/` -> strict deterministic worker -> PostgreSQL -> GitHub `notes/YYYY/MM/`. The local opt-in poller (#40) is not a guarantee that hosted ingestion or notifications run unattended.
+
+**Future API/MCP-origin writes:** authenticate/authorize a user, validate versioned capture and original text, allocate/reuse stable `capture_id`/`note_id`, and transactionally persist the DB source record and a durable `GitHubExportPending` outbox item. A separate worker writes create-only Markdown to the private repo and records the resulting path/revision. Distinguish `DB_PERSISTED`, `EXPORT_PENDING`, `EXPORTED`, `EXPORT_RETRY` and `EXPORT_CONFLICT`; name/status is a design contract, not yet a migrated enum. The UI/MCP reply must not claim two copies until a confirmed export exists.
+
+**Echo prevention:** A GitHub-exported note rediscovered by the existing importer must reconcile to the same note ID/bytes/owner and never become a second capture. Retain separate DB source revision and GitHub content revision; never invent a distributed Git/Postgres transaction or automatically overwrite conflicting records. A permanent export failure leaves the DB original intact with a repairable status. Failed embeddings cannot roll back captured content. Backfill and reconciliation, including foreign-owner and legacy unowned captures, need explicit tests before any cutover. See [13 — Evolution plan](13-evolution-plan.md).

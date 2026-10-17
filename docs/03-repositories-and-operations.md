@@ -8,7 +8,7 @@ Purpose: code, test fixtures (synthetic only), canonical contract specifications
 
 ### Private content: `vokerg/personal_context_engine_content`
 
-Purpose: personal input files, accepted notes, ledgers and narrow ChatGPT capture guidance. **No application CI** and no application source code. The owner plans to make this repository private; until its actual visibility is changed, **never write personal content to it**.
+Purpose: personal input files, accepted notes, ledgers and narrow ChatGPT capture guidance. **No application CI** and no application source code. Private visibility was verified during the #12/#23 experiment; each runtime connector must still independently verify the configured repository and fail closed if public.
 
 Proposed content layout (created separately when ready):
 
@@ -64,7 +64,7 @@ npm run dev              # API :3000, default-idle worker and Vite web :4200
 npm run dev:mobile       # separate Expo/Metro dev session
 ```
 
-The API binds to `127.0.0.1:3000` by default; `API_HOST` and `API_PORT` are validated at startup. Public `GET /health`, `GET /ready` and `GET /api/v1` are implemented. Private note routes are registered only if an authenticated, owner-scoped note reader is explicitly injected (#13); default startup still exposes only public endpoints. The DB projection package lacks persisted ownership and is not wired to private reads. The default worker starts/stops without ingesting data; issue #10 adds an explicit once-mode worker that requires a database and an opted-in ContentStore. React web is a static scaffold and the Expo app is a native scaffold; neither reads private content. Running Expo on a real device needs local Expo tooling, a compatible emulator/device, and separate device-reachable API configuration when auth arrives. CI does **not** claim native simulator validation. `db:migrate` applies the checked-in Prisma/PostgreSQL projection migration (issue #8); see [DB setup](../packages/db/README.md).
+The API binds to `127.0.0.1:3000` by default; `API_HOST` and `API_PORT` are validated at startup. Public `GET /health`, `GET /ready` and `GET /api/v1` are implemented. Private note routes are registered only if an authenticated, owner-scoped note reader is explicitly injected (#13); default startup still exposes only public endpoints. The DB projection now has an opt-in owner-scoped local development read path (#38), but a production identity provider and default generic private-read wiring are not established. The default worker starts/stops without ingesting data; issue #10 adds an explicit once-mode worker that requires a database and an opted-in ContentStore. React web is a static scaffold and the Expo app is a native scaffold; neither reads private content. Running Expo on a real device needs local Expo tooling, a compatible emulator/device, and separate device-reachable API configuration when auth arrives. CI does **not** claim native simulator validation. `db:migrate` applies the checked-in Prisma/PostgreSQL projection migration (issue #8); see [DB setup](../packages/db/README.md).
 
 ## Environment and credentials
 
@@ -358,3 +358,16 @@ The polling worker lives inside this developer process. Closing the terminal,
 Ctrl-C or stopping it ends polling; it is not an always-on hosted service.
 The separate default `dev:worker` command remains idle. Live local ingestion
 does not infer reminders, create notifications or generate ledgers.
+
+## Planned additive services (issue #42; not implemented)
+
+Keep the existing `apps/{api,worker,web,mobile}` and `packages/{core,db,contracts,api-client}` monorepo. Add modules inside existing workspaces instead of creating a paid embedding microservice:
+
+- `apps/worker`: independent ingestion, GitHub-export and embedding job runners, database leases/retries, usage budgets and status.
+- `apps/api`: authenticated capture, read/search, tag facets and MCP transport using a common owner-aware service layer.
+- `packages/db`: capture provenance, export outbox, chunk/vector metadata and tenant-filtered retrieval queries.
+- `packages/core`: stable Markdown v1 fidelity, versioned deterministic chunking and provider-neutral interfaces where appropriate.
+
+Initial external embeddings provider: OpenAI `text-embedding-3-small` via **server-only** credentials. Define egress consent/privacy, hard per-run and per-user budgets, provider errors/backoff, opt-in backfill and model migration before activation. The user’s ChatGPT subscription is not an embeddings API credential. Local model support may be added behind a provider adapter; no always-on Ollama/Render service is required for the first iteration.
+
+Production hosting, login/OAuth issuer, schedules and actual MCP tool availability are implementation gates, **not proven** by docs. See [evolution plan](13-evolution-plan.md) and #43–#56.

@@ -91,3 +91,29 @@ Every ingestion should be traceable by `note_id`, `capture_id`, source path/revi
 ## Domain-driven layering
 
 Routes validate transport and auth; application services orchestrate; domain code implements invariants; infrastructure adapters implement GitHub, Prisma, LLMs and push. Keep API and worker thin, sharing domain packages but not sharing transport-specific state.
+
+## Progressive architecture: parallel channels (accepted direction; not deployed)
+
+The existing diagram above describes the original GitHub-first target. The **next evolution**, documented in [13 — Evolution plan](13-evolution-plan.md), adds capabilities **without replacing** the active path:
+
+```mermaid
+flowchart TD
+  CHAT[ChatGPT / GitHub connector] -->|current Markdown capture| GIT[(Private GitHub content)]
+  CHAT -->|current search/read| GIT
+  GIT -->|current import| ING[Deterministic ingestion worker]
+  ING --> DB[(PostgreSQL)]
+  MCP[Future ChatGPT MCP tools] -->|scoped user access token| API[Authenticated PCE API]
+  WEB[Web/mobile clients] -->|scoped bearer session| API
+  API -->|future capture + durable outbox| DB
+  OUT[Future GitHub export worker] -->|idempotent create-only replication| GIT
+  DB -->|pending export jobs| OUT
+  DB -->|pending index jobs| EMB[Future embeddings worker]
+  EMB -->|server-side private input, opt-in| OPENAI[OpenAI embeddings API]
+  EMB -->|vectors + provenance| DB
+  API -. gated future retrieval .-> DB
+  CHAT -. interactive ledger tools later .-> MCP
+```
+
+For GitHub-origin captures, the current Markdown document remains the source of truth and the DB a projection until an explicitly approved policy change. For future API-origin captures, commit canonical source bytes, verified ownership and an export job **in one PostgreSQL transaction**, then synchronize them to GitHub asynchronously; two independent network writes are not an atomic transaction. The processing and export jobs require deduplication, explicit statuses and crash recovery.
+
+`apps/api` stays the authenticated transport boundary; `apps/worker` adds independent ingestion, embedding and export job handlers behind ports; `packages/db` owns migrations/queries; `packages/core` keeps portable capture/chunking rules; `packages/contracts` owns typed tool/API shapes. These describe future modules, **not directories already implemented**. Search through the GitHub connector remains the active ChatGPT interface until the DB-search evaluation gate passes. All reads and writes must scope by verified owner. See #42 and [security](09-security-and-privacy.md).

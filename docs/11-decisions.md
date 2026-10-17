@@ -18,6 +18,12 @@
 | D-010 | No external action is executed solely due to a model-assigned tag. | Prevent accidental or unauthorized side effects. |
 | D-011 | Non-trivial engineering work is GitHub issue-first, one reviewable PR per issue, with CI evidence and explicit human approval before merging. | Auditability, reproducible agent execution and separation of author from reviewer. |
 | D-012 | Interim authenticated API uses strict short-lived HS256 JWTs behind a replaceable verifier, with server-only signing keys and verified-subject scoping. | An auditable zero-external-service boundary for synthetic tests; future hosted OIDC/JWKS and key rotation are explicitly permitted without changing route authorization. |
+| D-013 | Keep private GitHub ChatGPT capture and repository search working throughout a **progressive**, reversible evolution. | No interruption to the user's already-useful capture workflow; any default switch requires demonstrated parity and approval. |
+| D-014 | Target eventual **both-store** persistence: GitHub-origin notes import to PostgreSQL as today; future API/MCP-origin notes commit DB source + durable GitHub export outbox, with asynchronous reconciliation. | Reliable coexistence, stable IDs, source fidelity and no impossible cross-system ACID promise; D-004 remains in force until a separately approved source-of-truth decision. |
+| D-015 | Initial semantic indexing provider will be OpenAI `text-embedding-3-small`, behind a replaceable adapter and a **separate optional embedding worker**. | Low operational overhead and cheap bounded usage for the initial workload; failure cannot block capture, and external processing/privacy must be disclosed. |
+| D-016 | Plan tenant-scoped hybrid PostgreSQL search (lexical + pgvector) and authenticated, token-scoped MCP tools, while preserving repo-based ChatGPT search as the **current** interface. | Retrieval quality and owner isolation must be verified before enabling new search by default; OAuth capability/compatibility must be proven, not assumed. |
+| D-017 | Use ChatGPT interactively for initial intelligence/ledger narrative over sourced evidence; DeepSeek and unattended LLM hosting remain undecided. | Avoid premature LLM backend deployment and claims that a ChatGPT subscription covers API processing. |
+| D-018 | Web UX will expose existing, clickable per-user tag facets; standard/canonical tag taxonomy remains a later product decision. | Support discovery now without inventing fixed categories or rewriting historical notes. |
 
 ## Proposed implementation defaults (subject to prototyping)
 
@@ -44,7 +50,7 @@
 - Whether and when PostgreSQL becomes the editable source of truth.
 - Bidirectional write-back semantics and merge/conflict policy.
 - Final authentication provider, hosting, scheduler and push transport.
-- Embeddings, vector search, knowledge graphs and autonomous external integrations.
+- Production embeddings, vector search rollout, knowledge graphs and autonomous external integrations (embedding provider/direction now accepted in D-015/D-016, implementation still pending).
 - Hardware recorder/always-on capture and retained audio storage.
 - Cross-user sharing, multi-tenant accounts and sophisticated offline-first conflict handling.
 
@@ -131,3 +137,9 @@ This is an implementation of local ingestion, not hosted scheduling,
 reminder delivery or a production authentication decision. Legacy preview
 revisions are bridged only through same-owner/path and exact-byte proof,
 with a narrowly verified Git CRLF checkout conversion where needed.
+
+## Progressive evolution decision boundary (2026-10-16, #42)
+
+**Accepted product direction is not shipped functionality.** D-013–D-018 describe the desired coexistence and provider defaults; implementation is tracked in #43–#56. D-004 remains effective for GitHub-origin captures; whether a future DB-primary model should *replace* the first-stage file authority is still deferred. This avoids claiming a globally resolved source-of-truth model before robust dual-write conflict/version semantics exist.
+
+The new dual-path requirement means a note must ultimately exist in both stores; this is **recoverable eventual replication**, not an atomic write to GitHub and PostgreSQL. The current GitHub capture/read integration continues unchanged until an explicit, verified cutover. Retrieval provider changes are independent from capture persistence. No production OAuth identity system, embedding runtime, MCP service, automatic ledger generator, mobile push system or curated tag taxonomy is implied by this decision.
