@@ -30,7 +30,7 @@
 
 | ID | Proposal | Validation needed |
 | --- | --- | --- |
-| P-001 | `inbox/` -> worker -> `notes/YYYY/MM/`; `rejected/` for invalid input. | GitHub write/move behavior and operational ergonomics. |
+| P-001 | **Historical/current:** `inbox/` -> worker -> `notes/YYYY/MM/`; `rejected/` for invalid input. Target #43 migration may remove GitHub finalization writes while retaining safe validation, rejection and DB checkpointing. | Existing adapter operation and migration safety; no GitHub write-back requirement under D-019. |
 | P-002 | Stable ULID or UUID note IDs; unique capture IDs, original transcript retention. | Validator implementation and collision/retry tests. |
 | P-003 | One primary `kind`, controlled `action_hint`, multiple domains/projects/tags. | Evaluate real voice samples and taxonomy drift. |
 | P-004 | GitHub ingestion polls/reconciles from durable revision checkpoints; webhooks may accelerate discovery but never substitute for catch-up. | Lost webhooks, downtime, changed revisions and bounded rescan require tested recovery. |
@@ -139,8 +139,8 @@ reminder delivery or a production authentication decision. Legacy preview
 revisions are bridged only through same-owner/path and exact-byte proof,
 with a narrowly verified Git CRLF checkout conversion where needed.
 
-## Progressive evolution decision boundary (2026-10-16, #42)
+## Progressive evolution decision boundary (2026-10-16; revised 2026-10-17, #42)
 
-**Accepted product direction is not shipped functionality.** D-013–D-018 describe the desired coexistence and provider defaults; implementation is tracked in #43–#56. D-004 describes the existing GitHub-first implementation; D-019 (2026-10-17) supersedes D-004/D-014 **for the target**, while migration of the existing importer/finalization code must be separately reviewed and validated. PostgreSQL backup/restore (#61) becomes critical because not all originals/derivatives will exist in GitHub.
+**Accepted product direction is not shipped functionality.** D-013 and D-015–D-018 retain the capture-preservation, provider and UX decisions; D-019 defines the superseding DB-primary target. Implementation is tracked in #43–#56 and recovery issue #61. D-004 describes the existing GitHub-first implementation; D-019 (2026-10-17) supersedes D-004/D-014 **for the target**, while migration of the existing importer/finalization code must be separately reviewed and validated. PostgreSQL backup/restore (#61) becomes critical because not all originals/derivatives will exist in GitHub.
 
 Two independent capture input paths now converge into **one durable PostgreSQL authority**. A GitHub input write is not proof of database ingestion, and an API-origin DB commit does not entail a GitHub copy. Existing repo capture/read continues unchanged pending an explicit validated migration; retrieval provider changes remain independent from capture persistence. No production OAuth identity system, embedding runtime, MCP service, automatic ledger generator, mobile push system or curated tag taxonomy is implied by this decision.
