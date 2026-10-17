@@ -84,3 +84,11 @@ Provide a tenant-scoped API listing the distinct tags **actually present** in sa
 | Intelligence and acceptance | [#55](https://github.com/vokerg/personal_context_engine/issues/55) DB ledgers; [#56](https://github.com/vokerg/personal_context_engine/issues/56) rollout and [#61](https://github.com/vokerg/personal_context_engine/issues/61) DB recovery | Source-linked results, restored DB, no silent loss/duplication or forced cutover |
 
 Workstreams can overlap only where dependencies and file ownership allow. Every implementation requires a separate issue PR and synthetic CI; trusted integration/provider testing happens with properly provisioned private credentials **outside public PR CI**. No production automatic deployment, DeepSeek generation, push delivery, MCP server or embeddings index is delivered by this document.
+
+### Provisioning prerequisite (#58)
+
+[OpenAI setup](14-openai-setup.md) prepares a dedicated development project,
+restricted expiring key and local diagnostic without sending any private
+chunks. It can proceed before #46 because it adds no vector schema or job
+execution. It does not complete #47, authorize egress or change the active
+capture/search path. Keep provider processing disabled until those gates pass.

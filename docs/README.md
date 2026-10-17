@@ -19,6 +19,7 @@ This documentation is the **architecture baseline and project bible** for Person
 | [11 — Decisions](11-decisions.md) | Accepted, proposed, deferred, open questions |
 | [12 — ChatGPT Project](12-chatgpt-project.md) | Current repo-based capture/search, future MCP boundary |
 | [13 — Evolution plan](13-evolution-plan.md) | Progressive dual-store capture, embeddings, token MCP, gated DB search, UX rollout |
+| [14 — OpenAI setup](14-openai-setup.md) | Project/key provisioning, disabled configuration and safe metadata diagnostics |
 | [Project intent](../INTENT.md) | Concise direction and explicit constraints for future contributors |
 
 ## Authority and change management
