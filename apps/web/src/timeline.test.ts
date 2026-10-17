@@ -86,11 +86,12 @@ describe("local timeline", () => {
 
   it("matches summary, avoids mutating API order and has bounded pages", () => {
     const copy = [...notes];
-    expect(
-      filterTimeline(notes, { query: "context", from: "", to: "" }, "Invalid/Zone").map(
-        (note) => note.id,
-      ),
-    ).toEqual([id(2)]);
+    const matches = filterTimeline(
+      notes,
+      { query: "context", from: "", to: "" },
+      "Invalid/Zone",
+    );
+    expect(matches.map((note) => note.id)).toEqual([id(2)]);
     expect(notes).toEqual(copy);
     expect(PAGE_SIZE).toBeGreaterThan(0);
     expect(PAGE_SIZE).toBeLessThanOrEqual(50);
