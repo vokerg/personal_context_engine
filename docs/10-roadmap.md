@@ -4,16 +4,16 @@
 
 ## Active next-stage sequence (2026-10-16; future delivery, not shipped)
 
-**North-star constraint:** keep the user's current ChatGPT -> private GitHub capture and repository search usable. Do not introduce a mandatory migration to direct-DB capture/search. The baseline phases below remain historical acceptance definitions, not a claim all tasks are complete. [Epic #42](https://github.com/vokerg/personal_context_engine/issues/42) tracks the additive work.
+**North-star constraint (revised 2026-10-17):** keep the current ChatGPT -> private GitHub capture and repo search usable while moving toward independent GitHub/API/MCP capture inputs and PostgreSQL as the sole operational source of truth. No mandatory GitHub output replication or forced search cutover. The baseline phases below remain historical acceptance definitions, not a claim all tasks are complete. [Epic #42](https://github.com/vokerg/personal_context_engine/issues/42) tracks the additive work.
 
 | Stage | Work / dependencies | Gate before proceeding |
 | --- | --- | --- |
-| 1: protect today's workflow | #43 GitHub ingestion reliability and owner-scoped visibility | Real, private note arrives in DB with replay/reconciliation; repo capture/search still works |
-| 2: foundation for parallel writes | #44 user identity and scoped tokens -> #45 transactional DB capture + GitHub export outbox | Same ID/bytes in DB and GitHub, statuses truthful under outages; no cross-user leak |
+| 1: protect today's workflow | #43 GitHub ingestion reliability and owner-scoped visibility | GitHub capture works with PCE offline; durable catch-up/checkpoint after restart; current repo capture/search intact |
+| 2: direct DB capture | #44 user identity and scoped tokens -> #45 transactional DB capture and jobs | DB original durably acknowledged without GitHub; independent channel outages and owner isolation tested |
 | 3: prepare retrieval index | #46 chunk/pgvector schema -> #47 OpenAI embeddings worker -> #48 hybrid DB API | Resumable indexing, multilingual retrieval quality, costs and tenant isolation measured |
-| 4: connect ChatGPT safely | #49 MCP tools/auth and #50 repo-first retrieval/cutover plan | Working auth/token exchange and capture verified; ChatGPT repo search stays default until explicit approval |
+| 4: connect ChatGPT optionally | #49 MCP tools/auth and #50 repo-first retrieval/cutover plan | Independent authenticated MCP capture/search verified; repo search stays default until explicit approval |
 | 5: make notes useful | #51 owner-scoped tag facets -> #52 web UX -> #53 clickable tag browser; #55 interactive sourced ledgers | Genuine browse/filter and evidence-backed summary; #54 canonical tag rules remain deferred |
-| 6: optional switch | #56 coexistence, migration and rollback acceptance | No lost notes/dupes and an explicit user-approved switch of any default |
+| 6: recovery + optional search switch | #61 PostgreSQL backup/restore; #56 source-import, DB-capture and search rollout acceptance | DB-only records restored, no lost notes/dupes, explicit user-approved default switch |
 
 Stages 1–5 may proceed in parallel **after their listed dependencies**, not as a promise of already-operational hosted services. No automated DeepSeek or other unattended LLM-ledger provider is selected. Full design in [13 — Evolution plan](13-evolution-plan.md).
 
@@ -70,7 +70,7 @@ Stages 1–5 may proceed in parallel **after their listed dependencies**, not as
 - Mobile voice/text capture through API.
 - Per-project ledgers, semantic link discovery and user-review workflows.
 - Automated LLM provider adapters and scheduled summaries with budgets.
-- Rich editing, bidirectional storage sync, offline experiences and context packages for other agents.
+- Rich editing, optional explicit portable export/bidirectional sync, offline experiences and context packages for other agents. GitHub output is not a normal write path.
 - Additional execution integrations under deliberate approval policies.
 
 ## Validation principles
