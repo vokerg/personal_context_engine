@@ -29,9 +29,9 @@ describe("tag and note-filter contracts", () => {
   });
 
   it("checks days, ranges, kinds, slugs and extraneous keys", () => {
-    expect(NotesQuerySchema.parse({ tag: "first-tag", from: "2026-10-01" })).toEqual(
-      { tag: "first-tag", from: "2026-10-01" },
-    );
+    expect(
+      NotesQuerySchema.parse({ tag: "first-tag", from: "2026-10-01" }),
+    ).toEqual({ tag: "first-tag", from: "2026-10-01" });
     for (const invalid of [
       { tag: "Bad" },
       { project: "with spaces" },

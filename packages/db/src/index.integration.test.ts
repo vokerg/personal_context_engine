@@ -260,33 +260,60 @@ ${options.original ?? "Synthetic input."}
     ).rejects.toMatchObject({ code: "P2003" });
   });
 
-  it("returns stable distinct-tag counts per owner, current snapshot and revision", async () => {
+  it("counts observed tags per owner, snapshot and revision", async () => {
     const repository = createNoteRepository(prisma);
     const first = fixture({ tags: ["alpha", "shared"] });
     const second = fixture({ tags: ["shared"] });
     const foreign = fixture({ tags: ["foreign", "shared"] });
     const legacy = fixture({ tags: ["legacy"] });
-    await repository.importMarkdown({ ...first, ownerSubject: "facet-owner-a" });
-    await repository.importMarkdown({ ...second, ownerSubject: "facet-owner-a" });
-    await repository.importMarkdown({ ...foreign, ownerSubject: "facet-owner-b" });
+    await repository.importMarkdown({
+      ...first,
+      ownerSubject: "facet-owner-a",
+    });
+    await repository.importMarkdown({
+      ...second,
+      ownerSubject: "facet-owner-a",
+    });
+    await repository.importMarkdown({
+      ...foreign,
+      ownerSubject: "facet-owner-b",
+    });
     await repository.importMarkdown(legacy);
     const all = createTagFacetRepository(prisma);
     expect(await all.listTagsByOwner("facet-owner-a")).toEqual({
-      tags: [{ slug: "alpha", count: 1 }, { slug: "shared", count: 2 }],
+      tags: [
+        { slug: "alpha", count: 1 },
+        { slug: "shared", count: 2 },
+      ],
       truncated: false,
     });
     expect(await all.listTagsByOwner("facet-owner-b")).toEqual({
-      tags: [{ slug: "foreign", count: 1 }, { slug: "shared", count: 1 }],
+      tags: [
+        { slug: "foreign", count: 1 },
+        { slug: "shared", count: 1 },
+      ],
       truncated: false,
     });
-    expect(await all.listTagsByOwner("absent")).toEqual({ tags: [], truncated: false });
-    expect(await createTagFacetRepository(prisma, [first.noteId]).listTagsByOwner("facet-owner-a"))
-      .toEqual({
-        tags: [{ slug: "alpha", count: 1 }, { slug: "shared", count: 1 }],
-        truncated: false,
-      });
-    expect(await createTagFacetRepository(prisma, []).listTagsByOwner("facet-owner-a"))
-      .toEqual({ tags: [], truncated: false });
+    expect(await all.listTagsByOwner("absent")).toEqual({
+      tags: [],
+      truncated: false,
+    });
+    expect(
+      await createTagFacetRepository(prisma, [first.noteId]).listTagsByOwner(
+        "facet-owner-a",
+      ),
+    ).toEqual({
+      tags: [
+        { slug: "alpha", count: 1 },
+        { slug: "shared", count: 1 },
+      ],
+      truncated: false,
+    });
+    expect(
+      await createTagFacetRepository(prisma, []).listTagsByOwner(
+        "facet-owner-a",
+      ),
+    ).toEqual({ tags: [], truncated: false });
     await repository.importMarkdown({
       ...first,
       ownerSubject: "facet-owner-a",
@@ -295,7 +322,10 @@ ${options.original ?? "Synthetic input."}
       markdown: first.markdown.replace('["alpha","shared"]', '["alpha"]'),
     });
     expect(await all.listTagsByOwner("facet-owner-a")).toEqual({
-      tags: [{ slug: "alpha", count: 1 }, { slug: "shared", count: 1 }],
+      tags: [
+        { slug: "alpha", count: 1 },
+        { slug: "shared", count: 1 },
+      ],
       truncated: false,
     });
   });

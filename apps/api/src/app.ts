@@ -210,7 +210,9 @@ export function createApp(options: ApiOptions = {}) {
             return reply.code(400).send(errorResponse("BAD_REQUEST"));
           }
           return TagFacetsResponseSchema.parse(
-            await notes.listTagsByOwner!(request.authenticatedPrincipal!.subject),
+            await notes.listTagsByOwner!(
+              request.authenticatedPrincipal!.subject,
+            ),
           );
         },
       );
