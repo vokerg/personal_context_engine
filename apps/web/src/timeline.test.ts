@@ -33,9 +33,7 @@ describe("local timeline", () => {
   it("groups near-midnight timestamps in the viewer's zone", () => {
     const first = notes[0];
     if (!first) throw new Error("Synthetic note fixture is missing");
-    expect(localDayKey(first.capturedAt, "Europe/Prague")).toBe(
-      "2026-10-17",
-    );
+    expect(localDayKey(first.capturedAt, "Europe/Prague")).toBe("2026-10-17");
     expect(localDayKey(first.capturedAt, "UTC")).toBe("2026-10-16");
   });
 
