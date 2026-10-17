@@ -58,7 +58,10 @@ export function App({
   const [detailAttempt, setDetailAttempt] = useState(0);
   const detailHeading = useRef<HTMLHeadingElement>(null);
 
-  const filtered = useMemo(() => filterTimeline(notes, filters), [notes, filters]);
+  const filtered = useMemo(
+    () => filterTimeline(notes, filters),
+    [notes, filters],
+  );
   const visible = filtered.slice(0, PAGE_SIZE * visiblePages);
   const grouped = groupByLocalDay(visible);
   const dateRangeInvalid = Boolean(
@@ -255,7 +258,11 @@ export function App({
         </div>
         {token && (
           <div className="actions">
-            <button className="secondary" type="button" onClick={() => setReloadCount((n) => n + 1)}>
+            <button
+              className="secondary"
+              type="button"
+              onClick={() => setReloadCount((n) => n + 1)}
+            >
               Refresh notes
             </button>
             <button className="ghost" type="button" onClick={() => signOut()}>
@@ -268,16 +275,25 @@ export function App({
       {!token ? (
         <section className="panel auth-panel" aria-label="Sign-in required">
           <h2>Sign-in required</h2>
-          {notice && <p className="error" role="alert">{notice}</p>}
+          {notice && (
+            <p className="error" role="alert">
+              {notice}
+            </p>
+          )}
           {localDevelopment ? (
-            <button className="primary" type="button" onClick={() => void connectLocal()}>
+            <button
+              className="primary"
+              type="button"
+              onClick={() => void connectLocal()}
+            >
               Connect local workspace
             </button>
           ) : (
             <>
               <p>
-                For synthetic development only, enter a short-lived notes:read JWT from
-                a trusted issuer. This token stays in memory, not browser storage.
+                For synthetic development only, enter a short-lived notes:read
+                JWT from a trusted issuer. This token stays in memory, not
+                browser storage.
               </p>
               <form onSubmit={connect}>
                 <label htmlFor="access-token">Development access token</label>
@@ -289,7 +305,13 @@ export function App({
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
                   />
-                  <button className="primary" type="submit" disabled={!draft.trim()}>Connect</button>
+                  <button
+                    className="primary"
+                    type="submit"
+                    disabled={!draft.trim()}
+                  >
+                    Connect
+                  </button>
                 </div>
               </form>
             </>
@@ -297,50 +319,87 @@ export function App({
         </section>
       ) : (
         <div className="workspace">
-          <section className="panel timeline-panel" id="timeline" aria-labelledby="timeline-title">
+          <section
+            className="panel timeline-panel"
+            id="timeline"
+            aria-labelledby="timeline-title"
+          >
             <div className="panel-header">
               <p className="eyebrow">Library</p>
               <h2 id="timeline-title">Note timeline</h2>
               <p className="subtitle">
-                Search and filter the notes returned by the current API. Server search
-                and additional facets are not enabled yet.
+                Search and filter the notes returned by the current API. Server
+                search and additional facets are not enabled yet.
               </p>
             </div>
             <div className="filters" role="group" aria-label="Timeline filters">
               <div className="filter-field">
-                <label htmlFor="note-query">Search loaded titles and summaries</label>
+                <label htmlFor="note-query">
+                  Search loaded titles and summaries
+                </label>
                 <input
                   id="note-query"
                   type="search"
                   placeholder="Keyword"
                   value={filters.query}
-                  onChange={(event) => changeFilter({ query: event.target.value })}
+                  onChange={(event) =>
+                    changeFilter({ query: event.target.value })
+                  }
                 />
               </div>
               <div className="filter-field filter-date">
                 <label htmlFor="from-date">From (local date)</label>
-                <input id="from-date" type="date" value={filters.from}
-                  onChange={(event) => changeFilter({ from: event.target.value })} />
+                <input
+                  id="from-date"
+                  type="date"
+                  value={filters.from}
+                  onChange={(event) =>
+                    changeFilter({ from: event.target.value })
+                  }
+                />
               </div>
               <div className="filter-field filter-date">
                 <label htmlFor="to-date">To (local date)</label>
-                <input id="to-date" type="date" value={filters.to}
-                  onChange={(event) => changeFilter({ to: event.target.value })} />
+                <input
+                  id="to-date"
+                  type="date"
+                  value={filters.to}
+                  onChange={(event) => changeFilter({ to: event.target.value })}
+                />
               </div>
               <div className="filter-actions">
-                <button className="ghost" type="button" disabled={!hasFilters}
-                  onClick={() => { setFilters(initialFilters); setVisiblePages(1); }}>
+                <button
+                  className="ghost"
+                  type="button"
+                  disabled={!hasFilters}
+                  onClick={() => {
+                    setFilters(initialFilters);
+                    setVisiblePages(1);
+                  }}
+                >
                   Reset filters
                 </button>
               </div>
             </div>
 
-            {dateRangeInvalid && <p className="notice" role="status">The start date is later than the end date.</p>}
-            {listState === "loading" && <p className="notice" role="status">Loading notes…</p>}
+            {dateRangeInvalid && (
+              <p className="notice" role="status">
+                The start date is later than the end date.
+              </p>
+            )}
+            {listState === "loading" && (
+              <p className="notice" role="status">
+                Loading notes…
+              </p>
+            )}
             {listState === "error" && (
               <div className="notice" role="alert">
                 <p>{listError}</p>
-                <button className="secondary" type="button" onClick={() => setReloadCount((n) => n + 1)}>
+                <button
+                  className="secondary"
+                  type="button"
+                  onClick={() => setReloadCount((n) => n + 1)}
+                >
                   Try again
                 </button>
               </div>
@@ -348,20 +407,37 @@ export function App({
             {listState === "ready" && (
               <>
                 <p className="list-meta" role="status">
-                  {filtered.length} of {notes.length} loaded notes match · showing {visible.length}
+                  {filtered.length} of {notes.length} loaded notes match ·
+                  showing {visible.length}
                 </p>
                 {visible.length === 0 ? (
                   <div className="empty">
-                    <h3>{hasFilters ? "No matching notes" : "No notes available"}</h3>
-                    <p>{hasFilters ? "Change the search or date range to see more." : "No notes are available for this session. Check ingestion or capture another note."}</p>
+                    <h3>
+                      {hasFilters ? "No matching notes" : "No notes available"}
+                    </h3>
+                    <p>
+                      {hasFilters
+                        ? "Change the search or date range to see more."
+                        : "No notes are available for this session. Check ingestion or capture another note."}
+                    </p>
                   </div>
                 ) : (
                   grouped.map((group) => (
-                    <section className="day-group" key={group.day} aria-label={group.day}>
+                    <section
+                      className="day-group"
+                      key={group.day}
+                      aria-label={group.day}
+                    >
                       <h3 className="day-heading">
-                        {new Date(group.day + "T12:00:00").toLocaleDateString(undefined, {
-                          weekday: "long", year: "numeric", month: "long", day: "numeric",
-                        })}
+                        {new Date(group.day + "T12:00:00").toLocaleDateString(
+                          undefined,
+                          {
+                            weekday: "long",
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          },
+                        )}
                       </h3>
                       <ul className="note-list">
                         {group.notes.map((note) => (
@@ -374,11 +450,20 @@ export function App({
                               onClick={() => navigateToNote(note.id)}
                             >
                               <span className="note-title">{note.title}</span>
-                              <span className="note-excerpt">{note.summary}</span>
-                              <time className="note-time" dateTime={note.capturedAt}>
-                                {new Date(note.capturedAt).toLocaleTimeString(undefined, {
-                                  hour: "2-digit", minute: "2-digit",
-                                })}
+                              <span className="note-excerpt">
+                                {note.summary}
+                              </span>
+                              <time
+                                className="note-time"
+                                dateTime={note.capturedAt}
+                              >
+                                {new Date(note.capturedAt).toLocaleTimeString(
+                                  undefined,
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  },
+                                )}
                               </time>
                             </button>
                           </li>
@@ -389,9 +474,14 @@ export function App({
                 )}
                 {visible.length < filtered.length && (
                   <div className="pager">
-                    <span>{filtered.length - visible.length} more matching notes</span>
-                    <button className="secondary" type="button"
-                      onClick={() => setVisiblePages((n) => n + 1)}>
+                    <span>
+                      {filtered.length - visible.length} more matching notes
+                    </span>
+                    <button
+                      className="secondary"
+                      type="button"
+                      onClick={() => setVisiblePages((n) => n + 1)}
+                    >
                       Show more
                     </button>
                   </div>
@@ -408,14 +498,25 @@ export function App({
               </div>
             ) : (
               <>
-                <button className="ghost" type="button" onClick={() => navigateToNote(null)}>
+                <button
+                  className="ghost"
+                  type="button"
+                  onClick={() => navigateToNote(null)}
+                >
                   ← Back to timeline
                 </button>
-                {(detailState === "loading" || (detailState === "ready" && detail?.id !== selectedId)) && <p role="status">Loading detail…</p>}
+                {(detailState === "loading" ||
+                  (detailState === "ready" && detail?.id !== selectedId)) && (
+                  <p role="status">Loading detail…</p>
+                )}
                 {detailState === "error" && (
                   <div className="error" role="alert">
                     <p>{detailError}</p>
-                    <button className="secondary" type="button" onClick={() => setDetailAttempt((n) => n + 1)}>
+                    <button
+                      className="secondary"
+                      type="button"
+                      onClick={() => setDetailAttempt((n) => n + 1)}
+                    >
                       Try again
                     </button>
                   </div>
@@ -423,7 +524,11 @@ export function App({
                 {detailState === "ready" && detail?.id === selectedId && (
                   <article>
                     <p className="eyebrow">Captured note</p>
-                    <h2 className="detail-title" ref={detailHeading} tabIndex={-1}>
+                    <h2
+                      className="detail-title"
+                      ref={detailHeading}
+                      tabIndex={-1}
+                    >
                       {detail.title}
                     </h2>
                     <time dateTime={detail.capturedAt} className="note-time">
@@ -441,10 +546,16 @@ export function App({
       )}
 
       {localDevelopment && (
-        <section className="panel status-panel" aria-label="Ingestion worker status">
+        <section
+          className="panel status-panel"
+          aria-label="Ingestion worker status"
+        >
           <h2>Ingestion worker</h2>
           {!ingestion ? (
-            <p>Worker status is unavailable. A local session can still display previously indexed notes.</p>
+            <p>
+              Worker status is unavailable. A local session can still display
+              previously indexed notes.
+            </p>
           ) : (
             <>
               <p>
@@ -455,21 +566,28 @@ export function App({
                   : "GitHub ingestion is disabled; showing a local snapshot."}
               </p>
               {ingestion.lastRun && (
-                <p>Last successful check: {new Date(ingestion.lastRun).toLocaleString()}</p>
+                <p>
+                  Last successful check:{" "}
+                  {new Date(ingestion.lastRun).toLocaleString()}
+                </p>
               )}
               {ingestion.report && (
                 <p>
                   Last pass: {ingestion.report.finalized} finalized,{" "}
-                  {ingestion.report.rejected} rejected, {ingestion.report.retried} retries.
+                  {ingestion.report.rejected} rejected,{" "}
+                  {ingestion.report.retried} retries.
                 </p>
               )}
               {ingestion.error && (
                 <p className="error" role="alert">
-                  Ingestion needs attention. Check repository access, clean checkout
-                  and note ownership. Previous notes remain available.
+                  Ingestion needs attention. Check repository access, clean
+                  checkout and note ownership. Previous notes remain available.
                 </p>
               )}
-              <p>Rejected captures remain recoverable in the repository; use capture:validate to diagnose them.</p>
+              <p>
+                Rejected captures remain recoverable in the repository; use
+                capture:validate to diagnose them.
+              </p>
             </>
           )}
         </section>

@@ -18,10 +18,10 @@ export function localDayKey(capturedAt: string, timeZone?: string): string {
   let formatter = dateFormatters.get(key);
   if (!formatter) {
     formatter = new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    ...(timeZone ? { timeZone } : {}),
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      ...(timeZone ? { timeZone } : {}),
     });
     dateFormatters.set(key, formatter);
   }
@@ -42,10 +42,10 @@ export function filterTimeline(
       if (filters.from && day < filters.from) return false;
       if (filters.to && day > filters.to) return false;
       if (!query) return true;
-      return (`${note.title}\n${note.summary}`
+      return `${note.title}\n${note.summary}`
         .normalize("NFKC")
         .toLocaleLowerCase()
-        .includes(query));
+        .includes(query);
     })
     .sort(
       (a, b) =>

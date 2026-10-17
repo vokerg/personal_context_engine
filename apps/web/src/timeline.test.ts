@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { NotePreview } from "@pce/api-client";
-import { filterTimeline, groupByLocalDay, localDayKey, PAGE_SIZE } from "./timeline.js";
+import {
+  filterTimeline,
+  groupByLocalDay,
+  localDayKey,
+  PAGE_SIZE,
+} from "./timeline.js";
 
 const id = (n: number) => String(n).padStart(26, "0");
 const notes: NotePreview[] = [
@@ -26,7 +31,9 @@ const notes: NotePreview[] = [
 
 describe("local timeline", () => {
   it("groups near-midnight timestamps in the viewer's zone", () => {
-    expect(localDayKey(notes[0].capturedAt, "Europe/Prague")).toBe("2026-10-17");
+    expect(localDayKey(notes[0].capturedAt, "Europe/Prague")).toBe(
+      "2026-10-17",
+    );
     expect(localDayKey(notes[0].capturedAt, "UTC")).toBe("2026-10-16");
   });
 
@@ -43,10 +50,12 @@ describe("local timeline", () => {
       "Europe/Prague",
     );
     expect(all.map((note) => note.id)).toEqual([id(3), id(1), id(2)]);
-    expect(groupByLocalDay(all, "Europe/Prague").map((group) => [
-      group.day,
-      group.notes.length,
-    ])).toEqual([
+    expect(
+      groupByLocalDay(all, "Europe/Prague").map((group) => [
+        group.day,
+        group.notes.length,
+      ]),
+    ).toEqual([
       ["2026-10-17", 2],
       ["2026-10-16", 1],
     ]);
