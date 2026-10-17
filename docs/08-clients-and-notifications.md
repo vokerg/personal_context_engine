@@ -100,3 +100,27 @@ generic 400 without echoing private inputs. A verified `notes:read` token
 is required for both routes. Owner scoping is enforced at the database query,
 not in the browser. Production identity (#44), note pagination (#52), curated
 tags (#54) and DB search (#48) remain separate work.
+
+## Web timeline shell implementation (#52, staged)
+
+The opt-in local/development React client now has a responsive **read-only timeline shell** with
+calendar-day grouping in the viewer's timezone, a selected-note detail panel,
+a Back control and browser back/forward navigation by stable note ID.
+Authenticated requests continue to use the short-lived in-memory token; the
+URL contains a note ID only, never note text, a search query, or a bearer token.
+Original note bodies are rendered as literal text rather than interpreted HTML.
+
+The current notes-list response has **no server paging or full-text query** and
+exposes only ID/title/summary/capture timestamp. Consequently, keyword and local
+calendar-date filters operate **only on the returned list**; "Show more"
+reveals another bounded page of already fetched notes rather than requesting
+more from PostgreSQL. Results are not comprehensive if the API limits its
+response. Project, kind and observed-tag facets are now available through the owner-scoped
+API (#51), but their web controls still require #53 integration. Full-text server
+search remains separate (#48); neither capability should be faked by the browser. Production authentication (#44), viewport
+screenshots and trusted real-data validation remain separate rollout gates.
+
+The UI keeps separate loading, retryable failure, missing-detail and no-results
+states; ingestion status is available only in the local workspace and must not
+be interpreted as a hosted 24/7 worker. Synthetic helper tests cover mixed-offset
+calendar days, combined filter predicates and stable ordering.

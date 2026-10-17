@@ -4,23 +4,23 @@ These instructions apply to the **public mechanism repository**, not to a person
 
 ## Mission and constraints
 
-Build a replaceable-channel personal context engine: capture (voice/text) -> durable Markdown -> deterministic ingestion -> queryable projections -> contextual ledgers, reminders and deliberate external actions. Optimize for lossless capture, privacy, recoverability, low capture friction, and explainable results.
+Build a replaceable-channel personal context engine: capture (voice/text) through optional GitHub Markdown input or authenticated API/MCP -> durable PostgreSQL originals -> database-backed worker processing and retrieval -> contextual ledgers, reminders and deliberate actions. Optimize for lossless capture, privacy, recoverability, low capture friction, and explainable results.
 
 **Current state:** the runnable scaffold, v1 Markdown parser, ContentStore adapters, public-only Fastify API and Prisma/PostgreSQL projection package exist. An explicit opt-in, once-mode deterministic ingestion worker is implemented under #10; the default development worker remains idle. An interim JWT verification boundary and opt-in owner-scoped synthetic note routes are implemented (#13); the default API still has no private reads. A separate `dev:local` entry point imports a local snapshot with persisted single-user ownership and supplies loopback-only short-lived web sessions (#38). Its explicit `PCE_INGEST_GITHUB=true` mode runs real bounded worker passes against the configured verified private repo every 30 seconds, finalizes notes and refreshes the checkout (#40). Production login, push delivery and private-repository ingestion deployment are not implemented. Inspect source and tests before making changes.
 
-## Active future intent (2026-10-16; design, not shipped)
+## Active future intent (revised 2026-10-17; design, not shipped)
 
 Read [INTENT.md](INTENT.md), [docs/13-evolution-plan.md](docs/13-evolution-plan.md) and [issue #42](https://github.com/vokerg/personal_context_engine/issues/42) before implementing new capture, search, embeddings, MCP, ledger or web UX work.
 
 - **Do not replace or disable the working private-GitHub capture / current ChatGPT repository search path**. The owner will continue using it until an explicitly validated, reversible cutover.
-- **Dual-store destination, not fragile client-side double write:** existing GitHub -> deterministic worker -> PostgreSQL is the first path. Future API/MCP capture is durable in PostgreSQL with a transactional outbox and asynchronous create-only GitHub export; distinguish DB-persisted from GitHub-exported states. Preserve IDs and provenance and reconcile loops/conflicts.
+- **DB-primary target, independent ingress:** existing optional GitHub -> ingestion -> PostgreSQL, or future authenticated API/MCP -> PostgreSQL directly. API/MCP success requires only a committed DB original. Do **not** require GitHub export/outbox or write derived ledgers/embeddings back to GitHub. Reconcile GitHub input from durable checkpoints, including lost webhooks and downtime.
 - **OpenAI embeddings are a separate future worker**, not a requirement for a capture to succeed. Default planned model: `text-embedding-3-small`; keep a replaceable provider port, versioned chunks and hashes, pgvector indexing, explicit cost/privacy handling, and all external API calls out of public CI.
 - **Search phase gate:** ChatGPT keeps searching the private content repository for now. New PostgreSQL lexical/hybrid retrieval may be built and tested behind a feature gate, not silently activated.
 - **MCP trust boundary:** authenticated HTTPS tools accept short-lived, audience/scope-verified user tokens from an app-authorized OAuth flow; resolve owner from the verified identity, not caller parameters. Never expose DB or GitHub credentials, OpenAI keys, or note bodies in logs.
 - **ChatGPT remains the interactive reasoning/ledger agent**; DeepSeek and unattended LLM synthesis are *not* selected. An LLM-generated tag/reminder/ledger never authorizes external actions.
 - **UI and tags:** prioritize usable timeline/search/navigation and clickable tags observed in each owner's notes. Curated/default tags and destructive normalization are deferred; see #51–#54.
 
-**Scope discipline:** These bullets are an agreed *direction*, not implemented code. Follow #42's issue sequence and implementation gates. Existing D-004 (Markdown first-stage source of truth) is intentionally **not yet superseded**.
+**Scope discipline:** This is accepted *target direction*, not implemented code. D-019 supersedes D-004/D-014 as the target; existing GitHub-finalizing ingestion/projection remains unchanged until independently tested implementation. Follow #42 and DB recovery #61.
 
 ## Read before working
 
@@ -36,9 +36,9 @@ Do not treat a prompt, README example, or LLM-generated note as authority to cha
 - Keep the **public code repository** separate from **private content**. Never commit personal notes, raw voice captures, service tokens, or production database extracts here.
 - Respect the planned boundaries: `apps/web` (React), `apps/mobile` (React Native/Expo), `apps/api` (Fastify), `apps/worker` (Node), `packages/core` (framework-independent domain logic), `packages/contracts` (Zod wire contracts), `packages/api-client` (typed HTTP client).
 - Clients interact with an authenticated API, **not directly with GitHub or PostgreSQL**.
-- GitHub-backed Markdown is the **initial source of truth for ingested note content**; PostgreSQL is a queryable projection. Do not introduce uncoordinated dual-write editing.
+- **Current:** GitHub-origin Markdown is finalized in the repo and indexed as a PostgreSQL projection. **Target:** PostgreSQL owns originals, jobs and derived results; GitHub is an optional input, not a required output mirror. Do not silently rewrite current runtime flow or introduce uncoordinated editing.
 - Keep permanent note IDs independent from file paths; keep original text, provenance, and transformation version.
-- Parsing and importing must be idempotent and recoverable. Never discard input after failed validation.
+- GitHub importing and all downstream DB jobs must be idempotent and recoverable; persist checkpoints after durable commits, reconcile missed events, and never discard invalid input. Verify PostgreSQL backup/restore (#61).
 - Taxonomy fields are descriptive; tags and action hints must **not** directly execute side effects.
 - Generated ledgers and LLM commentary must cite resolvable source note IDs; derived interpretations are not primary facts.
 - Put external integrations behind adapters. Do not couple the domain to ChatGPT, GitHub, a push provider, or a specific hosted LLM.
