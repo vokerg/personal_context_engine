@@ -1,6 +1,6 @@
-# 13 — Progressive evolution: dual-store capture, embeddings, token MCP and UX
+# 13 — Progressive evolution: optional GitHub ingress, PostgreSQL workers, MCP and UX
 
-**Date:** 2026-10-16. **Status:** roadmap / accepted product direction, **not** implemented services.
+**Date:** 2026-10-16; **revised:** 2026-10-17. **Status:** accepted target / roadmap, **not** implemented services. Supersedes the mandatory dual-store direction in the previous version.
 Parent implementation epic: [#42](https://github.com/vokerg/personal_context_engine/issues/42).
 Authority: [intent](../INTENT.md), [decisions](11-decisions.md), [security](09-security-and-privacy.md).
 This document describes contracts and gates for future PRs; it does **not** alter the current Markdown v1 parser, Prisma schema, API, worker or ChatGPT configuration.
@@ -18,25 +18,27 @@ ChatGPT + GitHub connector ---write/read/search---> PRIVATE content repo
                                   PostgreSQL notes
 ```
 
-Keep repo-based ChatGPT search **as the default** while designing other ways to retrieve context. Private Markdown remains useful for export, review, backup and rollback.
+Keep repo-based ChatGPT search **as the current default** until PostgreSQL retrieval is independently verified and explicitly approved. GitHub files remain a useful input archive and fallback **for GitHub-origin records only**, not a backup of future API-origin captures or derived data.
 
-## Future coexistence: two capture origins, two destinations
+## Accepted target: two independent inputs, one operational store
 
 ```text
-A. Existing GitHub-origin capture:  ChatGPT -> GitHub inbox -> worker -> PostgreSQL
-B. Future tokenized capture:       ChatGPT -> MCP -> PCE API -> PostgreSQL
-                                                           -> DB export outbox -> GitHub
-C. Search NOW:                     ChatGPT -> existing GitHub connector
-D. Search LATER, gated:            ChatGPT -> scoped MCP retrieval -> PCE search API -> PostgreSQL
+A. Existing independent capture:  ChatGPT -> private GitHub inbox -> importer -> PostgreSQL
+B. Future direct capture:        ChatGPT -> token MCP / API -----------> PostgreSQL
+C. Work after durable import:                                         DB jobs -> workers -> DB
+D. Read NOW:                    ChatGPT -> existing private GitHub connector
+E. Read LATER, gated:           ChatGPT -> scoped MCP -> DB search API -> PostgreSQL
 ```
 
-**A:** Keep existing Markdown v1, note/capture IDs, original text, validation, compare-and-swap finalization and safe legacy ownership reconciliation. A GitHub file successfully written is not proof it was indexed into PostgreSQL; expose import lag/status separately.
+**GitHub input (A):** retain the existing Markdown v1 source bytes, stable note/capture IDs and provenance. A GitHub write can succeed without an active PCE service. The ingestion adapter validates and transactionally stores originals/owner/source revision in PostgreSQL, idempotently enqueues downstream work and checkpoints the imported Git revision only after success. Poll/reconcile from a durable cursor and periodically rescan relevant source paths after service outage, webhook loss, restarts or revisions; use conservative conflict handling instead of silently replacing imported originals. Expose GitHub-ingested vs DB-persisted status and lag. The **currently implemented** GitHub worker still finalizes/moves files to `notes/YYYY/MM/`; removing its Git write requirement is a separate tested migration (#43), not part of this docs PR.
 
-**B:** Do **not** use two independent client HTTP writes. In a single database transaction, validate the versioned capture, persist immutable original text and derived note(s), verified owner, source/content revision, idempotency key, and durable outbox entries for private GitHub export and optional indexing. The export worker performs create-only or explicit revision-checked file commits, records GitHub path/revision, retries transient failures, and surfaces conflicts for repair. A response may truthfully say **DB persisted; GitHub export pending**. The same ID/content imported back via the existing GitHub worker must reconcile, not duplicate or silently adopt another owner's note. Cross-store atomicity is unavailable; deterministic reconciliation and observability are mandatory.
+**API/MCP input (B):** authenticate and verify owner/scope, validate and store the versioned original and note(s) **in one PostgreSQL transaction**, with stable IDs, an idempotency key, source attribution and durable downstream DB jobs. An acknowledgement means **DB persisted**, with downstream indexing/aggregates pending as appropriate. GitHub export and a GitHub replication outbox are **not required**; do not issue a second client write. Direct capture naturally fails safely when API/DB is unavailable—do not imply it works offline.
 
-**Auth/identity:** Existing dev `ownerSubject` is not a multi-user system. Before new public writes, establish an account/subject mapping and owner-scoped storage, API auth and token lifecycle. Legacy unowned records require an explicit owner-approved migration and cannot be claimed by client input.
+**Worker boundary (C):** after either ingress, workers claim DB jobs with leases/retries, read authenticated/owner-scoped DB originals, and persist embeddings, tags, links, sourced evidence/ledgers and processing statuses back to DB. The repo is never a worker processing queue nor a sink for generated aggregates. Embedding/model outages must not undo capture.
 
-**Scope of source of truth:** The present GitHub-first D-004 stays effective for GitHub-origin notes. API-origin DB commits will be durable, but the product-wide editable authoritative source and deletion/conflict policy are **not yet changed**. Do not promise bidirectional edits or automatic erasure in Git history.
+**Recovery and ownership:** PostgreSQL is the accepted authoritative operational store, including API-origin originals that never appeared in GitHub; implement verified backups, restore drills and portable export (#61). Preserve GitHub source revisions as import provenance rather than syncing independently editable copies. Historical D-004 projection/file-finalization semantics describe code still running today, but D-019 supersedes them **for the target**, not by fiat in deployed code. Deletion/edit conflict policy and opt-in exports require separately reviewed decisions.
+
+**Auth/identity:** current local `ownerSubject` is not production multi-user identity. Before public direct writes, define account mapping, token lifecycle and SQL owner isolation. Legacy/unowned records must not be automatically claimed.
 
 ## Embeddings: optional asynchronous enrichment
 
@@ -44,7 +46,7 @@ D. Search LATER, gated:            ChatGPT -> scoped MCP retrieval -> PCE search
 - Add `note_chunks` with owner, note ID, content revision/hash, chunk ordinal/boundaries, normalized text and stable chunking-version, plus versioned embedding/model ID, vector dimension, index status, retry lease and last error code. Design indexes and migrations for the actual PostgreSQL hosting capability to enable `pgvector`.
 - Chunk and hash deterministically; avoid duplicate embeddings on repeated imports. Enqueue after a durable note commit; the embeddings worker consumes pending jobs asynchronously, sends a bounded private-text payload, verifies output vector size, upserts vectors and records processing/cost. Backfill and model upgrades must be resumable.
 - Bound batch size, token count, 429/5xx retry, concurrency, per-user budget, provider outage and cost. Explicitly disclose that selected note text leaves the PCE host for OpenAI processing; let operators disable embeddings. This is an integration/hosting privacy decision, not something implied by a local-only worker.
-- Embeddings are derived indexes, **never** the source of facts. Notes must still save and be retrievable by repo or lexical methods when the API is unavailable.
+- Embeddings are derived indexes, **never** the source of facts. GitHub-origin captures can still be written to the repo while PCE is unavailable; PostgreSQL search and direct API-origin capture require the service. Lexical DB search continues to work when embeddings are disabled.
 
 ## Retrieval: repository now, hybrid DB later
 
@@ -58,7 +60,7 @@ D. Search LATER, gated:            ChatGPT -> scoped MCP retrieval -> PCE search
 
 Keep all clients, including ChatGPT, away from raw PostgreSQL URLs, GitHub write tokens and OpenAI API keys. The future MCP adapter runs at an HTTPS endpoint under the PCE authorization boundary. Configure an approved login/OAuth 2.1 authorization-code + PKCE flow as supported by the actual ChatGPT client, with short-lived, signed, audience-bound tokens, refresh/revocation policy and narrowly scoped permissions such as `captures:write`, `notes:read`, `ledgers:read`. Server verifies issuer, signature, audience, expiry, scopes and derives owner from the verified principal. User IDs submitted in tool arguments have no authority.
 
-Proposed tools: `capture_note` for versioned content + idempotency (reports DB persisted vs pending GitHub export); `get_note` for authorized source/detail; `search_context` for gated retrieval; `get_ledger_evidence` for bounded period facts. Avoid claiming that arbitrary preceding ChatGPT messages or full history are automatically provided to a plugin. The old, closed experimental MCP PR #31 must not be merged as a shortcut without reviewing new identity and dual-store contracts.
+Proposed tools: `capture_note` for versioned content + idempotency (reports confirmed DB persistence and independent downstream job states, never a GitHub export promise); `get_note` for authorized source/detail; `search_context` for gated retrieval; `get_ledger_evidence` for bounded period facts. Avoid claiming that arbitrary preceding ChatGPT messages or full history are automatically provided to a plugin. The old, closed experimental MCP PR #31 must not be merged as a shortcut without reviewing new identity and DB-primary contracts.
 
 ## Ledgers and reasoning ownership
 
@@ -75,10 +77,10 @@ Provide a tenant-scoped API listing the distinct tags **actually present** in sa
 | Lane | Dependency order | Go/no-go evidence |
 | --- | --- | --- |
 | Existing channel | [#43](https://github.com/vokerg/personal_context_engine/issues/43), follow [#12](https://github.com/vokerg/personal_context_engine/issues/12) connector experiment | Safe GitHub import/DB visibility; capture and repo search still function |
-| Auth/dual-write | [#44](https://github.com/vokerg/personal_context_engine/issues/44) -> [#45](https://github.com/vokerg/personal_context_engine/issues/45) | Real token ownership and replay-safe export; database vs GitHub statuses truthful |
+| Auth/DB-first capture | [#44](https://github.com/vokerg/personal_context_engine/issues/44) -> [#45](https://github.com/vokerg/personal_context_engine/issues/45) | Real token ownership, idempotent DB capture, durable DB jobs; no mandatory GitHub export |
 | Embeddings/search | [#46](https://github.com/vokerg/personal_context_engine/issues/46) -> [#47](https://github.com/vokerg/personal_context_engine/issues/47) -> [#48](https://github.com/vokerg/personal_context_engine/issues/48) | Indexed source fidelity, reasonable limits, multilingual recall, user isolation |
 | ChatGPT interoperability | [#49](https://github.com/vokerg/personal_context_engine/issues/49) -> [#50](https://github.com/vokerg/personal_context_engine/issues/50) | MCP auth/tool calls proven; repo-first search remains active |
 | Web/tag experience | [#51](https://github.com/vokerg/personal_context_engine/issues/51) -> [#52](https://github.com/vokerg/personal_context_engine/issues/52) -> [#53](https://github.com/vokerg/personal_context_engine/issues/53) | Usable browsing and clickable existing tag filters; [#54](https://github.com/vokerg/personal_context_engine/issues/54) taxonomy deferred |
-| Intelligence and acceptance | [#55](https://github.com/vokerg/personal_context_engine/issues/55) ledgers; [#56](https://github.com/vokerg/personal_context_engine/issues/56) migration validation | Source-linked interactive ledger; no silent loss, dupe or forced cutover |
+| Intelligence and acceptance | [#55](https://github.com/vokerg/personal_context_engine/issues/55) DB ledgers; [#56](https://github.com/vokerg/personal_context_engine/issues/56) rollout and [#61](https://github.com/vokerg/personal_context_engine/issues/61) DB recovery | Source-linked results, restored DB, no silent loss/duplication or forced cutover |
 
 Workstreams can overlap only where dependencies and file ownership allow. Every implementation requires a separate issue PR and synthetic CI; trusted integration/provider testing happens with properly provisioned private credentials **outside public PR CI**. No production automatic deployment, DeepSeek generation, push delivery, MCP server or embeddings index is delivered by this document.

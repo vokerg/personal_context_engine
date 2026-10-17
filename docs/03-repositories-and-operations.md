@@ -8,7 +8,7 @@ Purpose: code, test fixtures (synthetic only), canonical contract specifications
 
 ### Private content: `vokerg/personal_context_engine_content`
 
-Purpose: personal input files, accepted notes, ledgers and narrow ChatGPT capture guidance. **No application CI** and no application source code. Private visibility was verified during the #12/#23 experiment; each runtime connector must still independently verify the configured repository and fail closed if public.
+Purpose: optional GitHub Markdown capture input, historical GitHub-origin accepted notes and narrow ChatGPT capture guidance. **Not** the required output store for API/MCP captures, embeddings or generated ledgers. **No application CI** and no application source code. Private visibility was verified during the #12/#23 experiment; each runtime connector must still independently verify the configured repository and fail closed if public.
 
 Proposed content layout (created separately when ready):
 
@@ -363,11 +363,13 @@ does not infer reminders, create notifications or generate ledgers.
 
 Keep the existing `apps/{api,worker,web,mobile}` and `packages/{core,db,contracts,api-client}` monorepo. Add modules inside existing workspaces instead of creating a paid embedding microservice:
 
-- `apps/worker`: independent ingestion, GitHub-export and embedding job runners, database leases/retries, usage budgets and status.
+- `apps/worker`: GitHub intake/reconciliation adapter plus database-leased ingestion follow-up, embedding, aggregation and ledger job runners with bounded retries, budgets and status. DB outputs do not go to GitHub.
 - `apps/api`: authenticated capture, read/search, tag facets and MCP transport using a common owner-aware service layer.
-- `packages/db`: capture provenance, export outbox, chunk/vector metadata and tenant-filtered retrieval queries.
+- `packages/db`: authoritative source originals, import checkpoint/job persistence, source provenance, chunk/vector/ledger metadata, recovery and owner-filtered retrieval queries.
 - `packages/core`: stable Markdown v1 fidelity, versioned deterministic chunking and provider-neutral interfaces where appropriate.
 
 Initial external embeddings provider: OpenAI `text-embedding-3-small` via **server-only** credentials. Define egress consent/privacy, hard per-run and per-user budgets, provider errors/backoff, opt-in backfill and model migration before activation. The user’s ChatGPT subscription is not an embeddings API credential. Local model support may be added behind a provider adapter; no always-on Ollama/Render service is required for the first iteration.
 
-Production hosting, login/OAuth issuer, schedules and actual MCP tool availability are implementation gates, **not proven** by docs. See [evolution plan](13-evolution-plan.md) and #43–#56.
+**Target operational boundary:** a GitHub write may succeed during PCE downtime; periodic polling/reconciliation must import it after restart, with an acknowledged durable Git revision/checkpoint only after PostgreSQL persistence. Webhooks are optional accelerators, not a sole change feed. API/MCP capture depends on PCE/PostgreSQL availability, not GitHub. Run DB jobs independently of the GitHub connector; no automatic API-to-GitHub export. Verify encrypted PostgreSQL backups, restoration and portable export (#61), since API-origin notes/derived records have no required GitHub copies. The current opt-in importer still finalizes/moves GitHub files; its migration requires #43, not this documentation change.
+
+Production hosting, login/OAuth issuer, schedules, backup plan and actual MCP tool availability are implementation gates, **not proven** by docs. See [evolution plan](13-evolution-plan.md), #43–#56 and #61.

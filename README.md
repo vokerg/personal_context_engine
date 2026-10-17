@@ -4,11 +4,11 @@
 
 **Status (2026-10-16): foundation with opt-in local GitHub ingestion, owner-scoped development browsing and synthetic authentication.** This repository has starter API/worker processes, React/Vite and Expo read-only client previews, shared TypeScript workspaces, and pure synthetic-tested v1 Markdown capture validation/serialization in `@pce/core`. An opt-in one-shot worker supports filesystem/PostgreSQL ingestion and crash reconciliation; the normal worker command stays idle. The browser/Expo clients now have development-only, memory-scoped bearer entry and typed list/detail API requests. There is no production login, hosted private-note ingestion, notification delivery or deployment; owner-scoped local-development browsing exists behind explicit opt-in. The documents distinguish agreed direction from implemented functionality.
 
-## Next direction: preserve capture while adding retrieval intelligence
+## Next direction: independent capture inputs and PostgreSQL processing
 
 **Current:** ChatGPT can use the private GitHub content repository as a capture/search surface where the connector permits it; an explicitly opted-in local GitHub worker can import and finalize Markdown into PostgreSQL. These are *not* hosted background ingestion, MCP deployment, semantic search, automatic ledgers or push notifications.
 
-**Agreed evolution (not implemented yet):** preserve the existing GitHub capture and repo search, develop parallel token-authenticated API/MCP capture with **both PostgreSQL persistence and durable GitHub export**, and add a separate OpenAI `text-embedding-3-small` indexing worker plus pgvector/hybrid search behind a feature gate. Use ChatGPT interactively for ledger synthesis; DeepSeek selection is deferred. Improve the web timeline and add clickable, observed tag filters without imposing a canonical tag list.
+**Agreed target (not implemented yet):** preserve GitHub as an optional capture input independent of PCE uptime; add direct authenticated API/MCP -> **PostgreSQL** capture. PostgreSQL becomes authoritative for originals, DB jobs, search and generated ledgers. Workers process DB jobs and save results to the DB, **not back to GitHub**. GitHub input catches up through durable reconciliation. Add optional OpenAI `text-embedding-3-small` indexing and gated DB retrieval; retain today's repo search until a verified opt-in cutover. DB backup/restore is required (#61).
 
 See [the project intent](INTENT.md), [coexistence plan](docs/13-evolution-plan.md) and [delivery epic #42](https://github.com/vokerg/personal_context_engine/issues/42). **No current capture route is being removed by this plan.**
 
@@ -17,20 +17,20 @@ See [the project intent](INTENT.md), [coexistence plan](docs/13-evolution-plan.m
 | Repository | Access / purpose |
 | --- | --- |
 | [personal_context_engine](https://github.com/vokerg/personal_context_engine) | **Public mechanism:** application code, schemas, API, web/mobile clients, workers, synthetic examples, docs and CI. |
-| [personal_context_engine_content](https://github.com/vokerg/personal_context_engine_content) | **Intended private content:** personal Markdown captures, processed notes, and ledgers. No application CI. |
+| [personal_context_engine_content](https://github.com/vokerg/personal_context_engine_content) | **Private optional capture input / legacy archive:** GitHub-origin Markdown, historical finalized notes. Not a mirror of all API-origin originals or DB-derived ledgers. No application CI. |
 
 **Privacy precondition:** The content repository must be switched to **Private before any personal content is added**. Do not infer privacy from its name. No credentials or real personal notes belong in this public repository.
 
 ## Product loop
 
-1. Capture voice or text with minimal friction (initially a ChatGPT Project).
-2. Normalize and classify each thought into versioned Markdown without discarding the original transcript.
-3. Save new note files to a content repository inbox.
-4. Let an idempotent worker validate, import into PostgreSQL, and move accepted files to date-based storage.
-5. Present notes and derived information through the React web app and React Native / Expo mobile app.
-6. Generate auditable daily, weekly, monthly, and per-project ledgers; later add reminders, notifications, semantic discovery, and carefully controlled actions.
+1. Capture voice or text through private GitHub Markdown **or** future authenticated API/MCP.
+2. Preserve original content, schema and provenance; commit API-origin notes directly to PostgreSQL.
+3. Idempotently import GitHub-origin notes to PostgreSQL with durable checkpoints. The existing importer currently also moves GitHub files; removing that dependency is future work.
+4. Run enrichment, embedding, reminder and ledger workers from durable **DB jobs**, persisting derived results to DB.
+5. Expose owner-scoped database browsing and retrieval through API, web, mobile and eventually MCP; keep GitHub search until approved cutover.
+6. Back up/restore PostgreSQL and offer optional explicit portable export, not automatic GitHub replication.
 
-The capture channel and LLM provider are replaceable. GitHub is an initial storage adapter, not a required long-term database.
+The capture channel and LLM provider are replaceable. GitHub is an optional input adapter/legacy archive, not the long-term processing backend.
 
 ## Planned stack
 
@@ -38,7 +38,7 @@ The capture channel and LLM provider are replaceable. GitHub is an initial stora
 - **Mobile:** React Native, Expo, TypeScript; notifications are a core product requirement.
 - **Backend:** Node.js, TypeScript, Fastify.
 - **Worker:** independently runnable Node.js process.
-- **Persistence:** PostgreSQL with Prisma projections of Markdown source records.
+- **Persistence:** currently PostgreSQL/Prisma projections of GitHub Markdown; target PostgreSQL authority for originals, jobs and derived artifacts.
 - **Monorepo:** npm workspaces, shared domain and Zod/HTTP contracts.
 - **LLM:** ChatGPT Project for early interactive capture and summaries; pluggable providers for later automation.
 

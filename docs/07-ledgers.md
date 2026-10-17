@@ -48,9 +48,9 @@ These values are **illustrative**, not production data or a finalized artifact s
 2. Query DB for notes and state transitions in the window, with stable pagination and explicit inclusion criteria.
 3. Compute counts, changes, project mappings, and source-linkable evidence **deterministically**.
 4. Optionally ask an LLM for a bounded interpretation over retrieved evidence; do not allow invented tasks, milestones, emotions or commitments.
-5. Persist the resulting ledger to private content storage, and index its metadata/provenance in DB.
+5. Persist the resulting versioned ledger, evidence references and staleness state to PostgreSQL; user-initiated export, if implemented later, is separate.
 6. If a source note is corrected or arrives late, invalidate affected ledgers or mark them stale and make regeneration safe.
-7. Protect against feedback loops: ledger files must not be re-ingested as primary user notes.
+7. Protect against feedback loops: generated ledger rows/jobs must not be treated as primary captured notes or requeued recursively.
 
 ## Late events and timezone correctness
 
@@ -73,4 +73,4 @@ See [domain model](06-domain-and-taxonomy.md) and [security](09-security-and-pri
 
 The worker computes **deterministic evidence**, not unsupervised narrative: bounded period windows in the user's timezone, counts, changed state, source note IDs/revisions and stale-input flags. During the first iteration, the user invokes ChatGPT interactively to retrieve a bounded evidence pack using authorized tools (or the present private-repo reading workflow) and to write an attributed narrative. This avoids selecting a new paid unattended LLM runtime prematurely.
 
-OpenAI embeddings serve **semantic retrieval only**, not narrative synthesis. DeepSeek and unattended ledger generation/scheduling remain undecided; neither can be assumed to be covered by ChatGPT subscription usage. Persist a verified, attributed ledger only through an explicitly designed safe write API or private repo operation; no inference becomes a fact or reminder merely because a model proposed it. Separate late-note invalidation and regeneration from daily note capture.
+OpenAI embeddings serve **semantic retrieval only**, not narrative synthesis. DeepSeek and unattended ledger generation/scheduling remain undecided; neither can be assumed to be covered by ChatGPT subscription usage. Persist a verified, attributed ledger only via an authorized database write through the API/worker; **no mandatory GitHub mirror**. Optional explicit export is not capture or worker processing. No inference becomes a fact or reminder merely because a model proposed it. Separate late-note invalidation and regeneration from daily note capture.
