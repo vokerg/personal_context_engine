@@ -126,16 +126,38 @@ export function createLocalReader(db, allowedIds) {
     ...note,
     capturedAt: note.capturedAt.toISOString(),
   });
+  const scopedFilters = (owner, filters = {}) => {
+    const where = { ...owned(owner) };
+    if (filters.tag) where.tags = { has: filters.tag };
+    if (filters.project) where.projects = { has: filters.project };
+    if (filters.kind) where.kind = filters.kind;
+    if (filters.from || filters.to) {
+      const bounds = {};
+      if (filters.from) bounds.gte = new Date(filters.from + "T00:00:00.000Z");
+      if (filters.to) {
+        const after = new Date(filters.to + "T00:00:00.000Z");
+        after.setUTCDate(after.getUTCDate() + 1);
+        bounds.lt = after;
+      }
+      where.capturedAt = bounds;
+    }
+    return where;
+  };
   return {
-    async listByOwner(owner) {
+    async listByOwner(owner, filters = {}) {
       if (owner !== subject) return [];
       return (
         await db.note.findMany({
-          where: owned(owner),
+          where: scopedFilters(owner, filters),
           select: preview,
           orderBy: [{ capturedAt: "desc" }, { id: "asc" }],
         })
       ).map(dto);
+    },
+    async listTagsByOwner(owner) {
+      if (owner !== subject) return { tags: [], truncated: false };
+      const { createTagFacetRepository } = await import("@pce/db");
+      return createTagFacetRepository(db, allowedIds).listTagsByOwner(owner);
     },
     async getByOwner(owner, id) {
       if (owner !== subject || !allowedIds.includes(id)) return null;

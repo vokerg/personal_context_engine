@@ -5,6 +5,10 @@ import {
   NoteDetailSchema,
   NoteIdSchema,
   NotesListResponseSchema,
+  NotesQuerySchema,
+  TagFacetsResponseSchema,
+  type NotesQuery,
+  type TagFacetsResponse,
   type ApiErrorResponse,
   type NoteDetail,
   type NotesListResponse,
@@ -215,9 +219,25 @@ async function authenticatedGet<T>(
 
 export function getNotes(
   options: AuthenticatedRequestOptions,
+  filters: NotesQuery = {},
 ): Promise<NotesListResponse> {
-  return authenticatedGet(options, "/api/v1/notes", (data) =>
+  // Refuse malformed filters before retrieving a credential.
+  const valid = NotesQuerySchema.parse(filters);
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(valid)) {
+    if (value !== undefined) params.set(key, value);
+  }
+  const path = "/api/v1/notes" + (params.size ? "?" + params.toString() : "");
+  return authenticatedGet(options, path, (data) =>
     NotesListResponseSchema.parse(data),
+  );
+}
+
+export function getTags(
+  options: AuthenticatedRequestOptions,
+): Promise<TagFacetsResponse> {
+  return authenticatedGet(options, "/api/v1/tags", (data) =>
+    TagFacetsResponseSchema.parse(data),
   );
 }
 
@@ -233,7 +253,7 @@ export async function getNote(
   );
 }
 
-export type { NotePreview, NoteDetail } from "@pce/contracts";
+export type { NotePreview, NoteDetail, NotesQuery, TagFacetsResponse } from "@pce/contracts";
 
 /** Validate a navigation ID using the same contract as the API. */
 export function isNoteId(value: string): boolean {
