@@ -56,7 +56,6 @@ export const NoteDetailSchema = NotePreviewSchema.extend({
 }).strict();
 export type NoteDetail = z.infer<typeof NoteDetailSchema>;
 
-
 /** Markdown v1 tag and project slug syntax; never canonicalize user data. */
 export const TagSlugSchema = z
   .string()
