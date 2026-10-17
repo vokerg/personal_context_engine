@@ -34,7 +34,7 @@ describe("local timeline", () => {
     expect(localDayKey(notes[0].capturedAt, "Europe/Prague")).toBe(
       "2026-10-17",
     );
-    expect(localDayKey(notes[0].capturedAt, "UTC")).toBe("2026-10-16");
+    expect(localDayKey(first.capturedAt, "UTC")).toBe("2026-10-16");
   });
 
   it("combines normalized query and inclusive calendar dates and sorts newest first", () => {
