@@ -18,7 +18,7 @@ flowchart TD
   DB -->|owner-scoped query| API
   API --> WEB[React web]
   API --> MOB[Expo mobile]
-  API --> MCP[MCP retrieval: future]
+  MCP[MCP retrieval: future] -->|authenticated tools| API
 ```
 
 A GitHub capture can succeed with the PCE service unavailable, but it cannot appear in DB search until the ingestion adapter runs. API/MCP capture and database searches require the PCE API/database online. Ingestion must reconcile after missed webhooks and restart from a durable Git revision/checkpoint.
@@ -71,7 +71,7 @@ interface PushProvider {
 }
 ```
 
-Implement adapters independently. `ContentStore` may begin with GitHub and later use local files or object storage. `IntelligenceProvider` may be interactive/manual at first; an API implementation requires separate credentials and billing.
+Implement adapters independently. The `ContentStore` port and `finalize` call above document the **existing GitHub-first import/finalization adapter**, not an obligatory target output store. Under D-019, GitHub remains an optional input; post-ingest jobs/results remain in PostgreSQL. `IntelligenceProvider` may be interactive/manual at first; an API implementation requires separate credentials and billing.
 
 ## Trust and execution boundaries
 
