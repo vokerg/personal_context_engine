@@ -99,6 +99,18 @@ test("reader scopes SQL by owner and current checkout IDs", async () => {
   assert.equal(calls.length, 0);
   await reader.listByOwner("local-developer");
   await reader.getByOwner("local-developer", "known");
+  await reader.listByOwner("local-developer", {
+    tag: "focus", project: "demo", kind: "memo",
+    from: "2026-10-01", to: "2026-10-17",
+  });
+  assert.deepEqual(calls[2].where, {
+    ownerSubject: "local-developer", id: { in: ["known"] },
+    tags: { has: "focus" }, projects: { has: "demo" }, kind: "memo",
+    capturedAt: {
+      gte: new Date("2026-10-01T00:00:00Z"),
+      lt: new Date("2026-10-18T00:00:00Z"),
+    },
+  });
   assert.deepEqual(calls[0].where, {
     ownerSubject: "local-developer",
     id: { in: ["known"] },
@@ -107,6 +119,31 @@ test("reader scopes SQL by owner and current checkout IDs", async () => {
     ownerSubject: "local-developer",
     id: "known",
   });
+});
+
+test("local tag facets use the same trusted owner and current checkout SQL restrictions", async () => {
+  const queries = [];
+  const db = { $queryRaw: async (query) => {
+    queries.push(query);
+    return [
+      { slug: "demo", noteCount: 2n },
+      { slug: "focus", noteCount: 1n },
+    ];
+  } };
+  const reader = createLocalReader(db, ["synthetic-id"]);
+  assert.deepEqual(await reader.listTagsByOwner("foreign"), {
+    tags: [], truncated: false,
+  });
+  assert.equal(queries.length, 0);
+  assert.deepEqual(await reader.listTagsByOwner("local-developer"), {
+    tags: [{ slug: "demo", count: 2 }, { slug: "focus", count: 1 }],
+    truncated: false,
+  });
+  const sql = queries[0];
+  assert.match(sql.strings.join("?"), /ownerSubject/);
+  assert.match(sql.strings.join("?"), /n\.id IN/);
+  assert.ok(sql.values.includes("local-developer"));
+  assert.ok(sql.values.includes("synthetic-id"));
 });
 
 test("capture discovery rejects symlinks without following private files", async () => {

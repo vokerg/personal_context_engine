@@ -3,7 +3,8 @@ import { getNotes, getTags } from "./index.js";
 
 describe("tag API client", () => {
   it("sends valid filters on the authenticated notes path", async () => {
-    const request = vi.fn(async () => new Response(JSON.stringify({ notes: [] })));
+    const request = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      new Response(JSON.stringify({ notes: [] })));
     const options = { baseUrl: "https://api.example", request,
       getAccessToken: () => "fake.jwt" };
     await expect(getNotes(options, {
@@ -17,9 +18,10 @@ describe("tag API client", () => {
   it("validates observed facets and sanitizes bad server data", async () => {
     const options = { baseUrl: "https://api.example",
       getAccessToken: () => "fake",
-      request: vi.fn(async () => new Response(JSON.stringify({
-        tags: [{ slug: "first-tag", count: 2 }], truncated: false,
-      }))),
+      request: vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(JSON.stringify({
+          tags: [{ slug: "first-tag", count: 2 }], truncated: false,
+        }))),
     };
     await expect(getTags(options)).resolves.toEqual({
       tags: [{ slug: "first-tag", count: 2 }], truncated: false,
