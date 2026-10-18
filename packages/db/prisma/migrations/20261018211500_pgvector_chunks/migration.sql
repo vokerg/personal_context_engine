@@ -67,3 +67,24 @@ CREATE INDEX "chunk_embeddings_status_nextRetryAt_idx"
 ALTER TABLE "chunk_embeddings" ADD CONSTRAINT "chunk_embeddings_chunkId_fkey"
   FOREIGN KEY ("chunkId") REFERENCES "note_chunks"("id")
   ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Defensive invalidation for future PostgreSQL-first writers (#45) that do
+-- not use the current importer. Source text/revision edits always invalidate
+-- derived chunks/vectors inside the same transaction.
+CREATE FUNCTION "invalidate_note_chunks_on_mutation"() RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD."sourceRevision" IS DISTINCT FROM NEW."sourceRevision"
+     OR OLD."contentHash" IS DISTINCT FROM NEW."contentHash"
+     OR OLD."summary" IS DISTINCT FROM NEW."summary"
+     OR OLD."body" IS DISTINCT FROM NEW."body"
+     OR OLD."originalInput" IS DISTINCT FROM NEW."originalInput" THEN
+    DELETE FROM "note_chunks" WHERE "noteId" = NEW."id";
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "notes_invalidate_chunks"
+AFTER UPDATE OF "sourceRevision", "contentHash", "summary", "body", "originalInput"
+ON "notes"
+FOR EACH ROW EXECUTE FUNCTION "invalidate_note_chunks_on_mutation"();
