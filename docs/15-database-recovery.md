@@ -1,11 +1,17 @@
-# 15 — PostgreSQL recovery gates
+# 15 — Optional PostgreSQL recovery drill (automation deferred)
 
 ## Status and operator entry point
 
 Issue [#64](https://github.com/vokerg/personal_context_engine/issues/64) implements
 an isolated, synthetic recovery drill for the **current projection schema**.
 Parent [#61](https://github.com/vokerg/personal_context_engine/issues/61) remains
-open. No production backup schedule, encrypted archive storage, provider PITR
+open as **deferred**, not a delivery blocker. Owner decision D-020 (2026-10-18):
+prioritize working functionality; backups may be handled later or manually.
+Backup/PITR/export automation and the proposals below are not prerequisites
+for starting or continuing functional delivery. Retain this optional drill; do not
+provision recovery infrastructure without a new request.
+
+No production backup schedule, encrypted archive storage, provider PITR
 configuration, owner export endpoint or live recovery has been activated.
 
 From the public mechanism checkout, install dependencies and generate the client
@@ -71,7 +77,7 @@ exercises ingestion state transitions, not live GitHub transport, Git revision
 checkpoints, renamed/deleted files or an inbox already moved ahead of the backup.
 No HTTP authorization/cross-owner read claim follows from an import conflict test.
 
-## Proposed production recovery policy — review before activation
+## Archived proposal — revisit only when requested
 
 These are proposed engineering targets, **not current guarantees or a purchased
 hosting plan**. Record the accountable operator, actual storage region, data size,
@@ -147,9 +153,9 @@ because one note belongs to the caller. Define ownership and validate shared/leg
 unowned captures before exposing export. A partial owner export cannot substitute
 for the full database backup or restore another owner's/global operational state.
 
-Parent #61 still gates production rollout on verified encrypted retention/PITR and
-recovery access, representative restore timing, live GitHub reconciliation, and
-owner-scoped export. Future schemas must extend the drill with durable ingest
+Parent #61 is deferred under D-020. Encrypted retention/PITR, recovery access,
+representative restore timing and owner-scoped export remain future work rather
+than delivery gates. Live ingestion reconciliation remains separate functional work. Future schemas must extend the drill with durable ingest
 cursors, DB-origin capture/jobs, revision history, evidence/ledger provenance and
 embedding configuration/version links as those features land (#43–#47, #55/#56).
 Do not claim recovery of tables or workflows that do not yet exist.

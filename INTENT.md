@@ -1,6 +1,6 @@
 # PCE — Current product and delivery intent
 
-**Recorded:** 2026-10-16; **revised:** 2026-10-17. **Status:** accepted target direction, not proof of deployed services.
+**Recorded:** 2026-10-16; **revised:** 2026-10-18. **Status:** accepted target direction, not proof of deployed services.
 **Implementation epic:** [#42](https://github.com/vokerg/personal_context_engine/issues/42); [evolution plan](docs/13-evolution-plan.md); [decision D-019](docs/11-decisions.md).
 
 ## Product purpose
@@ -28,7 +28,7 @@ Make conversations and voice notes into durable personal context that can be **f
 - Preserve original source bytes/meaning, offset-bearing timestamps, stable IDs, ownership and revisions; derived output cites resolvable source IDs and never creates external actions by itself.
 - Distinguish GitHub input accepted from DB imported; distinguish API-origin DB persisted from downstream processing pending. Do not claim DB capture works if API/database is down.
 - Keep tenant isolation in DB queries, verify tokens, protect source/private content and never send credentials or real user notes through public CI. External provider processing requires disclosed consent and cost limits.
-- **Back up and test restoration of authoritative PostgreSQL** (#61). The private GitHub content repo cannot recover records captured only through API/MCP.
+- **Owner decision D-020 (2026-10-18): backups are deferred** (#61), to be handled later or manually. Backup/PITR/export automation is not a gate for current functional development or getting the project running. Keep the optional synthetic restore drill; do not claim that production backups are configured. GitHub cannot recover API-only records.
 - Keep a reversible implementation migration and explicit approval for default search changes.
 
 ## Not yet implemented or separately approved

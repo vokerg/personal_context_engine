@@ -20,7 +20,7 @@ This documentation is the **architecture baseline and project bible** for Person
 | [12 — ChatGPT Project](12-chatgpt-project.md) | Current repo-based capture/search, future MCP boundary |
 | [13 — Evolution plan](13-evolution-plan.md) | Progressive dual-store capture, embeddings, token MCP, gated DB search, UX rollout |
 | [14 — OpenAI setup](14-openai-setup.md) | Project/key provisioning, disabled configuration and safe metadata diagnostics |
-| [15 — Database recovery](15-database-recovery.md) | Synthetic local restore drill, proposed backup policy and outstanding production recovery gates |
+| [15 — Database recovery](15-database-recovery.md) | Optional synthetic restore drill and deferred backup policy (D-020) |
 | [Project intent](../INTENT.md) | Concise direction and explicit constraints for future contributors |
 
 ## Authority and change management
