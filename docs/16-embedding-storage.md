@@ -20,7 +20,7 @@ Local Compose and the synthetic DB CI service now use `pgvector/pgvector:pg16` r
 - `@pce/core.chunkNoteText` uses NFC, LF line endings and **2048 Unicode code points** per chunk. It retains section (`original`, `summary`, `body`), section-relative code-point offsets, order and SHA-256 of normalized text. Position-based IDs include note ID, section, ordinal and `unicode-nfc-lf-2048-v1`. The source Markdown/original bytes remain unchanged in `notes`.
 - **512 chunks per note** is the hard preparation bound. Oversized notes return `oversized` without partial insertion; future worker must report this metadata-only status rather than pretending the note is indexed. The body includes the original section by design, so this bound is cumulative.
 - Chunk ownership is non-null and enforced by composite `(noteId, ownerSubject)` foreign key to `notes`. Legacy null-owner notes cannot be indexed. `sync`, `listCurrentByOwner` and `backfillPage` all require an explicit trusted owner. Authorization must still be performed before a caller reaches these server-only methods; this is **not** a token service.
-- `sync` locks the owner-verified note row, compares all chunk hashes/versions/revisions, and leaves existing vectors intact for an unchanged note. A newer source revision deletes chunks and their vectors **inside the import transaction**, even if preparation had run earlier. Re-preparation after that creates only new pending chunks. Historical revisions cannot silently keep searchable vectors.
+- `sync` locks the owner-verified note row, compares all chunk hashes/versions/revisions, and leaves existing vectors intact for an unchanged note. A newer source revision deletes chunks and their vectors **inside the import transaction**, even if preparation had run earlier. A database trigger also invalidates chunks on direct updates of source text, source revision or content hash, including future #45 API writes. Re-preparation after that creates only new pending chunks. Historical revisions cannot silently keep searchable vectors.
 - `chunk_embeddings` has a unique key per chunk, model and dimensions; status, lease/retry bookkeeping, and a nullable `vector(1536)` column. Database checks reject dimension mismatch and `READY` records without vectors. The first contract supports 1536 dimensions only; other model dimensions require a migration. Embedding writes and query indexes are future #47/#48 responsibilities.
 - No provider API calls, outbound requests, background polling, autostart backfill, or production search interfaces are introduced. Storing chunks duplicates sensitive original text **inside PostgreSQL only**. Do not log/export them or expose them to unauthenticated clients.
 
@@ -36,6 +36,8 @@ Before rolling back application code, stop any later indexing worker. Old code c
 
 ```sql
 BEGIN;
+DROP TRIGGER IF EXISTS "notes_invalidate_chunks" ON "notes";
+DROP FUNCTION IF EXISTS "invalidate_note_chunks_on_mutation"();
 DROP TABLE IF EXISTS "chunk_embeddings";
 DROP TABLE IF EXISTS "note_chunks";
 DROP TYPE IF EXISTS "EmbeddingStatus";
