@@ -78,3 +78,14 @@ input[type="date"] { max-width: 220px; }
 @media (prefers-reduced-motion: no-preference) {
   .note-button { transition: background-color .15s ease; }
 }
+select { font: inherit; width: 100%; background: white; color: #202a34; border: 1px solid #b8c5d0; border-radius: 8px; padding: 10px 12px; }
+select:focus-visible { outline: 3px solid #417ec7; outline-offset: 2px; }
+.tag-browser { padding: 18px 24px; border-bottom: 1px solid #e7edf2; }
+.tag-chips { display: flex; gap: 7px; flex-wrap: wrap; margin: 12px 0; }
+.tag-chip { border: 1px solid #b7cbd9; border-radius: 18px; padding: 5px 11px; color: #204d70; background: #f2f7fa; overflow-wrap: anywhere; max-width: 100%; }
+.tag-chip:hover { background: #e1eef6; }
+.tag-chip[aria-pressed="true"] { background: #204d70; border-color: #204d70; color: white; }
+.tag-chip span { margin-left: 4px; font-size: .8em; }
+.note-tags { padding: 0 24px 12px; margin: 0; }
+.share-hint { color: #5b6d7b; font-size: .8rem; }
+@media (max-width: 600px) { .tag-browser { padding: 16px 18px; } .note-tags { padding: 0 18px 12px; } }

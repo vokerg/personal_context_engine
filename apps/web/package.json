@@ -13,5 +13,9 @@
     "@pce/api-client": "0.1.0",
     "react": "19.1.0",
     "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.7",
+    "jsdom": "^26.1.0"
   }
 }

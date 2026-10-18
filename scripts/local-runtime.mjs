@@ -121,7 +121,13 @@ export async function readCaptures(root, { gitSnapshot = false } = {}) {
 
 export function createLocalReader(db, allowedIds) {
   const owned = (owner) => ({ ownerSubject: owner, id: { in: allowedIds } });
-  const preview = { id: true, title: true, summary: true, capturedAt: true };
+  const preview = {
+    id: true,
+    title: true,
+    summary: true,
+    capturedAt: true,
+    tags: true,
+  };
   const dto = (note) => ({
     ...note,
     capturedAt: note.capturedAt.toISOString(),

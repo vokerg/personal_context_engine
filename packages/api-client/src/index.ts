@@ -264,3 +264,6 @@ export type {
 export function isNoteId(value: string): boolean {
   return NoteIdSchema.safeParse(value).success;
 }
+
+/** Shared validation for browser navigation; never authorizes ownership. */
+export { NotesQuerySchema } from "@pce/contracts";
