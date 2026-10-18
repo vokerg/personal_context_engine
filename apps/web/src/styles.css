@@ -93,7 +93,7 @@ select:focus-visible { outline: 3px solid #417ec7; outline-offset: 2px; }
 .note-metadata { display: grid; grid-template-columns: minmax(80px, .35fr) minmax(0, 1fr); gap: 7px 12px; margin: 20px 0; font-size: .85rem; }
 .note-metadata dt { font-weight: 700; color: #455a6c; }
 .note-metadata dd { margin: 0; overflow-wrap: anywhere; }
-.detail-body { max-height: 32rem; overflow: auto; }
+.detail-body[role="region"] { max-height: 32rem; overflow: auto; }
 .detail-body:focus-visible, summary:focus-visible { outline: 3px solid #417ec7; outline-offset: 2px; }
 summary { cursor: pointer; font-weight: 650; margin-top: 16px; }
 @media (max-width: 920px) { .has-selection .timeline-panel { display: none; } }
