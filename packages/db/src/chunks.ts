@@ -1,9 +1,5 @@
 import { Prisma, PrismaClient } from "@prisma/client";
-import {
-  CHUNKER_VERSION,
-  ChunkLimitError,
-  chunkNoteText,
-} from "@pce/core";
+import { CHUNKER_VERSION, ChunkLimitError, chunkNoteText } from "@pce/core";
 
 const OWNER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:|@-]{0,127}$/;
 
