@@ -18,21 +18,35 @@ describe("deterministic provider-independent chunking", () => {
       body: "",
     };
     const chunks = chunkNoteText(source);
-    expect(chunks.map((chunk) => chunk.section)).toEqual(["original", "summary"]);
+    expect(chunks.map((chunk) => chunk.section)).toEqual([
+      "original",
+      "summary",
+    ]);
     expect(chunks[0]?.text).toBe("Café\nnext");
-    expect(chunks[0]).toMatchObject({ startOffset: 0, endOffset: 9, ordinal: 0 });
+    expect(chunks[0]).toMatchObject({
+      startOffset: 0,
+      endOffset: 9,
+      ordinal: 0,
+    });
     expect(chunkNoteText(source)).toEqual(chunks);
     expect(CHUNKER_VERSION).toContain("v1");
   });
 
   it("splits on code-point boundaries, retaining exact offsets and no lost text", () => {
     const originalInput = "😀".repeat(CHUNK_SIZE_CODEPOINTS + 1);
-    const chunks = chunkNoteText({ noteId, originalInput, summary: "", body: "" });
+    const chunks = chunkNoteText({
+      noteId,
+      originalInput,
+      summary: "",
+      body: "",
+    });
     expect(chunks).toHaveLength(2);
-    expect(chunks.map((chunk) => [chunk.startOffset, chunk.endOffset])).toEqual([
-      [0, CHUNK_SIZE_CODEPOINTS],
-      [CHUNK_SIZE_CODEPOINTS, CHUNK_SIZE_CODEPOINTS + 1],
-    ]);
+    expect(chunks.map((chunk) => [chunk.startOffset, chunk.endOffset])).toEqual(
+      [
+        [0, CHUNK_SIZE_CODEPOINTS],
+        [CHUNK_SIZE_CODEPOINTS, CHUNK_SIZE_CODEPOINTS + 1],
+      ],
+    );
     expect(chunks.map((chunk) => chunk.text).join("")).toBe(originalInput);
   });
 
@@ -42,14 +56,18 @@ describe("deterministic provider-independent chunking", () => {
     const second = chunkNoteText({ ...base, originalInput: "after" })[0]!;
     expect(first.id).toBe(second.id);
     expect(first.contentHash).not.toBe(second.contentHash);
-    expect(chunkNoteText({ ...base, noteId: "another" })[0]?.id).not.toBe(first.id);
+    expect(chunkNoteText({ ...base, noteId: "another" })[0]?.id).not.toBe(
+      first.id,
+    );
   });
 
   it("rejects excess work without emitting a partial set", () => {
     expect(() =>
       chunkNoteText({
         noteId,
-        originalInput: "x".repeat(CHUNK_SIZE_CODEPOINTS * (MAX_CHUNKS_PER_NOTE + 1)),
+        originalInput: "x".repeat(
+          CHUNK_SIZE_CODEPOINTS * (MAX_CHUNKS_PER_NOTE + 1),
+        ),
         summary: "",
         body: "",
       }),
