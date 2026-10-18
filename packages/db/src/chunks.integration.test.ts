@@ -190,7 +190,23 @@ Synthetic original 😀.
       });
     });
 
-    it("provides bounded, resumable owner-only backfill scan without writing vectors", async () => {
+    it("invalidates chunks even for future direct DB note edits", async () => {
+    const input = sample();
+    await createNoteRepository(client).importMarkdown({
+      ...input,
+      ownerSubject: "writer-owner",
+    });
+    const chunks = createNoteChunkRepository(client);
+    await chunks.sync(input.noteId, "writer-owner");
+    expect(await chunks.listCurrentByOwner(input.noteId, "writer-owner")).not.toEqual([]);
+    await client.note.update({
+      where: { id: input.noteId },
+      data: { summary: "Changed by a synthetic direct writer." },
+    });
+    expect(await chunks.listCurrentByOwner(input.noteId, "writer-owner")).toEqual([]);
+  });
+
+  it("provides bounded, resumable owner-only backfill scan without writing vectors", async () => {
       const inputA = sample();
       const inputB = sample();
       const inputC = sample();
