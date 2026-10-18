@@ -7,6 +7,7 @@ on:
       - "packages/core/**"
       - "apps/api/**"
       - "apps/worker/**"
+      - "scripts/local-*.mjs"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.base.json"
@@ -18,6 +19,7 @@ on:
       - "packages/core/**"
       - "apps/api/**"
       - "apps/worker/**"
+      - "scripts/local-*.mjs"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.base.json"
@@ -80,4 +82,4 @@ jobs:
           done
           node -e 'const v=require("/tmp/pce-db-ready.json"); if(v.status!=="ready")process.exit(1)'
       - name: PostgreSQL integration tests (synthetic records only)
-        run: npx vitest run packages/db/src/index.integration.test.ts apps/worker/src/worker.integration.test.ts
+        run: npx vitest run --no-file-parallelism packages/db/src/index.integration.test.ts apps/worker/src/worker.integration.test.ts scripts/local-runtime.test.mjs scripts/local-ingestion.test.mjs

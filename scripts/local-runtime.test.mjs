@@ -458,6 +458,21 @@ test.skipIf(!process.env.PCE_DB_TEST_URL)(
         importMarkdown: project,
       });
       assert.equal(second.finalized, 0);
+      // A finalized source no longer has an inbox path. Changed bytes must
+      // produce a deliberate revision conflict, rather than an ENOENT abort.
+      await rm(join(root, path));
+      await assert.rejects(
+        project({
+          markdown: markdown.replace("Synthetic summary.", "Changed summary."),
+          sourcePath: path,
+          sourceRevision: "changed-after-finalization",
+        }),
+        { code: "REVISION_CONFLICT" },
+      );
+      assert.equal(
+        (await db.note.findUnique({ where: { id } })).sourceRevision,
+        revision,
+      );
     } finally {
       await db.processingAttempt.deleteMany({ where: { sourcePath: path } });
       await db.note.deleteMany({ where: { id } });

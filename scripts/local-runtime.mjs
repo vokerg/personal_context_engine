@@ -228,18 +228,24 @@ export function createOwnedImporter(db, { checkoutRoot } = {}) {
       existing.contentHash ===
         createHash("sha256").update(input.markdown).digest("hex");
     if (sameOwnerPath && !sameBytes && checkoutRoot) {
-      const oldBytes = await readFile(
-        join(checkoutRoot, input.sourcePath),
-        "utf8",
-      );
-      const blob = (
-        await execGit(
-          "git",
-          ["-C", checkoutRoot, "show", `HEAD:${input.sourcePath}`],
-          { maxBuffer: 2 * 1024 * 1024 },
-        )
-      ).stdout;
+      let oldBytes;
+      try {
+        oldBytes = await readFile(join(checkoutRoot, input.sourcePath), "utf8");
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+      }
+      const blob =
+        oldBytes === undefined
+          ? null
+          : (
+              await execGit(
+                "git",
+                ["-C", checkoutRoot, "show", `HEAD:${input.sourcePath}`],
+                { maxBuffer: 2 * 1024 * 1024 },
+              )
+            ).stdout;
       sameBytes =
+        oldBytes !== undefined &&
         existing.contentHash ===
           createHash("sha256").update(oldBytes).digest("hex") &&
         oldBytes.replaceAll("\r\n", "\n") ===

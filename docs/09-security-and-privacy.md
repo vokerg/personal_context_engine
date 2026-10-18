@@ -184,3 +184,15 @@ application `.env` credentials, and does not access Neon or activate production
 backups. See the [recovery runbook](15-database-recovery.md)
 for prerequisites, the proposed encrypted retention/RPO/RTO policy and the
 production PITR, owner export and future-schema gates that remain open.
+
+
+### Durable ingestion status (#43)
+
+Checkpoint scope includes backend/repository/branch/owner; it is trusted server
+configuration, never caller authorization. The local status endpoint returns
+only timestamps, a pending-revision boolean and counts. Git SHAs, repository
+names, note IDs and source cursors stay server-side. Original DB notes survive
+source removal/conflicts; the readable checkout allowlist still gates reads.
+Standalone opt-in GitHub ingestion independently checks private metadata before
+running. Existing tables support one trusted content repository per local DB;
+checkpoint scoping does not claim multi-repository or production tenant identity.

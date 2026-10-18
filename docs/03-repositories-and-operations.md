@@ -393,3 +393,13 @@ application `.env` credentials, and does not access Neon or activate production
 backups. See the [recovery runbook](15-database-recovery.md)
 for prerequisites, the proposed encrypted retention/RPO/RTO policy and the
 production PITR, owner export and future-schema gates that remain open.
+
+
+### Durable ingestion continuation (#43)
+
+The local launcher persists bounded scan progress and Git reconciliation state
+in PostgreSQL, resumes after downtime and checks the current source state even
+without webhooks. The ingestion panel distinguishes the last successful check
+from the last clean reconciliation and displays conflicts/missing/invalid counts.
+Run the launcher while local polling is desired; no always-on service is installed.
+See the [trusted operation and rollback runbook](05-ingestion.md#durable-local-reconciliation-43).

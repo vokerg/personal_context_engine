@@ -137,7 +137,7 @@ try {
 } catch (error) {
   // Validation/provider exceptions can contain private content. Print fixed diagnostics only.
   console.error(
-    "Local startup failed. Check root .env, free API_PORT/PCE_WEB_PORT, valid content paths and note ownership. No content files were modified.",
+    "Local startup failed. Check root .env, free API_PORT/PCE_WEB_PORT, valid content paths and note ownership.",
   );
   await close();
   process.exitCode = 1;

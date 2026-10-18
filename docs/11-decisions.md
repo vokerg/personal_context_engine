@@ -145,3 +145,18 @@ with a narrowly verified Git CRLF checkout conversion where needed.
 **Accepted product direction is not shipped functionality.** D-013 and D-015–D-018 retain the capture-preservation, provider and UX decisions; D-019 defines the superseding DB-primary target. Implementation is tracked in #43–#56 and recovery issue #61. D-004 describes the existing GitHub-first implementation; D-019 (2026-10-17) supersedes D-004/D-014 **for the target**, while migration of the existing importer/finalization code must be separately reviewed and validated. Under owner decision D-020 (2026-10-18), backup/PITR/export automation (#61) is deferred to later or manual operation and is not a delivery prerequisite. No production backup guarantees are claimed.
 
 Two independent capture input paths now converge into **one durable PostgreSQL authority**. A GitHub input write is not proof of database ingestion, and an API-origin DB commit does not entail a GitHub copy. Existing repo capture/read continues unchanged pending an explicit validated migration; retrieval provider changes remain independent from capture persistence. No production OAuth identity system, embedding runtime, MCP service, automatic ledger generator, mobile push system or curated tag taxonomy is implied by this decision.
+
+
+## Durable local GitHub scan boundary (2026-10-18, issue #43)
+
+The opt-in local poller now persists repository/branch/owner-scoped discovery
+progress and observed/reconciled Git snapshot metadata in PostgreSQL. Bounded
+scans resume across restarts and wrap for webhook-independent reconciliation;
+conflicts and disappeared sources retain DB originals. The local UI reports
+sanitized reconciliation counts and timestamps. The standalone GitHub once-mode
+worker independently verifies private visibility and persists its scan cursor.
+This does not deploy a hosted scheduler, change default ChatGPT repository
+search, authorize source revisions/deletion, or retire GitHub finalization.
+The existing single-content-repository-per-DB constraint remains; production
+identity and DB-primary job processing still require their separate issues.
+See [the operation/recovery contract](05-ingestion.md#durable-local-reconciliation-43).

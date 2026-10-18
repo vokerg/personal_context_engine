@@ -39,6 +39,8 @@ export interface IngestionOptions {
   store: ContentStore;
   db: PrismaClient;
   workerId?: string;
+  /** Trusted scope hash of backend/repository/branch/owner; no client input. */
+  scanCheckpointKey?: string;
   /** Scope persisted recovery to this trusted owner when provided. */
   ownerSubject?: string;
   now?: () => Date;
@@ -116,6 +118,18 @@ export async function runIngestionBatch(
   ) {
     throw new Error("Invalid ingestion batch configuration.");
   }
+  if (
+    options.scanCheckpointKey &&
+    !/^[a-f0-9]{64}$/.test(options.scanCheckpointKey)
+  )
+    throw new Error("Invalid scan checkpoint scope.");
+  const checkpoint = options.scanCheckpointKey
+    ? await db.ingestionCheckpoint.upsert({
+        where: { key: options.scanCheckpointKey },
+        create: { key: options.scanCheckpointKey },
+        update: {},
+      })
+    : null;
   const project =
     options.importMarkdown ?? createNoteRepository(db).importMarkdown;
   const report: WorkerReport = {
@@ -277,16 +291,23 @@ export async function runIngestionBatch(
 
   // The cursor advances even across deferred entries so a single poison
   // inbox item cannot permanently starve later valid files.
-  let cursor: string | undefined;
+  let cursor: string | undefined = checkpoint?.cursor ?? undefined;
+  let nextCheckpointCursor = checkpoint?.cursor ?? null;
   while (report.scanned < scanLimit && processed < batchSize) {
     const page = await store.listPending({
       ...(cursor ? { cursor } : {}),
       limit: Math.min(50, scanLimit - report.scanned),
     });
-    if (page.files.length === 0) break;
+    if (page.files.length === 0) {
+      nextCheckpointCursor = null;
+      break;
+    }
+    let visited = 0;
     for (const ref of page.files) {
       if (processed >= batchSize || report.scanned >= scanLimit) break;
       report.scanned += 1;
+      visited += 1;
+      nextCheckpointCursor = ref.path;
       try {
         await db.processingAttempt.create({
           data: { sourcePath: ref.path, sourceRevision: ref.revision },
@@ -413,8 +434,23 @@ export async function runIngestionBatch(
         await markRetry(ref, "PERSISTED", error);
       }
     }
+    if (visited === page.files.length && !page.nextCursor)
+      nextCheckpointCursor = null;
     if (!page.nextCursor || processed >= batchSize) break;
     cursor = page.nextCursor;
+  }
+  if (checkpoint) {
+    // Only after every visited revision has durable attempt/import state.
+    // A crash before this CAS safely replays the old page. Concurrent scans
+    // cannot overwrite newer progress; wrapping forces periodic reconciliation.
+    await db.ingestionCheckpoint.updateMany({
+      where: { key: checkpoint.key, version: checkpoint.version },
+      data: {
+        cursor: nextCheckpointCursor,
+        version: { increment: 1 },
+        lastScanAt: now(),
+      },
+    });
   }
   return report;
 }

@@ -362,3 +362,29 @@ describe("GitHub ContentStore safety and concurrency", () => {
     ]);
   });
 });
+
+describe("runtime private repository verification", () => {
+  it("requires an explicit private metadata response before ingestion", async () => {
+    for (const body of [{ private: false }, {}, { private: true }]) {
+      const calls: string[] = [];
+      const store = new GitHubContentStore({
+        repository: "owner/synthetic-repo",
+        branch: "main",
+        token: "synthetic",
+        fetch: async (url, init) => {
+          calls.push(String(url));
+          expect(init?.method).toBe("GET");
+          return json(body);
+        },
+      });
+      if (body.private === true) await store.verifyPrivateRepository();
+      else
+        await expect(store.verifyPrivateRepository()).rejects.toMatchObject({
+          code: "PERMISSION_DENIED",
+        });
+      expect(calls).toEqual([
+        "https://api.github.com/repos/owner/synthetic-repo",
+      ]);
+    }
+  });
+});
