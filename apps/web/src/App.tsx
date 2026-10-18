@@ -4,16 +4,23 @@ import {
   describeNotesError,
   getNote,
   getNotes,
+  getTags,
+  type TagFacetsResponse,
   isNoteId,
   type NoteDetail,
   type NotePreview,
 } from "@pce/api-client";
+import { PAGE_SIZE, filterTimeline, groupByLocalDay } from "./timeline.js";
+
 import {
-  PAGE_SIZE,
-  filterTimeline,
-  groupByLocalDay,
-  type TimelineFilters,
-} from "./timeline.js";
+  emptyFilters,
+  filterParameters,
+  noteKinds,
+  readBrowseUrl,
+  serverFilters,
+  writeBrowseUrl,
+  type BrowseFilters,
+} from "./browse.js";
 
 type LoadState = "loading" | "ready" | "error";
 type IngestionStatus = {
@@ -24,7 +31,7 @@ type IngestionStatus = {
   report: { finalized: number; rejected: number; retried: number } | null;
 };
 
-const initialFilters: TimelineFilters = { query: "", from: "", to: "" };
+const initialFilters = emptyFilters;
 
 /**
  * Read-only development surface. Bearer tokens and note bodies remain in React
@@ -52,11 +59,42 @@ export function App({
   const [detailState, setDetailState] = useState<LoadState>("loading");
   const [detailError, setDetailError] = useState("");
   const [detail, setDetail] = useState<NoteDetail | null>(null);
-  const [filters, setFilters] = useState<TimelineFilters>(initialFilters);
+  const [filters, setFilters] = useState<BrowseFilters>(() =>
+    typeof window === "undefined"
+      ? initialFilters
+      : readBrowseUrl(new URL(window.location.href)),
+  );
+  const [sharedFilters, setSharedFilters] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      filterParameters.some((key) =>
+        new URL(window.location.href).searchParams.has(key),
+      ),
+  );
+  const [tags, setTags] = useState<TagFacetsResponse>({
+    tags: [],
+    truncated: false,
+  });
+  const [tagsState, setTagsState] = useState<LoadState>("loading");
+  const [tagsError, setTagsError] = useState("");
+  const [tagAttempt, setTagAttempt] = useState(0);
+  const navigation = useRef(
+    new Map<
+      number,
+      { filters: BrowseFilters; shared: boolean; pages: number }
+    >(),
+  );
+  const navigationId = useRef(0);
+  const apiFilters = useMemo(
+    () => serverFilters(filters),
+    [filters.tag, filters.project, filters.kind],
+  );
   const [visiblePages, setVisiblePages] = useState(1);
   const [reloadCount, setReloadCount] = useState(0);
   const [detailAttempt, setDetailAttempt] = useState(0);
   const detailHeading = useRef<HTMLHeadingElement>(null);
+  const timelineHeading = useRef<HTMLHeadingElement>(null);
+  const returnToTimeline = useRef(false);
 
   const filtered = useMemo(
     () => filterTimeline(notes, filters),
@@ -67,21 +105,53 @@ export function App({
   const dateRangeInvalid = Boolean(
     filters.from && filters.to && filters.from > filters.to,
   );
-  const hasFilters = Boolean(filters.query || filters.from || filters.to);
+  const hasFilters = Object.values(filters).some(Boolean);
 
-  function changeFilter(patch: Partial<TimelineFilters>) {
-    setFilters((current) => ({ ...current, ...patch }));
-    setVisiblePages(1);
+  function navigate(
+    next: BrowseFilters,
+    id: string | null,
+    shared = sharedFilters,
+    replace = false,
+  ) {
+    if (typeof window !== "undefined") {
+      const url = writeBrowseUrl(new URL(window.location.href), next, shared);
+      if (id) url.searchParams.set("note", id);
+      else url.searchParams.delete("note");
+      const currentKey = window.history.state?.pce as number;
+      navigation.current.set(currentKey, {
+        filters,
+        shared: sharedFilters,
+        pages: visiblePages,
+      });
+      const key = ++navigationId.current;
+      navigation.current.set(key, {
+        filters: next,
+        shared,
+        pages: next === filters ? visiblePages : 1,
+      });
+      window.history[replace ? "replaceState" : "pushState"](
+        { pce: key },
+        "",
+        url,
+      );
+    }
+    setFilters(next);
+    setSharedFilters(shared);
+    if (selectedId && !id) returnToTimeline.current = true;
+    setSelectedId(id);
+    if (next !== filters) setVisiblePages(1);
+  }
+
+  function changeFilter(patch: Partial<BrowseFilters>) {
+    navigate({ ...filters, ...patch }, selectedId, sharedFilters, true);
   }
 
   function navigateToNote(id: string | null) {
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      if (id) url.searchParams.set("note", id);
-      else url.searchParams.delete("note");
-      window.history.pushState(null, "", url);
-    }
-    setSelectedId(id);
+    navigate(filters, id);
+  }
+
+  function selectTag(tag: string) {
+    navigate({ ...filters, tag }, null);
   }
 
   function signOut(message = "") {
@@ -89,12 +159,19 @@ export function App({
     setDraft("");
     setNotice(message);
     setNotes([]);
+    setTags({ tags: [], truncated: false });
+    setSharedFilters(false);
+    navigation.current.clear();
     setSelectedId(null);
     setDetail(null);
     setFilters(initialFilters);
     setVisiblePages(1);
     if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
+      const url = writeBrowseUrl(
+        new URL(window.location.href),
+        initialFilters,
+        false,
+      );
       url.searchParams.delete("note");
       window.history.replaceState(null, "", url);
     }
@@ -120,9 +197,19 @@ export function App({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    navigation.current.set(0, { filters, shared: sharedFilters, pages: 1 });
+    window.history.replaceState({ pce: 0 }, "", window.location.href);
     const restoreSelection = () => {
-      const id = new URL(window.location.href).searchParams.get("note");
+      const url = new URL(window.location.href);
+      const id = url.searchParams.get("note");
+      const saved = navigation.current.get(window.history.state?.pce as number);
       setSelectedId(id && isNoteId(id) ? id : null);
+      setFilters(saved?.filters ?? readBrowseUrl(url));
+      setSharedFilters(
+        saved?.shared ??
+          filterParameters.some((key) => url.searchParams.has(key)),
+      );
+      setVisiblePages(saved?.pages ?? 1);
     };
     window.addEventListener("popstate", restoreSelection);
     return () => window.removeEventListener("popstate", restoreSelection);
@@ -159,16 +246,25 @@ export function App({
 
   useEffect(() => {
     if (!token) return;
+    if (!apiFilters) {
+      setNotes([]);
+      setListState("error");
+      setListError("Use a lowercase project slug, with hyphens between words.");
+      return;
+    }
     let active = true;
     const controller = new AbortController();
     setListState("loading");
     setListError("");
-    getNotes({
-      baseUrl,
-      getAccessToken: () => token,
-      signal: controller.signal,
-      timeoutMs: 12000,
-    })
+    getNotes(
+      {
+        baseUrl,
+        getAccessToken: () => token,
+        signal: controller.signal,
+        timeoutMs: 12000,
+      },
+      apiFilters,
+    )
       .then((result) => {
         if (!active) return;
         setNotes(result.notes);
@@ -187,7 +283,39 @@ export function App({
       active = false;
       controller.abort();
     };
-  }, [baseUrl, token, reloadCount, ingestion?.lastRun]);
+  }, [baseUrl, token, reloadCount, ingestion?.lastRun, apiFilters]);
+
+  useEffect(() => {
+    if (!token) return;
+    let active = true;
+    const controller = new AbortController();
+    setTagsState("loading");
+    setTagsError("");
+    getTags({
+      baseUrl,
+      getAccessToken: () => token,
+      signal: controller.signal,
+      timeoutMs: 12000,
+    })
+      .then((result) => {
+        if (!active) return;
+        setTags(result);
+        setTagsState("ready");
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        if (error instanceof ApiRequestError && error.status === 401)
+          signOut(describeNotesError(error));
+        else {
+          setTagsState("error");
+          setTagsError(describeNotesError(error));
+        }
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [baseUrl, token, tagAttempt, reloadCount, ingestion?.lastRun]);
 
   useEffect(() => {
     if (!token || !selectedId) {
@@ -229,7 +357,11 @@ export function App({
   }, [baseUrl, token, selectedId, detailAttempt]);
 
   useEffect(() => {
-    if (detailState === "ready") detailHeading.current?.focus();
+    if (selectedId && detailState === "ready") detailHeading.current?.focus();
+    if (!selectedId && returnToTimeline.current) {
+      returnToTimeline.current = false;
+      timelineHeading.current?.focus();
+    }
   }, [detailState, selectedId]);
 
   function connect(event: FormEvent<HTMLFormElement>) {
@@ -327,10 +459,12 @@ export function App({
           >
             <div className="panel-header">
               <p className="eyebrow">Library</p>
-              <h2 id="timeline-title">Note timeline</h2>
+              <h2 id="timeline-title" ref={timelineHeading} tabIndex={-1}>
+                Note timeline
+              </h2>
               <p className="subtitle">
-                Search and filter the notes returned by the current API. Server
-                search and additional facets are not enabled yet.
+                Browse by observed tags, project and kind. Search titles and
+                summaries within the returned notes.
               </p>
             </div>
             <div className="filters" role="group" aria-label="Timeline filters">
@@ -368,20 +502,129 @@ export function App({
                   onChange={(event) => changeFilter({ to: event.target.value })}
                 />
               </div>
+              <div className="filter-field">
+                <label htmlFor="project-filter">Project slug</label>
+                <input
+                  id="project-filter"
+                  placeholder="All projects"
+                  value={filters.project}
+                  onChange={(event) =>
+                    changeFilter({ project: event.target.value })
+                  }
+                />
+              </div>
+              <div className="filter-field filter-date">
+                <label htmlFor="kind-filter">Kind</label>
+                <select
+                  id="kind-filter"
+                  value={filters.kind}
+                  onChange={(event) =>
+                    changeFilter({
+                      kind: event.target.value as BrowseFilters["kind"],
+                    })
+                  }
+                >
+                  <option value="">All kinds</option>
+                  {noteKinds.map((kind) => (
+                    <option value={kind} key={kind}>
+                      {kind}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="filter-actions">
                 <button
                   className="ghost"
                   type="button"
                   disabled={!hasFilters}
                   onClick={() => {
-                    setFilters(initialFilters);
-                    setVisiblePages(1);
+                    navigate(initialFilters, null, false);
                   }}
                 >
                   Reset filters
                 </button>
               </div>
             </div>
+
+            <section className="tag-browser" aria-labelledby="tags-title">
+              <h3 id="tags-title">Your tags</h3>
+              <p className="subtitle">
+                Counts cover all notes available to this session.
+              </p>
+              {tagsState === "loading" && <p role="status">Loading tags…</p>}
+              {tagsState === "error" && (
+                <div role="alert">
+                  <p>{tagsError}</p>
+                  <button
+                    className="secondary"
+                    type="button"
+                    onClick={() => setTagAttempt((n) => n + 1)}
+                  >
+                    Retry tags
+                  </button>
+                </div>
+              )}
+              {tagsState === "ready" && (
+                <>
+                  {tags.tags.length === 0 && <p>No tags yet.</p>}
+                  <div
+                    className="tag-chips"
+                    role="group"
+                    aria-label="Observed tags"
+                  >
+                    {tags.tags.map((tag) => (
+                      <button
+                        className="tag-chip"
+                        type="button"
+                        key={tag.slug}
+                        aria-pressed={filters.tag === tag.slug}
+                        aria-label={`Filter by tag ${tag.slug}, ${tag.count} notes`}
+                        onClick={() =>
+                          selectTag(filters.tag === tag.slug ? "" : tag.slug)
+                        }
+                      >
+                        {tag.slug} <span aria-hidden="true">{tag.count}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {tags.truncated && (
+                    <p role="status">
+                      Showing the first 200 tags. Note chips can select other
+                      observed tags.
+                    </p>
+                  )}
+                </>
+              )}
+              {filters.tag && (
+                <p className="active-tag">
+                  Selected tag: <strong>{filters.tag}</strong>{" "}
+                  <button
+                    className="ghost"
+                    type="button"
+                    onClick={() => selectTag("")}
+                  >
+                    Clear tag
+                  </button>
+                </p>
+              )}
+              <button
+                className="ghost"
+                type="button"
+                disabled={!apiFilters || dateRangeInvalid}
+                onClick={() =>
+                  navigate(filters, selectedId, !sharedFilters, true)
+                }
+              >
+                {sharedFilters
+                  ? "Remove filters from link"
+                  : "Share filtered view"}
+              </button>
+              <p className="share-hint">
+                {sharedFilters
+                  ? "Tag, project, kind and dates are in the address. Copy it to share; access still requires a session."
+                  : "Sharing adds tag, project, kind and dates to the address. Search text stays in memory."}
+              </p>
+            </section>
 
             {dateRangeInvalid && (
               <p className="notice" role="status">
@@ -418,7 +661,7 @@ export function App({
                     </h3>
                     <p>
                       {hasFilters
-                        ? "Change the search or date range to see more."
+                        ? "Change or reset the filters to see more."
                         : "No notes are available for this session. Check ingestion or capture another note."}
                     </p>
                   </div>
@@ -467,6 +710,24 @@ export function App({
                                 )}
                               </time>
                             </button>
+                            {note.tags && note.tags.length > 0 && (
+                              <div
+                                className="tag-chips note-tags"
+                                aria-label={`Tags on ${note.title}`}
+                              >
+                                {note.tags.map((tag) => (
+                                  <button
+                                    className="tag-chip"
+                                    type="button"
+                                    key={tag}
+                                    aria-pressed={filters.tag === tag}
+                                    onClick={() => selectTag(tag)}
+                                  >
+                                    {tag}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </li>
                         ))}
                       </ul>
@@ -536,6 +797,21 @@ export function App({
                       {new Date(detail.capturedAt).toLocaleString()}
                     </time>
                     <p className="detail-summary">{detail.summary}</p>
+                    {detail.tags && detail.tags.length > 0 && (
+                      <div className="tag-chips" aria-label="Note tags">
+                        {detail.tags.map((tag) => (
+                          <button
+                            className="tag-chip"
+                            type="button"
+                            key={tag}
+                            aria-pressed={filters.tag === tag}
+                            onClick={() => selectTag(tag)}
+                          >
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <h3>Original body</h3>
                     <pre className="detail-body">{detail.body}</pre>
                   </article>

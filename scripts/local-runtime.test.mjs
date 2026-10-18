@@ -100,12 +100,18 @@ test("reader scopes SQL by owner and current checkout IDs", async () => {
   await reader.listByOwner("local-developer");
   await reader.getByOwner("local-developer", "known");
   await reader.listByOwner("local-developer", {
-    tag: "focus", project: "demo", kind: "memo",
-    from: "2026-10-01", to: "2026-10-17",
+    tag: "focus",
+    project: "demo",
+    kind: "memo",
+    from: "2026-10-01",
+    to: "2026-10-17",
   });
   assert.deepEqual(calls[2].where, {
-    ownerSubject: "local-developer", id: { in: ["known"] },
-    tags: { has: "focus" }, projects: { has: "demo" }, kind: "memo",
+    ownerSubject: "local-developer",
+    id: { in: ["known"] },
+    tags: { has: "focus" },
+    projects: { has: "demo" },
+    kind: "memo",
     capturedAt: {
       gte: new Date("2026-10-01T00:00:00Z"),
       lt: new Date("2026-10-18T00:00:00Z"),
@@ -123,20 +129,26 @@ test("reader scopes SQL by owner and current checkout IDs", async () => {
 
 test("local tag facets use the same trusted owner and current checkout SQL restrictions", async () => {
   const queries = [];
-  const db = { $queryRaw: async (query) => {
-    queries.push(query);
-    return [
-      { slug: "demo", noteCount: 2n },
-      { slug: "focus", noteCount: 1n },
-    ];
-  } };
+  const db = {
+    $queryRaw: async (query) => {
+      queries.push(query);
+      return [
+        { slug: "demo", noteCount: 2n },
+        { slug: "focus", noteCount: 1n },
+      ];
+    },
+  };
   const reader = createLocalReader(db, ["synthetic-id"]);
   assert.deepEqual(await reader.listTagsByOwner("foreign"), {
-    tags: [], truncated: false,
+    tags: [],
+    truncated: false,
   });
   assert.equal(queries.length, 0);
   assert.deepEqual(await reader.listTagsByOwner("local-developer"), {
-    tags: [{ slug: "demo", count: 2 }, { slug: "focus", count: 1 }],
+    tags: [
+      { slug: "demo", count: 2 },
+      { slug: "focus", count: 1 },
+    ],
     truncated: false,
   });
   const sql = queries[0];
@@ -455,3 +467,45 @@ test.skipIf(!process.env.PCE_DB_TEST_URL)(
     }
   },
 );
+
+test("note chip metadata uses only owner-scoped selected rows", async () => {
+  const queries = [];
+  const record = {
+    id: "synthetic-known",
+    title: "Synthetic note",
+    summary: "Synthetic summary",
+    capturedAt: new Date("2026-10-18T10:00:00Z"),
+    tags: ["observed-only"],
+  };
+  const db = {
+    note: {
+      findMany: async (query) => {
+        queries.push(query);
+        return [record];
+      },
+      findFirst: async (query) => {
+        queries.push(query);
+        return { ...record, body: "Synthetic body" };
+      },
+    },
+  };
+  const reader = createLocalReader(db, [record.id]);
+  assert.deepEqual(await reader.listByOwner("foreign"), []);
+  assert.equal(await reader.getByOwner("foreign", record.id), null);
+  assert.equal(
+    await reader.getByOwner("local-developer", "not-in-snapshot"),
+    null,
+  );
+  assert.equal(queries.length, 0);
+  assert.deepEqual((await reader.listByOwner("local-developer"))[0].tags, [
+    "observed-only",
+  ]);
+  assert.deepEqual(
+    (await reader.getByOwner("local-developer", record.id)).tags,
+    ["observed-only"],
+  );
+  for (const query of queries) {
+    assert.equal(query.where.ownerSubject, "local-developer");
+    assert.equal(query.select.tags, true);
+  }
+});

@@ -41,11 +41,19 @@ export const NoteIdSchema = z
   .regex(
     /^(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/,
   );
+/** Markdown v1 tag and project slug syntax; never canonicalize user data. */
+export const TagSlugSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+
 export const NotePreviewSchema = z
   .object({
     id: NoteIdSchema,
     title: z.string().min(1).max(200),
     summary: z.string().min(1),
+    tags: z.array(TagSlugSchema).optional(),
     capturedAt: z.string().datetime({ offset: true }),
   })
   .strict();
@@ -55,13 +63,6 @@ export const NoteDetailSchema = NotePreviewSchema.extend({
   body: z.string(),
 }).strict();
 export type NoteDetail = z.infer<typeof NoteDetailSchema>;
-
-/** Markdown v1 tag and project slug syntax; never canonicalize user data. */
-export const TagSlugSchema = z
-  .string()
-  .min(1)
-  .max(64)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 
 function validDateOnly(value: string): boolean {
   const day = new Date(value + "T00:00:00.000Z");

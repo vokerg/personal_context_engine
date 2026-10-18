@@ -107,16 +107,17 @@ The opt-in local/development React client now has a responsive **read-only timel
 calendar-day grouping in the viewer's timezone, a selected-note detail panel,
 a Back control and browser back/forward navigation by stable note ID.
 Authenticated requests continue to use the short-lived in-memory token; the
-URL contains a note ID only, never note text, a search query, or a bearer token.
+URL contains a note ID by default; #53 adds explicit opt-in structured filter
+sharing. It never contains note text, a search query, or a bearer token.
 Original note bodies are rendered as literal text rather than interpreted HTML.
 
 The current notes-list response has **no server paging or full-text query** and
-exposes only ID/title/summary/capture timestamp. Consequently, keyword and local
+exposes ID/title/summary/capture timestamp plus optional observed tags. Consequently, keyword and local
 calendar-date filters operate **only on the returned list**; "Show more"
 reveals another bounded page of already fetched notes rather than requesting
 more from PostgreSQL. Results are not comprehensive if the API limits its
 response. Project, kind and observed-tag facets are now available through the owner-scoped
-API (#51), but their web controls still require #53 integration. Full-text server
+API (#51) and integrated into the web controls (#53). Full-text server
 search remains separate (#48); neither capability should be faked by the browser. Production authentication (#44), viewport
 screenshots and trusted real-data validation remain separate rollout gates.
 
@@ -124,3 +125,32 @@ The UI keeps separate loading, retryable failure, missing-detail and no-results
 states; ingestion status is available only in the local workspace and must not
 be interpreted as a hosted 24/7 worker. Synthetic helper tests cover mixed-offset
 calendar days, combined filter predicates and stable ordering.
+
+## Clickable tags and combined filters (#53)
+
+The web client now loads the authenticated observed-tag catalog with counts,
+loading/error/retry/empty states and an explicit notice when the 200-tag cap is
+reached. Counts cover all notes available to the session, independently of the
+current filters. Chips on list/detail notes use optional API-provided `tags`;
+older DTOs without tags remain valid. No canonical tag list or normalization is
+introduced. Catalog/chip clicks filter through the existing owner-scoped API.
+
+Tag, project slug and kind are conjunctive server filters. Keyword search remains
+local to returned titles/summaries, and local-calendar date bounds remain client
+filters (the API's own UTC date semantics are unchanged). Invalid project slugs
+are rejected before requesting data. Each request is cancellable and late results
+cannot replace a newer selection.
+
+Detail/Back and browser back/forward preserve filter context in React memory.
+Filters stay out of the address by default. **Share filtered view** explicitly
+adds tag/project/kind/local-date bounds to the current address, which can then be
+copied; those metadata values become part of browser history and a shared link.
+Free-text search, tokens and note bodies are never serialized. Remove filters
+from link reverses this choice; Reset clears all filters and selected detail.
+Shared links still require an authorized session, validate structured parameters
+and cannot request another owner. Clear session/expiry clears notes, tags, filters
+and URL metadata; no bearer or note storage is introduced.
+
+This uses the existing trusted local owner-aware preview. Production identity
+(#44), complete #52 paging, hosted ingestion and ChatGPT search cutover remain
+separate; backup automation is deferred under D-020 and does not block this UX.
