@@ -31,7 +31,7 @@ A GitHub capture can succeed with the PCE service unavailable, but it cannot app
 | Private content repository | Durable independent ingress / historical source files for GitHub-origin records; current repo search fallback | Required mirroring of API notes or DB-generated ledgers |
 | GitHub ingestion adapter | Detect/validate/reconcile source revisions, import idempotently to DB and checkpoint after commit | Embedding/ledger generation or GitHub as a processing queue |
 | Core domain | Types, invariants, taxonomy, reminder/ledger rules | GitHub, HTTP, Prisma or ChatGPT implementations |
-| PostgreSQL | Authoritative originals, ownership, jobs, search, reminders, provenance, processing and derived state | Durability without verified database backups |
+| PostgreSQL | Authoritative originals, ownership, jobs, search, reminders, provenance, processing and derived state | Unverified recovery guarantees; backup automation deferred under D-020 |
 | API | Authentication, authorization, capture, query and presentation-ready read endpoints | Privileged credentials in untrusted clients |
 | DB-backed workers | Lease pending jobs, process database originals and persist derived results/status to DB | Required writes to private GitHub |
 | Web/mobile/MCP | Browse, retrieve, review and where authorized capture or notify | Direct privileged access to repo or DB |
@@ -42,7 +42,7 @@ A GitHub capture can succeed with the PCE service unavailable, but it cannot app
 - **Current implementation:** original GitHub Markdown, existing source file finalization under `notes/YYYY/MM/`, and a PostgreSQL query projection. This remains until separately migrated.
 - **Accepted target:** PostgreSQL stores source originals, stable IDs, verified owners, Git provenance, revisions, processing jobs and state. GitHub is an optional input and temporary legacy search fallback, not the authority for DB processing.
 - **Derived artifacts:** tags, links, embeddings, evidence packs, sourced ledgers and operational status persist in PostgreSQL with versioning and provenance. No automatic export to GitHub.
-- **Recovery:** protect database originals, including notes that never entered GitHub, with backup/restore drills and optional portable export (#61).
+- **Recovery (deferred):** owner decision D-020 leaves backup/PITR/export automation (#61) for later or manual operation, outside current functional delivery gates. The synthetic restore drill is optional; no production backups are claimed.
 - **Editing and deletion:** requires its own authorization, conflict and history semantics. No implicit bidirectional GitHub synchronization.
 
 ## Replaceable interfaces
@@ -95,7 +95,7 @@ Routes validate transport and auth; application services orchestrate; domain cod
 - **Keep working input:** preserve GitHub connector capture and current repository search. The existing worker still writes GitHub finalization moves; changing that behavior requires dedicated issue #43 implementation/testing, not a docs-only assertion.
 - **Introduce direct input:** #44 identity -> #45 DB-first API capture -> #49 optional authenticated MCP. GitHub is not a dependency for those writes.
 - **Move processing to DB:** after import/direct capture, DB-leased jobs and results stay in PostgreSQL; #47 embeddings and #55 ledger evidence must not require GitHub write access.
-- **Harden recoverability:** missed webhook/restart checkpoint reconciliation (#43), database backup/restore (#61), then staged search/capture acceptance (#50/#56). Source revisions and owner isolation must survive replay and restore.
+- **Harden recoverability:** missed webhook/restart checkpoint reconciliation (#43), staged search/capture acceptance (#50/#56). Backup automation (#61) is deferred and is not a prerequisite under D-020. Source revisions and owner isolation must survive replay and restore.
 - **Switch retrieval deliberately:** ChatGPT's current repo search remains until DB lexical/hybrid retrieval (#48) is benchmarked, secured and deliberately opted into. No automatic switch or claim of hosted availability.
 
 See [13 — Evolution plan](13-evolution-plan.md), [D-019](11-decisions.md) and [security](09-security-and-privacy.md).

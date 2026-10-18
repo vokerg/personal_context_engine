@@ -13,7 +13,7 @@
 | 3: prepare retrieval index | #46 chunk/pgvector schema -> #47 OpenAI embeddings worker -> #48 hybrid DB API | Resumable indexing, multilingual retrieval quality, costs and tenant isolation measured |
 | 4: connect ChatGPT optionally | #49 MCP tools/auth and #50 repo-first retrieval/cutover plan | Independent authenticated MCP capture/search verified; repo search stays default until explicit approval |
 | 5: make notes useful | #51 owner-scoped tag facets -> #52 web UX -> #53 clickable tag browser; #55 interactive sourced ledgers | Genuine browse/filter and evidence-backed summary; #54 canonical tag rules remain deferred |
-| 6: recovery + optional search switch | #61 PostgreSQL backup/restore; #56 source-import, DB-capture and search rollout acceptance | DB-only records restored, no lost notes/dupes, explicit user-approved default switch |
+| 6: optional search switch | #56 source-import, DB-capture and search rollout acceptance; #61 backup automation deferred (D-020) | No lost notes/dupes, explicit user-approved default switch; backup work is not a prerequisite |
 
 Stages 1–5 may proceed in parallel **after their listed dependencies**, not as a promise of already-operational hosted services. No automated DeepSeek or other unattended LLM-ledger provider is selected. Full design in [13 — Evolution plan](13-evolution-plan.md).
 

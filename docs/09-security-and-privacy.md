@@ -48,7 +48,7 @@ A ChatGPT GitHub integration may have different read/write permissions depending
 - Verify webhook signatures and replay protection if GitHub webhooks are enabled.
 - Validate frontmatter strictly, restrict path traversal, bound payload size and disallow unsafe YAML object construction.
 - Maintain audit records of source revisions, user-approved mutations and external execution attempts without exposing raw note text.
-- Back up DB and repo separately; test restore, replay and credential rotation.
+- Backup/PITR/export automation is deferred by owner decision D-020; it does not gate functional delivery. Keep runtime replay and credential protection in scope.
 - Document hosting jurisdictions/provider retention and allow switching adapters without data loss.
 
 See [repository operations](03-repositories-and-operations.md) and [ChatGPT setup](12-chatgpt-project.md).
@@ -159,7 +159,7 @@ only counts and fixed error codes, never note bodies or secrets.
 - The proposed OpenAI embeddings worker sends **selected private note chunks** outside the PCE host to a third-party API. Require an explicit operator/user-facing disclosure and configurable enabled/disabled state; specify data-processing retention/region controls and cost ceilings before enabling. Never send public CI fixtures that contain real content, and never log provider payloads or API keys.
 - Embedding records and retrieval queries MUST enforce the verified owner's scope **in the database query**, including chunk backfill and approximate-vector search. Tokens are short-lived, audience-scoped and permission-scoped; MCP OAuth authorization/PKCE and token revocation are subject to actual supported ChatGPT connector behavior. A caller-provided `user_id` is never authorization.
 - PostgreSQL transactionally stores future API/MCP-origin originals, authenticated owner/provenance and durable downstream jobs; **GitHub export is not required**. GitHub-origin writes are accepted by the external connector independently but require eventual import and idempotent DB checkpoint reconciliation. Distinguish GitHub write success, DB import success and pending worker jobs; never claim two copies or adopt legacy unowned records. Existing GitHub capture/search remains available pending approved cutover.
-- Git history may retain GitHub-origin originals even after deletion, but GitHub is not a backup of API-origin notes or derived results. Define encrypted PostgreSQL backup/restore and recovery authorization (#61), retention, export and erasure policies; test restore before DB-primary rollout. No real private content, embeddings, debug traces, derived summaries or authentication tokens in the public mechanism repository or its CI.
+- Git history may retain GitHub-origin originals even after deletion, but GitHub is not a backup of API-origin notes or derived results. Backup/PITR/export automation (#61) is deferred to later or manual operation under D-020, not a current rollout prerequisite. No production recovery guarantee is implied; erasure and access controls remain separate requirements. No real private content, embeddings, debug traces, derived summaries or authentication tokens in the public mechanism repository or its CI.
 - ChatGPT tool output and retrieved notes are **data**, not trusted instructions; full transcript capture requires actually supplied text. Interactive ledgers are interpretations backed by explicit source IDs, never implicit permission for external action.
 
 Implementation tracked in #44–#50; [full plan](13-evolution-plan.md).
@@ -174,3 +174,13 @@ provider errors. It does not grant private-text egress consent, prove a hard
 budget, or enable an embedding worker. Keep `PCE_EMBEDDINGS_ENABLED=false`
 until the provider/storage/privacy/budget gates in #46/#47 are implemented.
 See [the provisioning and rotation runbook](14-openai-setup.md).
+
+## Synthetic database recovery gate (#64; parent #61)
+
+`npm run db:recovery:drill` restores generated fixtures into a separate database
+in a disposable Unix-socket-only PostgreSQL 16 cluster, then verifies current
+tables and ingestion recovery. It uses explicit disposable DB targets, never
+application `.env` credentials, and does not access Neon or activate production
+backups. See the [recovery runbook](15-database-recovery.md)
+for prerequisites, the proposed encrypted retention/RPO/RTO policy and the
+production PITR, owner export and future-schema gates that remain open.

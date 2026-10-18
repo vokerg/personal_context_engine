@@ -133,11 +133,11 @@ GitHub Settings → Branches / Rulesets should require both `workspace` and `doc
 
 ## Deployment decisions still open
 
-Select hosting, database provider, user authentication, push infrastructure, scheduler, secure webhook delivery and backup/restore tooling during implementation. Document real costs and limits before promising "free" server-side LLM processing. GitHub storage and LLM providers are adapters, not product requirements.
+Select hosting, database provider, user authentication, push infrastructure, scheduler and secure webhook delivery during implementation. Backup/restore automation is deferred to later or manual operation under D-020. Document real costs and limits before promising "free" server-side LLM processing. GitHub storage and LLM providers are adapters, not product requirements.
 
 ## Operational recovery
 
-Backup the database (including state and device registrations with appropriate protection) and the content repo independently. Test reimport from Markdown, replay after a worker crash, reconciliation of incomplete Git moves, and safe schema migrations. Remember Git history may retain supposedly deleted content; repository privacy is not an erasure policy.
+Owner decision D-020 (2026-10-18): backup/PITR/export automation is deferred and is not a prerequisite for getting the project running. The owner may handle backups later or manually. The optional synthetic drill does not configure live backups. Test reimport from Markdown, replay after a worker crash, reconciliation of incomplete Git moves, and safe schema migrations. Remember Git history may retain supposedly deleted content; repository privacy is not an erasure policy.
 
 ### API public endpoints and dependency failure behavior (#9)
 
@@ -370,9 +370,9 @@ Keep the existing `apps/{api,worker,web,mobile}` and `packages/{core,db,contract
 
 Initial external embeddings provider: OpenAI `text-embedding-3-small` via **server-only** credentials. Define egress consent/privacy, hard per-run and per-user budgets, provider errors/backoff, opt-in backfill and model migration before activation. The user’s ChatGPT subscription is not an embeddings API credential. Local model support may be added behind a provider adapter; no always-on Ollama/Render service is required for the first iteration.
 
-**Target operational boundary:** a GitHub write may succeed during PCE downtime; periodic polling/reconciliation must import it after restart, with an acknowledged durable Git revision/checkpoint only after PostgreSQL persistence. Webhooks are optional accelerators, not a sole change feed. API/MCP capture depends on PCE/PostgreSQL availability, not GitHub. Run DB jobs independently of the GitHub connector; no automatic API-to-GitHub export. Verify encrypted PostgreSQL backups, restoration and portable export (#61), since API-origin notes/derived records have no required GitHub copies. The current opt-in importer still finalizes/moves GitHub files; its migration requires #43, not this documentation change.
+**Target operational boundary:** a GitHub write may succeed during PCE downtime; periodic polling/reconciliation must import it after restart, with an acknowledged durable Git revision/checkpoint only after PostgreSQL persistence. Webhooks are optional accelerators, not a sole change feed. API/MCP capture depends on PCE/PostgreSQL availability, not GitHub. Run DB jobs independently of the GitHub connector; no automatic API-to-GitHub export. Backup/PITR/export automation (#61) is deferred by owner decision D-020; do not block functional delivery on it. API-origin notes/derived records have no required GitHub copies. The current opt-in importer still finalizes/moves GitHub files; its migration requires #43, not this documentation change.
 
-Production hosting, login/OAuth issuer, schedules, backup plan and actual MCP tool availability are implementation gates, **not proven** by docs. See [evolution plan](13-evolution-plan.md), #43–#56 and #61.
+Production hosting, login/OAuth issuer, schedules and actual MCP tool availability are implementation gates; backup automation is deferred, **not proven** by docs. See [evolution plan](13-evolution-plan.md), #43–#56 and #61.
 
 ## OpenAI provisioning groundwork (#58)
 
@@ -383,3 +383,13 @@ disabled; #46 adds storage and #47 implements the asynchronous provider worker.
 API credits, project configuration and successful metadata access do not
 prove that private-note indexing is active. No account key belongs in the
 content repository, browser/mobile configuration or public CI.
+
+## Synthetic database recovery gate (#64; parent #61)
+
+`npm run db:recovery:drill` restores generated fixtures into a separate database
+in a disposable Unix-socket-only PostgreSQL 16 cluster, then verifies current
+tables and ingestion recovery. It uses explicit disposable DB targets, never
+application `.env` credentials, and does not access Neon or activate production
+backups. See the [recovery runbook](15-database-recovery.md)
+for prerequisites, the proposed encrypted retention/RPO/RTO policy and the
+production PITR, owner export and future-schema gates that remain open.
