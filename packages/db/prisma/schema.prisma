@@ -104,3 +104,20 @@ model ProcessingAttempt {
   @@index([leaseUntil])
   @@map("processing_attempts")
 }
+
+// Opaque scope hash includes backend, repository, branch and verified owner.
+// A scan checkpoint proves durable discovery, not that every note imported.
+model IngestionCheckpoint {
+  key                   String    @id @db.Char(64)
+  cursor                String?   @db.Text
+  version               Int       @default(0)
+  lastScanAt            DateTime? @db.Timestamptz(3)
+  observedRevision      String?   @db.VarChar(64)
+  reconciledRevision    String?   @db.VarChar(64)
+  reconciledAt          DateTime? @db.Timestamptz(3)
+  reconciliationPending Boolean   @default(true)
+  knownNoteIds          String[]  @default([])
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@map("ingestion_checkpoints")
+}

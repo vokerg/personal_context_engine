@@ -163,6 +163,7 @@ export class GitHubContentStore implements ContentStore {
               : { "Content-Type": "application/json" }),
           },
           ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+          redirect: "error",
           signal: AbortSignal.timeout(10_000),
         });
       } catch {
@@ -263,6 +264,10 @@ export class GitHubContentStore implements ContentStore {
       }
     }
     return entry;
+  }
+
+  async verifyPrivateRepository(): Promise<void> {
+    if ((await this.request("")).private !== true) fail("PERMISSION_DENIED");
   }
 
   async listPending(options: ListPendingOptions = {}): Promise<PendingPage> {

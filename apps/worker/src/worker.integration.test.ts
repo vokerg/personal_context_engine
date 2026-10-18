@@ -317,5 +317,111 @@ Synthetic transcription.
       expect(await db.note.count({ where: { id: note.noteId } })).toBe(1);
       expect(await store.stat(note.path)).toBeNull();
     });
+
+    it("resumes a durable bounded scan beyond poison files after restart and wraps to catch new input", async () => {
+      const key = "a".repeat(64);
+      const fixtures = [fixture(), fixture(), fixture()].sort((a, b) =>
+        a.path.localeCompare(b.path),
+      );
+      const refs = fixtures.map((n) => ({
+        path: n.path,
+        revision: "synthetic-revision",
+      }));
+      const remaining = new Set(refs.map((r) => r.path));
+      const boundedStore: ContentStore = {
+        listPending: async ({ cursor, limit = 50 } = {}) => {
+          const files = refs.filter(
+            (r) => remaining.has(r.path) && (!cursor || r.path > cursor),
+          );
+          const selected = files.slice(0, limit);
+          return {
+            files: selected,
+            ...(files.length > selected.length
+              ? { nextCursor: selected.at(-1)!.path }
+              : {}),
+          };
+        },
+        read: async (path) => ({
+          ...refs.find((r) => r.path === path)!,
+          content: fixtures.find((n) => n.path === path)!.markdown,
+        }),
+        stat: async () => null,
+        finalize: async (request) => {
+          remaining.delete(request.sourcePath);
+          return {
+            path: request.destinationPath,
+            revision: request.expectedRevision,
+            status: "moved",
+          };
+        },
+        reject: async () => {
+          throw new Error("No destructive repair");
+        },
+      };
+      try {
+        for (const ref of refs.slice(0, 2))
+          await db.processingAttempt.create({
+            data: {
+              sourcePath: ref.path,
+              sourceRevision: ref.revision,
+              status: "REJECTED",
+              lastErrorCode: "PROJECTION_SOURCE_CONFLICT",
+            },
+          });
+        const run = () =>
+          runIngestionBatch({
+            db,
+            store: boundedStore,
+            scanCheckpointKey: key,
+            scanLimit: 1,
+            batchSize: 1,
+          });
+        expect((await run()).deferred).toBe(1);
+        expect(
+          (await db.ingestionCheckpoint.findUniqueOrThrow({ where: { key } }))
+            .cursor,
+        ).toBe(refs[0]!.path);
+        expect((await run()).deferred).toBe(1);
+        expect((await run()).imported).toBe(1);
+        expect(
+          (await db.ingestionCheckpoint.findUniqueOrThrow({ where: { key } }))
+            .cursor,
+        ).toBeNull();
+        expect(
+          await db.note.count({ where: { id: fixtures[2]!.noteId } }),
+        ).toBe(1);
+        // Full rescan is required even when no new webhook/commit is reported.
+        expect((await run()).deferred).toBe(1);
+        const before = await db.ingestionCheckpoint.findUniqueOrThrow({
+          where: { key },
+        });
+        const brokenDb = new Proxy(db, {
+          get(target, property) {
+            if (property === "processingAttempt")
+              return {
+                ...target.processingAttempt,
+                create: async () => {
+                  throw new Error("Synthetic DB outage");
+                },
+              };
+            return Reflect.get(target, property);
+          },
+        });
+        await expect(
+          runIngestionBatch({
+            db: brokenDb,
+            store: boundedStore,
+            scanCheckpointKey: key,
+            scanLimit: 1,
+          }),
+        ).rejects.toThrow("Synthetic DB outage");
+        expect(
+          await db.ingestionCheckpoint.findUniqueOrThrow({ where: { key } }),
+        ).toEqual(before);
+        expect((await run()).deferred).toBe(1);
+      } finally {
+        await db.ingestionCheckpoint.deleteMany({ where: { key } });
+      }
+    });
   },
 );

@@ -69,3 +69,14 @@ Ownership/auth storage is deliberately deferred to issue #13, before any
 private HTTP routes. A real PostgreSQL service, migration check and
 concurrency tests are verified only by the hosted Actions job, not by a local
 Docker instance.
+
+
+## Ingestion checkpoints (#43)
+
+The additive `ingestion_checkpoints` table stores a trusted source-scope hash,
+seek cursor/version, scan timestamp, local observed/reconciled Git revision and
+previously seen note IDs. Progress is committed after durable attempt/import
+results; a discovery cursor does not assert that all notes imported. Old code
+ignores this table. Roll back code with workers stopped and retain the table;
+never reset source notes or attempt history to reset a scan. See the
+[ingestion runbook](../../docs/05-ingestion.md#durable-local-reconciliation-43).

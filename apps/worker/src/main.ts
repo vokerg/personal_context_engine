@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { isAbsolute } from "node:path";
 import { checkDatabase, createDatabaseClient } from "@pce/db";
 import type { ContentStore } from "./content-store/port.js";
@@ -32,6 +33,7 @@ async function start(mode: string): Promise<void> {
   if (mode !== "once") throw new Error("Unsupported worker mode.");
   if (!process.env.DATABASE_URL) throw new Error("Database is required.");
   let store: ContentStore;
+  let scanCheckpointKey: string | undefined;
   if (process.env.WORKER_CONTENT_BACKEND === "filesystem") {
     const root = process.env.WORKER_CONTENT_ROOT;
     if (!root || !isAbsolute(root))
@@ -43,7 +45,19 @@ async function start(mode: string): Promise<void> {
     ) {
       throw new Error("Explicit private repository opt-in required.");
     }
-    store = githubContentStoreFromEnv();
+    const github = githubContentStoreFromEnv();
+    await github.verifyPrivateRepository();
+    store = github;
+    scanCheckpointKey = createHash("sha256")
+      .update(
+        JSON.stringify([
+          "github",
+          process.env.CONTENT_REPOSITORY?.toLowerCase(),
+          process.env.CONTENT_BRANCH,
+          null,
+        ]),
+      )
+      .digest("hex");
   } else {
     throw new Error("Explicit ContentStore backend required.");
   }
@@ -51,7 +65,11 @@ async function start(mode: string): Promise<void> {
   try {
     await db.$connect();
     await checkDatabase(db);
-    const result = await runIngestionBatch({ db, store });
+    const result = await runIngestionBatch({
+      db,
+      store,
+      ...(scanCheckpointKey ? { scanCheckpointKey } : {}),
+    });
     // Counts only; never expose note bodies, paths or identifiers in logs.
     console.log("Worker pass complete " + JSON.stringify(result));
   } finally {

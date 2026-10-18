@@ -29,6 +29,16 @@ type IngestionStatus = {
   lastRun: string | null;
   error: string | null;
   report: { finalized: number; rejected: number; retried: number } | null;
+  checkpoint?: {
+    lastScanAt: string | null;
+    reconciledAt: string | null;
+    revisionPending: boolean;
+  } | null;
+  reconciliation?: {
+    conflicts: number;
+    missing: number;
+    invalid: number;
+  } | null;
 };
 
 const initialFilters = emptyFilters;
@@ -853,6 +863,39 @@ export function App({
                   Last pass: {ingestion.report.finalized} finalized,{" "}
                   {ingestion.report.rejected} rejected,{" "}
                   {ingestion.report.retried} retries.
+                </p>
+              )}
+              {ingestion.checkpoint && (
+                <p>
+                  {ingestion.checkpoint.revisionPending
+                    ? "Source revision awaits reconciliation."
+                    : "Observed source revision reconciled."}
+                  {ingestion.checkpoint.reconciledAt && (
+                    <>
+                      {" "}
+                      Last reconciliation:{" "}
+                      {new Date(
+                        ingestion.checkpoint.reconciledAt,
+                      ).toLocaleString()}
+                      .
+                    </>
+                  )}
+                </p>
+              )}
+              {ingestion.reconciliation && (
+                <p
+                  role={
+                    ingestion.reconciliation.conflicts ||
+                    ingestion.reconciliation.missing ||
+                    ingestion.reconciliation.invalid
+                      ? "status"
+                      : undefined
+                  }
+                >
+                  Source checks: {ingestion.reconciliation.conflicts} conflicts,{" "}
+                  {ingestion.reconciliation.missing} missing sources,{" "}
+                  {ingestion.reconciliation.invalid} invalid files. Stored
+                  originals are retained.
                 </p>
               )}
               {ingestion.error && (

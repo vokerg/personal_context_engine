@@ -252,4 +252,85 @@ for credentials, checkout validation and preview revision bridging.
 
 **Post-ingestion workers:** claim leased/retryable PostgreSQL jobs for embeddings, aggregation, source-linked ledgers and similar enrichment; query originals from DB and store resulting state/artifacts in DB. No worker processing queue, mandatory derived Markdown or write-back in GitHub. Provider failures keep durable originals and permit bounded retry/rebuild. Synthetic tests must prove idempotency, replay, multi-tenant isolation, stuck-job recovery and no re-import loops.
 
-**Disaster recovery and migration:** because direct-input notes and derived results may only exist in PostgreSQL, verify DB backups/restore (#61). Test catch-up against GitHub after restoring the DB without duplicating input or overriding authenticated ownership. Retire GitHub file-finalization writes only after a separate migration/reconciliation PR, preserving source revision integrity and current connector usability. Search remains repo-first until the independent #50/#56 cutover gate. See [13 — Evolution plan](13-evolution-plan.md).
+**Disaster recovery and migration:** direct-input notes and derived results may only exist in PostgreSQL. Backup/recovery automation (#61) is deferred under D-020 and is not a functional delivery prerequisite; the existing synthetic drill remains optional. Test catch-up against GitHub after restoring the DB without duplicating input or overriding authenticated ownership. Retire GitHub file-finalization writes only after a separate migration/reconciliation PR, preserving source revision integrity and current connector usability. Search remains repo-first until the independent #50/#56 cutover gate. See [13 — Evolution plan](13-evolution-plan.md).
+
+
+## Durable local reconciliation (#43)
+
+**Implemented:** opt-in local polling keeps a PostgreSQL `ingestion_checkpoints`
+row scoped by a SHA-256 of backend, repository, branch and trusted owner. The
+standalone GitHub once-mode worker also verifies private visibility at runtime
+and persists its own unowned scan scope. Default worker startup stays idle.
+This is still the existing GitHub-finalizing projection, not the future read-only
+GitHub importer or a DB-job enrichment pipeline.
+
+Each bounded worker pass resumes a seek cursor, recording progress only after
+visited source revisions have durable attempt/import results. A checkpoint is
+**discovery progress**, not proof that every file imported: rejected inputs,
+retry state and leases remain in `processing_attempts`. A DB failure before
+checkpoint commit replays the old page. Version compare-and-swap prevents an
+older concurrent scan from replacing newer progress. End-of-scan resets the
+cursor so files inserted/changed before it are found on a later pass, without
+webhooks. Existing persisted-attempt recovery runs independently of that cursor.
+
+After each GitHub pass the local launcher fast-forwards the checkout and scans
+its current inbox/canonical sources. Only after successful DB imports and a
+stable, clean Git snapshot does it record the observed Git revision and, when
+there are no current conflicts, missing sources, invalid inputs or deferred/
+retry/rejection outcomes, the reconciled revision/time. This describes the
+current source snapshot, not every historical Git commit or resolved rejection.
+An observed revision can remain ahead of reconciliation; timestamps expose
+staleness without publishing private repository URLs, note IDs, cursor paths or
+Git revisions through the local status endpoint. A later poll detects changes
+that arrive after the snapshot.
+
+Changed note text under an existing ID requires deliberate revision repair;
+imports never silently overwrite it. Such projection conflicts are counted and
+excluded from the new readable snapshot while independent valid files continue.
+Previously seen note IDs remain in the checkpoint, so missing/deleted sources
+stay visible across restarts; DB originals are retained and never deleted.
+Restoring the source resolves the missing count. A canonical move preserving the
+ID is not a deletion. Unsupported renames, duplicate IDs, symlinks, dirty or
+divergent checkouts fail closed; previous readable state remains until repair.
+Invalid captures remain in source/rejected storage with durable validation
+errors. Neither missing counts nor tags execute an external action.
+
+### Trusted local operation and scheduling
+
+1. Use a single configured content repository per local database/checkout (the
+   legacy note/attempt tables are not a multi-repository namespace). Verify
+   private visibility, a clean matching checkout/branch and scoped credentials.
+2. Run `npm run dev:local` with the existing ignored server-only `.env`,
+   `DATABASE_URL`, `PCE_INGEST_GITHUB=true`, `CONTENT_REPOSITORY` and
+   `CONTENT_BRANCH`. The launcher builds and deploys additive migrations, then
+   checks immediately and every 30 seconds. Keep services on loopback.
+3. Open the local web UI's ingestion status. `lastRun` means the source check
+   finished; `checkpoint.reconciledAt` means a clean reconciliation finished.
+   Inspect conflict/missing/invalid counts and fixed error status. No timestamp
+   implies continuous availability. Stopping the launcher stops polling.
+4. During downtime GitHub capture remains independent. Restart the same command
+   with the same DB and checkout to resume bounded scanning, recover durable
+   attempts and rescan current source state. No webhook delivery is required.
+5. For a separately managed trusted scheduler, the existing GitHub
+   `WORKER_MODE=once` entry point can be invoked repeatedly with its explicit
+   private-write opt-in. Prevent overlapping scheduled invocations; supply
+   secrets in the runtime environment, never command arguments or public CI.
+   It persists scan progress but does not perform the local web snapshot/status
+   refresh. There is no hosted scheduler, launch-at-login service or production
+   deployment installed by this change.
+
+Synthetic PostgreSQL tests cover scan-limit/restart continuation past poison
+inputs, scan wrapping, checkpoint stability on DB failure, durable commit/move
+recovery and replay. Snapshot tests cover conflicts, missing IDs across restarts
+and transient failures. Public CI uses no real repository or provider secrets.
+For a trusted acceptance check, restart the local launcher, verify a clean
+reconciliation, restart again and confirm no duplicate imports/finalization;
+inspect **counts only**. Use a separate staging branch/database and synthetic
+notes for deliberate delete/rename/conflict or crash experiments.
+
+Rollback: stop the launcher, revert the code and restart the previous version.
+The additive checkpoint table is harmless to old code; retain it for recovery.
+To reset a scan, stop all workers and set only that scope's cursor to NULL in a
+trusted DB session; never delete notes/attempts to force a replay. Do not clear
+known IDs to hide an unresolved source deletion. Backup automation #61 remains
+deferred under D-020 and is not activated here.
