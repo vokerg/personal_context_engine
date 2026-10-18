@@ -1,7 +1,7 @@
 # Local fake development credentials only. Never expose PostgreSQL publicly.
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     profiles: ["db"]
     environment:
       POSTGRES_DB: pce
