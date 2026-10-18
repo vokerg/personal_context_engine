@@ -383,3 +383,13 @@ disabled; #46 adds storage and #47 implements the asynchronous provider worker.
 API credits, project configuration and successful metadata access do not
 prove that private-note indexing is active. No account key belongs in the
 content repository, browser/mobile configuration or public CI.
+
+## Synthetic database recovery gate (#64; parent #61)
+
+`npm run db:recovery:drill` restores generated fixtures into a separate database
+in a disposable Unix-socket-only PostgreSQL 16 cluster, then verifies current
+tables and ingestion recovery. It uses explicit disposable DB targets, never
+application `.env` credentials, and does not access Neon or activate production
+backups. See the [recovery runbook](15-database-recovery.md)
+for prerequisites, the proposed encrypted retention/RPO/RTO policy and the
+production PITR, owner export and future-schema gates that remain open.

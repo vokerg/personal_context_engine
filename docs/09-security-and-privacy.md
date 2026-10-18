@@ -174,3 +174,13 @@ provider errors. It does not grant private-text egress consent, prove a hard
 budget, or enable an embedding worker. Keep `PCE_EMBEDDINGS_ENABLED=false`
 until the provider/storage/privacy/budget gates in #46/#47 are implemented.
 See [the provisioning and rotation runbook](14-openai-setup.md).
+
+## Synthetic database recovery gate (#64; parent #61)
+
+`npm run db:recovery:drill` restores generated fixtures into a separate database
+in a disposable Unix-socket-only PostgreSQL 16 cluster, then verifies current
+tables and ingestion recovery. It uses explicit disposable DB targets, never
+application `.env` credentials, and does not access Neon or activate production
+backups. See the [recovery runbook](15-database-recovery.md)
+for prerequisites, the proposed encrypted retention/RPO/RTO policy and the
+production PITR, owner export and future-schema gates that remain open.
