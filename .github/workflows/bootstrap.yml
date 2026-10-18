@@ -21,6 +21,14 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Emit formatted source payload (temporary, synthetic only)
+        run: |
+          for file in packages/core/src/chunks.ts packages/core/src/chunks.test.ts packages/db/src/chunks.ts packages/db/src/chunks.integration.test.ts; do
+            echo "PCE_FMT_START:$file"
+            npx prettier "$file" | base64 -w0
+            echo
+            echo "PCE_FMT_END:$file"
+          done
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
