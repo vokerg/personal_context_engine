@@ -56,10 +56,15 @@ export function chunkNoteText(input: ChunkSource): NoteChunkDraft[] {
     }
     for (let ordinal = 0; ordinal < count; ordinal++) {
       const startOffset = ordinal * CHUNK_SIZE_CODEPOINTS;
-      const endOffset = Math.min(startOffset + CHUNK_SIZE_CODEPOINTS, characters.length);
+      const endOffset = Math.min(
+        startOffset + CHUNK_SIZE_CODEPOINTS,
+        characters.length,
+      );
       const text = characters.slice(startOffset, endOffset).join("");
       const id = sha256(
-        ["pce-chunk", CHUNKER_VERSION, input.noteId, section, ordinal].join("\0"),
+        ["pce-chunk", CHUNKER_VERSION, input.noteId, section, ordinal].join(
+          "\0",
+        ),
       );
       chunks.push({
         id,
