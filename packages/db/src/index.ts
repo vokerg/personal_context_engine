@@ -4,6 +4,7 @@ import { parseNoteMarkdown, verifyInboxNotePath } from "@pce/core";
 
 export { PrismaClient } from "@prisma/client";
 export { createTagFacetRepository, TAG_FACET_LIMIT } from "./tags.js";
+export { createNoteChunkRepository } from "./chunks.js";
 
 export type ProjectionConflictCode =
   | "CAPTURE_CONFLICT"
@@ -183,6 +184,9 @@ export function createNoteRepository(client: PrismaClient) {
               if (changed.count !== 1) {
                 throw new ProjectionConflictError("REVISION_CONFLICT");
               }
+              // Every revision replacement invalidates derived text and vectors
+              // atomically; repeated imports above leave them untouched.
+              await tx.noteChunk.deleteMany({ where: { noteId: meta.id } });
               return { noteId: meta.id, result: "updated" };
             },
             { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
