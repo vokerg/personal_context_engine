@@ -196,3 +196,19 @@ source removal/conflicts; the readable checkout allowlist still gates reads.
 Standalone opt-in GitHub ingestion independently checks private metadata before
 running. Existing tables support one trusted content repository per local DB;
 checkpoint scoping does not claim multi-repository or production tenant identity.
+
+
+### Opt-in local browse trust boundary (#52)
+
+`PCE_LOCAL_BROWSE=true` injects bounded SQL browsing only in the trusted local
+reader. Verified owner and current checkout IDs constrain page/search/facet
+queries; caller owner parameters are rejected. Cursors have process-local,
+server-held HMAC authentication and bind owner, filters and snapshot IDs.
+They carry no credential and never replace the SQL authorization predicate.
+Restart invalidates cursors. Search terms appear in API GET URLs; request
+logging remains disabled, responses no-store, and local services loopback-only.
+No API/GitHub/DB credentials, search text or note text is put in browser storage
+or shared browser URLs. Metadata/originals are exposed only through the existing
+authenticated, owner-scoped detail route. Literal rendering prevents source text
+from becoming HTML or executable instructions. The flag defaults off and does
+not authorize ChatGPT search cutover, embeddings egress or external actions.

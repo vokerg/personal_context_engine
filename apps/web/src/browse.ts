@@ -1,4 +1,9 @@
-import { NotesQuerySchema, type NotesQuery } from "@pce/api-client";
+import {
+  BrowseQuerySchema,
+  type BrowseQuery,
+  NotesQuerySchema,
+  type NotesQuery,
+} from "@pce/api-client";
 import type { TimelineFilters } from "./timeline.js";
 
 export type BrowseFilters = TimelineFilters & {
@@ -71,4 +76,31 @@ export function writeBrowseUrl(
     if (include && filters[key]) next.searchParams.set(key, filters[key]);
   }
   return next;
+}
+
+/** Convert viewer-local calendar days to exact instants; end is exclusive.
+ * Date.setDate handles 23/25-hour DST days without assuming a 24-hour duration. */
+export function pagedFilters(filters: BrowseFilters): BrowseQuery | null {
+  const start = filters.from ? new Date(filters.from + "T00:00:00") : null;
+  const end = filters.to ? new Date(filters.to + "T00:00:00") : null;
+  if (
+    start &&
+    (Number.isNaN(start.getTime()) || localDate(start) !== filters.from)
+  )
+    return null;
+  if (end && (Number.isNaN(end.getTime()) || localDate(end) !== filters.to))
+    return null;
+  if (end) end.setDate(end.getDate() + 1);
+  const parsed = BrowseQuerySchema.safeParse({
+    ...(filters.query.trim() ? { q: filters.query.trim() } : {}),
+    ...(filters.tag ? { tag: filters.tag } : {}),
+    ...(filters.project ? { project: filters.project } : {}),
+    ...(filters.kind ? { kind: filters.kind } : {}),
+    ...(start ? { start: start.toISOString() } : {}),
+    ...(end ? { end: end.toISOString() } : {}),
+  });
+  return parsed.success ? parsed.data : null;
+}
+function localDate(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }

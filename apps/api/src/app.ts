@@ -1,5 +1,11 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import {
+  BrowseQuerySchema,
+  BrowsePageSchema,
+  BrowseFacetsSchema,
+  type BrowseQuery,
+  type BrowsePage,
+  type BrowseFacets,
   ApiErrorResponseSchema,
   ApiVersionResponseSchema,
   NoteDetailSchema,
@@ -35,6 +41,9 @@ export interface PrivateNoteReader {
   /** Optional until a trusted owner-filtered facets adapter is attached. */
   listTagsByOwner?(subject: string): Promise<TagFacetsResponse>;
   getByOwner(subject: string, noteId: string): Promise<NoteDetail | null>;
+  /** Inject both only behind the explicit trusted local browse gate. */
+  pageByOwner?(subject: string, query: BrowseQuery): Promise<BrowsePage>;
+  facetsByOwner?(subject: string): Promise<BrowseFacets>;
 }
 
 export interface ApiDependencies {
@@ -186,6 +195,41 @@ export function createApp(options: ApiOptions = {}) {
       }
       request.authenticatedPrincipal = principal;
     };
+    if (notes.pageByOwner && notes.facetsByOwner) {
+      app.get(
+        "/api/v1/browse",
+        { preHandler: requireNoteRead },
+        async (request, reply) => {
+          const query = BrowseQuerySchema.safeParse(request.query);
+          if (!query.success)
+            return reply.code(400).send(errorResponse("BAD_REQUEST"));
+          try {
+            return BrowsePageSchema.parse(
+              await notes.pageByOwner!(
+                request.authenticatedPrincipal!.subject,
+                query.data,
+              ),
+            );
+          } catch (error) {
+            // The trusted adapter translates its cursor error to this fixed code.
+            if (error instanceof Error && error.name === "BrowseCursorError")
+              return reply.code(400).send(errorResponse("BAD_REQUEST"));
+            throw error;
+          }
+        },
+      );
+      app.get(
+        "/api/v1/browse/facets",
+        { preHandler: requireNoteRead },
+        async (request, reply) => {
+          if (Object.keys(request.query as object).length)
+            return reply.code(400).send(errorResponse("BAD_REQUEST"));
+          return BrowseFacetsSchema.parse(
+            await notes.facetsByOwner!(request.authenticatedPrincipal!.subject),
+          );
+        },
+      );
+    }
     app.get(
       "/api/v1/notes",
       { preHandler: requireNoteRead },

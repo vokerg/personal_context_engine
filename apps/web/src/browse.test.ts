@@ -57,3 +57,30 @@ describe("filter navigation privacy and validation", () => {
     ).toEqual(emptyFilters);
   });
 });
+
+it("converts local date bounds to exact DST instants without sharing query text", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const script = `import { pagedFilters, emptyFilters } from './apps/web/src/browse.ts'; console.log(JSON.stringify(['2026-03-29','2026-10-25'].map(day => pagedFilters({...emptyFilters,from:day,to:day,query:'needle'}))));`;
+  const output = execFileSync(
+    process.execPath,
+    ["--import", "tsx", "--input-type=module", "-e", script],
+    {
+      cwd: process.cwd(),
+      env: { ...process.env, TZ: "Europe/Copenhagen" },
+      encoding: "utf8",
+    },
+  );
+  const rows = JSON.parse(output) as Array<{
+    start: string;
+    end: string;
+    q: string;
+  }>;
+  expect(
+    rows.map((row) => (Date.parse(row.end) - Date.parse(row.start)) / 3600000),
+  ).toEqual([23, 25]);
+  expect(rows[0]).toEqual({
+    q: "needle",
+    start: "2026-03-28T23:00:00.000Z",
+    end: "2026-03-29T22:00:00.000Z",
+  });
+});

@@ -160,3 +160,15 @@ search, authorize source revisions/deletion, or retire GitHub finalization.
 The existing single-content-repository-per-DB constraint remains; production
 identity and DB-primary job processing still require their separate issues.
 See [the operation/recovery contract](05-ingestion.md#durable-local-reconciliation-43).
+
+
+## Gated local browsing implementation (2026-10-18, issue #52)
+
+An explicit disabled-by-default local flag enables bounded database pages,
+literal full-note substring search, observed project/kind facets and structured
+original detail in the existing owner-scoped local workspace. This implements
+the local web browsing slice under D-018 without changing ChatGPT's repository
+search default or claiming #48 hybrid retrieval, production identity or hosted
+availability. Original text and advisory fields remain read-only. No schema or
+content migration is required; clearing the flag restores the legacy preview.
+See [the local browse contract and synthetic evidence](08-clients-and-notifications.md#opt-in-local-database-browsing-52).
