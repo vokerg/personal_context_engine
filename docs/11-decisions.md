@@ -160,3 +160,26 @@ search, authorize source revisions/deletion, or retire GitHub finalization.
 The existing single-content-repository-per-DB constraint remains; production
 identity and DB-primary job processing still require their separate issues.
 See [the operation/recovery contract](05-ingestion.md#durable-local-reconciliation-43).
+
+## Proposed taxonomy research boundary (2026-10-18, issue #54)
+
+**No new taxonomy decision has been accepted.** D-018 continues to authorize
+observed, owner-scoped tags and clickable facets, but not a standard/default
+vocabulary, automatic synonyms or modification of historical tag slugs.
+The alternatives, evidence requirements, synthetic examples and reversible
+read-projection sketch are in
+[the domain/taxonomy specification](06-domain-and-taxonomy.md#optional-taxonomy-research-and-reversible-alias-approach-54-not-approved).
+
+The least disruptive *candidate* is optional, dismissible suggestions. Any
+owner-scoped alias mapping is a **separate future opt-in**, with raw/source tags
+unchanged, distinct-note facet counting, explicit versioning and reversible
+display/filter behavior. Global required tags and destructive renaming are not
+recommended. This is a research conclusion, **not** permission to implement
+a schema migration, alter capture prompts, change the API contract or process
+private corpus metrics in public CI.
+
+**Decision pending:** obtain representative owner-authorized tag usage
+observations and direct owner feedback on synonym meaning and workflow
+friction; review privacy and backward compatibility; then record a dated,
+numbered accepted decision or retain D-018 with no change. Issue #54 stays
+open for those product inputs; a docs-only PR does not close it.
