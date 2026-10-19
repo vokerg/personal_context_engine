@@ -405,6 +405,16 @@ Run the launcher while local polling is desired; no always-on service is install
 See the [trusted operation and rollback runbook](05-ingestion.md#durable-local-reconciliation-43).
 
 
+### Optional local paged browsing (#52)
+
+Run `PCE_LOCAL_BROWSE=true npm run dev:local` to use bounded SQL pages and
+literal full-note search in the trusted local web UI. The flag is off by default;
+clear it and restart to return to the legacy preview. It adds no schema migration
+or capture mutations and does not change ChatGPT retrieval defaults. Keep the
+existing loopback-only startup and credentials. Cursors expire on launcher
+restart and reset to page one; Refresh notes restarts the timeline after new
+captures. See [the browse contract and browser evidence](08-clients-and-notifications.md#opt-in-local-database-browsing-52).
+
 ## Explicit embeddings pass (issue #47)
 
 This is an **opt-in finite PostgreSQL worker**, not a scheduler, automatic

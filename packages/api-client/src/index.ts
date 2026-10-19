@@ -1,4 +1,10 @@
 import {
+  BrowseQuerySchema,
+  BrowsePageSchema,
+  BrowseFacetsSchema,
+  type BrowseQuery,
+  type BrowsePage,
+  type BrowseFacets,
   HealthResponseSchema,
   type HealthResponse,
   ApiErrorResponseSchema,
@@ -267,3 +273,26 @@ export function isNoteId(value: string): boolean {
 
 /** Shared validation for browser navigation; never authorizes ownership. */
 export { NotesQuerySchema } from "@pce/contracts";
+
+export function getBrowsePage(
+  options: AuthenticatedRequestOptions,
+  query: BrowseQuery = {},
+): Promise<BrowsePage> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(BrowseQuerySchema.parse(query)))
+    if (value !== undefined) params.set(key, value);
+  return authenticatedGet(
+    options,
+    "/api/v1/browse" + (params.size ? "?" + params.toString() : ""),
+    (data) => BrowsePageSchema.parse(data),
+  );
+}
+export function getBrowseFacets(
+  options: AuthenticatedRequestOptions,
+): Promise<BrowseFacets> {
+  return authenticatedGet(options, "/api/v1/browse/facets", (data) =>
+    BrowseFacetsSchema.parse(data),
+  );
+}
+export type { BrowseQuery, BrowsePage, BrowseFacets } from "@pce/contracts";
+export { BrowseQuerySchema } from "@pce/contracts";

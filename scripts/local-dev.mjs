@@ -80,7 +80,10 @@ try {
     },
     dependencies: {
       checkDatabase: () => checkDatabase(db),
-      notes: createLocalReader(db, ids),
+      notes: createLocalReader(db, ids, {
+        browseEnabled: config.browseEnabled,
+        cursorSecret: randomBytes(32).toString("hex"),
+      }),
     },
   });
   web = await createVite({
@@ -93,6 +96,9 @@ try {
     },
     define: {
       "import.meta.env.VITE_PCE_LOCAL_DEV": JSON.stringify("true"),
+      "import.meta.env.VITE_PCE_LOCAL_BROWSE": JSON.stringify(
+        String(config.browseEnabled),
+      ),
       "import.meta.env.VITE_API_BASE_URL": JSON.stringify(
         `http://127.0.0.1:${config.apiPort}`,
       ),

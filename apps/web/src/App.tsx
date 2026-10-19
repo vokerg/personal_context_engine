@@ -5,6 +5,9 @@ import {
   getNote,
   getNotes,
   getTags,
+  getBrowsePage,
+  getBrowseFacets,
+  type BrowseFacets,
   type TagFacetsResponse,
   isNoteId,
   type NoteDetail,
@@ -18,6 +21,7 @@ import {
   noteKinds,
   readBrowseUrl,
   serverFilters,
+  pagedFilters,
   writeBrowseUrl,
   type BrowseFilters,
 } from "./browse.js";
@@ -50,9 +54,11 @@ const initialFilters = emptyFilters;
 export function App({
   localDevelopment = import.meta.env.VITE_PCE_LOCAL_DEV === "true",
   baseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:3000",
+  browseEnabled = import.meta.env.VITE_PCE_LOCAL_BROWSE === "true",
 }: {
   baseUrl?: string;
   localDevelopment?: boolean;
+  browseEnabled?: boolean;
 }) {
   const [draft, setDraft] = useState("");
   const [token, setToken] = useState<string | null>(null);
@@ -88,16 +94,51 @@ export function App({
   const [tagsState, setTagsState] = useState<LoadState>("loading");
   const [tagsError, setTagsError] = useState("");
   const [tagAttempt, setTagAttempt] = useState(0);
+  const [browseCursor, setBrowseCursor] = useState<string | undefined>();
+  const [previousCursors, setPreviousCursors] = useState<
+    Array<string | undefined>
+  >([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [facets, setFacets] = useState<BrowseFacets>({
+    projects: [],
+    kinds: [],
+    truncated: false,
+  });
+  const [facetsError, setFacetsError] = useState("");
+  const [facetsState, setFacetsState] = useState<LoadState>("loading");
+  const [facetAttempt, setFacetAttempt] = useState(0);
+  const [debouncedQuery, setDebouncedQuery] = useState(filters.query);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(filters.query), 250);
+    return () => clearTimeout(timer);
+  }, [filters.query]);
   const navigation = useRef(
     new Map<
       number,
-      { filters: BrowseFilters; shared: boolean; pages: number }
+      {
+        filters: BrowseFilters;
+        shared: boolean;
+        pages: number;
+        cursor?: string | undefined;
+        previous?: Array<string | undefined>;
+      }
     >(),
   );
   const navigationId = useRef(0);
   const apiFilters = useMemo(
-    () => serverFilters(filters),
-    [filters.tag, filters.project, filters.kind],
+    () =>
+      browseEnabled
+        ? pagedFilters({ ...filters, query: debouncedQuery })
+        : serverFilters(filters),
+    [
+      browseEnabled,
+      browseEnabled ? debouncedQuery : "",
+      filters.tag,
+      filters.project,
+      filters.kind,
+      browseEnabled ? filters.from : "",
+      browseEnabled ? filters.to : "",
+    ],
   );
   const [visiblePages, setVisiblePages] = useState(1);
   const [reloadCount, setReloadCount] = useState(0);
@@ -107,10 +148,12 @@ export function App({
   const returnToTimeline = useRef(false);
 
   const filtered = useMemo(
-    () => filterTimeline(notes, filters),
-    [notes, filters],
+    () => (browseEnabled ? notes : filterTimeline(notes, filters)),
+    [browseEnabled, notes, filters],
   );
-  const visible = filtered.slice(0, PAGE_SIZE * visiblePages);
+  const visible = browseEnabled
+    ? filtered
+    : filtered.slice(0, PAGE_SIZE * visiblePages);
   const grouped = groupByLocalDay(visible);
   const dateRangeInvalid = Boolean(
     filters.from && filters.to && filters.from > filters.to,
@@ -132,12 +175,16 @@ export function App({
         filters,
         shared: sharedFilters,
         pages: visiblePages,
+        cursor: browseCursor,
+        previous: previousCursors,
       });
       const key = ++navigationId.current;
       navigation.current.set(key, {
         filters: next,
         shared,
         pages: next === filters ? visiblePages : 1,
+        cursor: next === filters ? browseCursor : undefined,
+        previous: next === filters ? previousCursors : [],
       });
       window.history[replace ? "replaceState" : "pushState"](
         { pce: key },
@@ -149,7 +196,11 @@ export function App({
     setSharedFilters(shared);
     if (selectedId && !id) returnToTimeline.current = true;
     setSelectedId(id);
-    if (next !== filters) setVisiblePages(1);
+    if (next !== filters) {
+      setVisiblePages(1);
+      setBrowseCursor(undefined);
+      setPreviousCursors([]);
+    }
   }
 
   function changeFilter(patch: Partial<BrowseFilters>) {
@@ -170,11 +221,16 @@ export function App({
     setNotice(message);
     setNotes([]);
     setTags({ tags: [], truncated: false });
+    setFacets({ projects: [], kinds: [], truncated: false });
+    setBrowseCursor(undefined);
+    setPreviousCursors([]);
+    setNextCursor(null);
     setSharedFilters(false);
     navigation.current.clear();
     setSelectedId(null);
     setDetail(null);
     setFilters(initialFilters);
+    setDebouncedQuery("");
     setVisiblePages(1);
     if (typeof window !== "undefined") {
       const url = writeBrowseUrl(
@@ -207,12 +263,18 @@ export function App({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    navigation.current.set(0, { filters, shared: sharedFilters, pages: 1 });
+    navigation.current.set(0, {
+      filters,
+      shared: sharedFilters,
+      pages: 1,
+      previous: [],
+    });
     window.history.replaceState({ pce: 0 }, "", window.location.href);
     const restoreSelection = () => {
       const url = new URL(window.location.href);
       const id = url.searchParams.get("note");
       const saved = navigation.current.get(window.history.state?.pce as number);
+      if (!id) returnToTimeline.current = true;
       setSelectedId(id && isNoteId(id) ? id : null);
       setFilters(saved?.filters ?? readBrowseUrl(url));
       setSharedFilters(
@@ -220,6 +282,8 @@ export function App({
           filterParameters.some((key) => url.searchParams.has(key)),
       );
       setVisiblePages(saved?.pages ?? 1);
+      setBrowseCursor(saved?.cursor);
+      setPreviousCursors(saved?.previous ?? []);
     };
     window.addEventListener("popstate", restoreSelection);
     return () => window.removeEventListener("popstate", restoreSelection);
@@ -259,31 +323,53 @@ export function App({
     if (!apiFilters) {
       setNotes([]);
       setListState("error");
-      setListError("Use a lowercase project slug, with hyphens between words.");
+      setListError(
+        browseEnabled
+          ? "Check the date range, project slug and search length (up to 256 characters)."
+          : "Use a lowercase project slug, with hyphens between words.",
+      );
       return;
     }
     let active = true;
     const controller = new AbortController();
     setListState("loading");
     setListError("");
-    getNotes(
-      {
-        baseUrl,
-        getAccessToken: () => token,
-        signal: controller.signal,
-        timeoutMs: 12000,
-      },
-      apiFilters,
-    )
+    const requestOptions = {
+      baseUrl,
+      getAccessToken: () => token,
+      signal: controller.signal,
+      timeoutMs: 12000,
+    };
+    const request = browseEnabled
+      ? getBrowsePage(requestOptions, {
+          ...apiFilters,
+          ...(browseCursor ? { cursor: browseCursor } : {}),
+        })
+      : getNotes(requestOptions, apiFilters);
+    request
       .then((result) => {
         if (!active) return;
         setNotes(result.notes);
+        setNextCursor(
+          "nextCursor" in result && typeof result.nextCursor === "string"
+            ? result.nextCursor
+            : null,
+        );
         setListState("ready");
       })
       .catch((error: unknown) => {
         if (!active) return;
         if (error instanceof ApiRequestError && error.status === 401) {
           signOut(describeNotesError(error));
+        } else if (
+          browseEnabled &&
+          browseCursor &&
+          error instanceof ApiRequestError &&
+          error.status === 400
+        ) {
+          setBrowseCursor(undefined);
+          setPreviousCursors([]);
+          setNotice("The note snapshot changed. Showing the first page again.");
         } else {
           setListState("error");
           setListError(describeNotesError(error));
@@ -293,7 +379,55 @@ export function App({
       active = false;
       controller.abort();
     };
-  }, [baseUrl, token, reloadCount, ingestion?.lastRun, apiFilters]);
+  }, [
+    baseUrl,
+    token,
+    reloadCount,
+    apiFilters,
+    browseCursor,
+    browseEnabled,
+    browseEnabled ? null : ingestion?.lastRun,
+  ]);
+
+  useEffect(() => {
+    if (!browseEnabled || !token) return;
+    let active = true;
+    const controller = new AbortController();
+    setFacetsError("");
+    setFacetsState("loading");
+    getBrowseFacets({
+      baseUrl,
+      getAccessToken: () => token,
+      signal: controller.signal,
+      timeoutMs: 12000,
+    })
+      .then((result) => {
+        if (active) {
+          setFacets(result);
+          setFacetsState("ready");
+        }
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        if (error instanceof ApiRequestError && error.status === 401)
+          signOut(describeNotesError(error));
+        else {
+          setFacetsError(describeNotesError(error));
+          setFacetsState("error");
+        }
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [
+    baseUrl,
+    token,
+    browseEnabled,
+    reloadCount,
+    facetAttempt,
+    ingestion?.lastRun,
+  ]);
 
   useEffect(() => {
     if (!token) return;
@@ -404,7 +538,11 @@ export function App({
             <button
               className="secondary"
               type="button"
-              onClick={() => setReloadCount((n) => n + 1)}
+              onClick={() => {
+                setBrowseCursor(undefined);
+                setPreviousCursors([]);
+                setReloadCount((n) => n + 1);
+              }}
             >
               Refresh notes
             </button>
@@ -415,6 +553,11 @@ export function App({
         )}
       </header>
 
+      {token && notice && (
+        <p className="notice" role="status">
+          {notice}
+        </p>
+      )}
       {!token ? (
         <section className="panel auth-panel" aria-label="Sign-in required">
           <h2>Sign-in required</h2>
@@ -461,7 +604,7 @@ export function App({
           )}
         </section>
       ) : (
-        <div className="workspace">
+        <div className={`workspace${selectedId ? " has-selection" : ""}`}>
           <section
             className="panel timeline-panel"
             id="timeline"
@@ -473,18 +616,22 @@ export function App({
                 Note timeline
               </h2>
               <p className="subtitle">
-                Browse by observed tags, project and kind. Search titles and
-                summaries within the returned notes.
+                {browseEnabled
+                  ? "Browse your notes by date, project, kind and tag. Search includes full note text and original input."
+                  : "Browse by observed tags, project and kind. Search titles and summaries within the returned notes."}
               </p>
             </div>
             <div className="filters" role="group" aria-label="Timeline filters">
               <div className="filter-field">
                 <label htmlFor="note-query">
-                  Search loaded titles and summaries
+                  {browseEnabled
+                    ? "Search all note text"
+                    : "Search loaded titles and summaries"}
                 </label>
                 <input
                   id="note-query"
                   type="search"
+                  maxLength={browseEnabled ? 256 : undefined}
                   placeholder="Keyword"
                   value={filters.query}
                   onChange={(event) =>
@@ -513,16 +660,28 @@ export function App({
                 />
               </div>
               <div className="filter-field">
-                <label htmlFor="project-filter">Project slug</label>
+                <label htmlFor="project-filter">
+                  {browseEnabled ? "Project" : "Project slug"}
+                </label>
                 <input
                   id="project-filter"
                   placeholder="All projects"
+                  list={browseEnabled ? "observed-projects" : undefined}
                   value={filters.project}
                   onChange={(event) =>
                     changeFilter({ project: event.target.value })
                   }
                 />
               </div>
+              {browseEnabled && (
+                <datalist id="observed-projects">
+                  {facets.projects.map((project) => (
+                    <option key={project.slug} value={project.slug}>
+                      {project.count} notes
+                    </option>
+                  ))}
+                </datalist>
+              )}
               <div className="filter-field filter-date">
                 <label htmlFor="kind-filter">Kind</label>
                 <select
@@ -535,11 +694,22 @@ export function App({
                   }
                 >
                   <option value="">All kinds</option>
-                  {noteKinds.map((kind) => (
+                  {(browseEnabled
+                    ? facets.kinds.map((k) => k.slug)
+                    : noteKinds
+                  ).map((kind) => (
                     <option value={kind} key={kind}>
                       {kind}
+                      {browseEnabled
+                        ? ` (${facets.kinds.find((k) => k.slug === kind)?.count ?? 0})`
+                        : ""}
                     </option>
                   ))}
+                  {browseEnabled &&
+                    filters.kind &&
+                    !facets.kinds.some((k) => k.slug === filters.kind) && (
+                      <option value={filters.kind}>{filters.kind} (0)</option>
+                    )}
                 </select>
               </div>
               <div className="filter-actions">
@@ -556,6 +726,28 @@ export function App({
               </div>
             </div>
 
+            {browseEnabled && facetsState === "loading" && (
+              <p className="notice" role="status">
+                Loading project and kind filters…
+              </p>
+            )}
+            {browseEnabled && facetsError && (
+              <div className="notice" role="alert">
+                <p>Project/kind filters: {facetsError}</p>
+                <button
+                  className="secondary"
+                  onClick={() => setFacetAttempt((n) => n + 1)}
+                >
+                  Retry filters
+                </button>
+              </div>
+            )}
+            {browseEnabled && facets.truncated && (
+              <p className="notice">
+                Showing 200 project suggestions. Enter another observed project
+                slug to filter.
+              </p>
+            )}
             <section className="tag-browser" aria-labelledby="tags-title">
               <h3 id="tags-title">Your tags</h3>
               <p className="subtitle">
@@ -661,8 +853,9 @@ export function App({
             {listState === "ready" && (
               <>
                 <p className="list-meta" role="status">
-                  {filtered.length} of {notes.length} loaded notes match ·
-                  showing {visible.length}
+                  {browseEnabled
+                    ? `Showing ${visible.length} ${visible.length === 1 ? "note" : "notes"} · Page ${previousCursors.length + 1}`
+                    : `${filtered.length} of ${notes.length} loaded notes match · showing ${visible.length}`}
                 </p>
                 {visible.length === 0 ? (
                   <div className="empty">
@@ -744,7 +937,37 @@ export function App({
                     </section>
                   ))
                 )}
-                {visible.length < filtered.length && (
+                {browseEnabled &&
+                  (nextCursor || previousCursors.length > 0) && (
+                    <nav className="pager" aria-label="Note pages">
+                      <button
+                        className="secondary"
+                        disabled={!previousCursors.length}
+                        onClick={() => {
+                          setBrowseCursor(previousCursors.at(-1));
+                          setPreviousCursors(previousCursors.slice(0, -1));
+                          timelineHeading.current?.focus();
+                        }}
+                      >
+                        Previous page
+                      </button>
+                      <button
+                        className="secondary"
+                        disabled={!nextCursor}
+                        onClick={() => {
+                          setPreviousCursors([
+                            ...previousCursors,
+                            browseCursor,
+                          ]);
+                          setBrowseCursor(nextCursor ?? undefined);
+                          timelineHeading.current?.focus();
+                        }}
+                      >
+                        Next page
+                      </button>
+                    </nav>
+                  )}
+                {!browseEnabled && visible.length < filtered.length && (
                   <div className="pager">
                     <span>
                       {filtered.length - visible.length} more matching notes
@@ -822,8 +1045,78 @@ export function App({
                         ))}
                       </div>
                     )}
-                    <h3>Original body</h3>
-                    <pre className="detail-body">{detail.body}</pre>
+                    {detail.metadata && (
+                      <dl className="note-metadata">
+                        <dt>Kind</dt>
+                        <dd>{detail.metadata.kind}</dd>
+                        <dt>Source</dt>
+                        <dd>{detail.metadata.source}</dd>
+                        <dt>Captured</dt>
+                        <dd>{detail.metadata.capturedAtRaw}</dd>
+                        {detail.metadata.timezone && (
+                          <>
+                            <dt>Timezone</dt>
+                            <dd>{detail.metadata.timezone}</dd>
+                          </>
+                        )}
+                        <dt>Projects</dt>
+                        <dd>{detail.metadata.projects.join(", ") || "None"}</dd>
+                        <dt>Domains</dt>
+                        <dd>{detail.metadata.domains.join(", ") || "None"}</dd>
+                        <dt>Action hint</dt>
+                        <dd>{detail.metadata.actionHint} (advisory)</dd>
+                        <dt>Review</dt>
+                        <dd>
+                          {detail.metadata.reviewRequired
+                            ? "Required"
+                            : "Not requested"}
+                        </dd>
+                        {detail.metadata.occurredAt && (
+                          <>
+                            <dt>Occurred</dt>
+                            <dd>{detail.metadata.occurredAt}</dd>
+                          </>
+                        )}
+                        {detail.metadata.dueAt && (
+                          <>
+                            <dt>Due</dt>
+                            <dd>
+                              {detail.metadata.dueAt} · No notification
+                              scheduled
+                            </dd>
+                          </>
+                        )}
+                      </dl>
+                    )}
+                    {detail.originalInput !== undefined ? (
+                      <>
+                        <h3>Original input</h3>
+                        <pre
+                          className="detail-body"
+                          tabIndex={0}
+                          role="region"
+                          aria-label="Original input"
+                        >
+                          {detail.originalInput}
+                        </pre>
+                        <details>
+                          <summary>Full captured Markdown</summary>
+                          <pre
+                            className="detail-body"
+                            tabIndex={0}
+                            role="region"
+                            aria-label="Full captured Markdown"
+                          >
+                            {detail.body}
+                          </pre>
+                        </details>
+                      </>
+                    ) : (
+                      <>
+                        <h3>Original body</h3>
+                        <pre className="detail-body">{detail.body}</pre>
+                      </>
+                    )}
                   </article>
                 )}
               </>

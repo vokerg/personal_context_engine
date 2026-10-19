@@ -111,7 +111,7 @@ URL contains a note ID by default; #53 adds explicit opt-in structured filter
 sharing. It never contains note text, a search query, or a bearer token.
 Original note bodies are rendered as literal text rather than interpreted HTML.
 
-The current notes-list response has **no server paging or full-text query** and
+Without the explicit local browse gate described below, the legacy notes-list response has **no server paging or full-text query** and
 exposes ID/title/summary/capture timestamp plus optional observed tags. Consequently, keyword and local
 calendar-date filters operate **only on the returned list**; "Show more"
 reveals another bounded page of already fetched notes rather than requesting
@@ -135,7 +135,7 @@ current filters. Chips on list/detail notes use optional API-provided `tags`;
 older DTOs without tags remain valid. No canonical tag list or normalization is
 introduced. Catalog/chip clicks filter through the existing owner-scoped API.
 
-Tag, project slug and kind are conjunctive server filters. Keyword search remains
+Tag, project slug and kind are conjunctive server filters. Without the explicit local browse gate below, keyword search remains
 local to returned titles/summaries, and local-calendar date bounds remain client
 filters (the API's own UTC date semantics are unchanged). Invalid project slugs
 are rejected before requesting data. Each request is cancellable and late results
@@ -154,3 +154,82 @@ and URL metadata; no bearer or note storage is introduced.
 This uses the existing trusted local owner-aware preview. Production identity
 (#44), complete #52 paging, hosted ingestion and ChatGPT search cutover remain
 separate; backup automation is deferred under D-020 and does not block this UX.
+
+
+## Opt-in local database browsing (#52)
+
+**Implemented, gated:** set `PCE_LOCAL_BROWSE=true` for `npm run dev:local` to
+inject the local SQL browse adapter and enable the paged web UI. The default is
+false; invalid flag values fail startup. The generic API still has no private
+reader, and the default local preview/legacy endpoints remain compatible.
+ChatGPT repository search is unchanged. This is bounded literal substring
+browsing, not #48's indexed lexical/hybrid retrieval or a production search cutover.
+
+The authenticated `GET /api/v1/browse` route accepts optional `q` (trimmed,
+1–256 characters), `tag`, `project`, `kind`, `start`, `end` and `cursor`.
+It returns at most **24** previews, each with a 320-code-point summary excerpt,
+and a nullable `nextCursor`. `start` is inclusive and `end` exclusive; both are
+offset-bearing instants. The web converts viewer-local date inputs to local
+midnight instants, adding the next calendar day for an inclusive end date;
+23/25-hour DST days are not assumed to last 24 hours. Legacy `/notes` UTC-date
+semantics are unchanged. Conjunctive predicates and literal case-insensitive
+substring search over title, summary, body and original input run in PostgreSQL,
+with verified-owner and current-checkout predicates in **every query**.
+`%`, `_` and SQL-like text have no wildcard or executable meaning.
+
+Pages use stable descending capture time / ascending bytewise ID ordering.
+A process-local HMAC key signs cursors bound to owner, exact filters and current
+snapshot IDs. Forged, cross-owner, changed-filter, changed-snapshot and restarted
+server cursors get generic 400 responses. A changed cursor automatically returns
+the UI to page one with a notice; it never changes authorization. This is live
+keyset browsing, not a transactional snapshot across requests: new source data
+can change later results. Next/Previous replaces the rendered page, keeping DOM
+note count bounded rather than accumulating the corpus. Filter changes/reset
+clear cursors. Detail/Back and browser history preserve page/filter context in
+memory; refresh restarts at page one. Reconciliation polling keeps status/facets
+fresh; press Refresh notes to reload the timeline with new captures.
+
+`GET /api/v1/browse/facets` returns observed owner/snapshot-scoped project and
+kind counts, independent of current filters. Project suggestions cap at 200
+with `truncated`; additional valid project slugs can still be typed. Kind
+options include counts. Tag facets keep the existing observed-tag contract.
+Facet failures can be retried independently. No curated tags or normalization
+is introduced. Unknown/duplicate query fields are rejected before adapter access.
+
+The gated local detail reader adds optional `originalInput` and strict structured
+metadata (original timestamp/offset, kind, source, domains/projects, advisory
+action hint, review flag, optional occurrence/due/timezone). Old DTOs remain
+valid. The web renders original input literally in a keyboard-scrollable region,
+with full captured Markdown in a disclosure. No HTML is interpreted, and a due
+instant/action hint never claims notification delivery or triggers actions.
+Mobile selection shows detail as its own view; Back returns to the timeline.
+Sessions and loaded text remain in memory; no browser storage is added. Search
+text and cursors never enter the browser address/history/share link. As with all
+GET search endpoints, `q` is present in the authenticated **API request URL**;
+request logging is disabled and the runtime is loopback-only.
+
+### Synthetic browser verification
+
+Chrome desktop (1440-pixel width) and mobile (390×844) checks used **600 synthetic
+notes**, including a 308,000-character original with literal HTML-like input.
+Observed project/kind controls, full-original search outside the first page,
+24-note DOM bounds, no horizontal overflow, detail focus and keyboard scrolling
+were verified. A focused original region scrolled using ArrowDown; no image
+nodes were created from its untrusted literal text. Component tests additionally
+exercise Next/Previous, browser history, session clearing, cancellation and
+stale-cursor recovery. This is targeted keyboard/layout QA, not a claim of a
+complete assistive-technology audit or physical-device testing.
+
+Twenty warm local authenticated search requests over that fixture returned a
+6,107-byte page, with observed median 3 ms and p95 5 ms on the development
+machine. These are a small local regression check, not a hosting capacity/SLO
+claim. Literal full-note scans and snapshot ID hashing grow with the corpus;
+#48 owns indexed retrieval and broader load evaluation.
+
+Only synthetic screenshots are committed:
+[desktop detail](evidence/issue-52/desktop.jpg),
+[mobile detail](evidence/issue-52/mobile-detail.jpg), and
+[mobile search controls](evidence/issue-52/mobile-search.jpg).
+Real content screenshots, provider requests and production auth remain outside
+public CI. Roll back by clearing the flag and restarting the launcher; no schema
+migration, content mutation or search-default change is involved.

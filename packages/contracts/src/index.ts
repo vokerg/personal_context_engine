@@ -61,6 +61,35 @@ export type NotePreview = z.infer<typeof NotePreviewSchema>;
 
 export const NoteDetailSchema = NotePreviewSchema.extend({
   body: z.string(),
+  originalInput: z.string().optional(),
+  metadata: z
+    .object({
+      capturedAtRaw: z.string().datetime({ offset: true }),
+      source: z.enum([
+        "chatgpt_text",
+        "chatgpt_voice",
+        "mobile_text",
+        "mobile_voice",
+        "import",
+      ]),
+      kind: z.enum([
+        "idea",
+        "task",
+        "memo",
+        "thought",
+        "decision",
+        "reference",
+      ]),
+      domains: z.array(TagSlugSchema).max(100),
+      projects: z.array(TagSlugSchema).max(100),
+      actionHint: z.enum(["none", "consider", "remind", "review", "follow_up"]),
+      reviewRequired: z.boolean(),
+      occurredAt: z.string().datetime({ offset: true }).nullable(),
+      dueAt: z.string().datetime({ offset: true }).nullable(),
+      timezone: z.string().max(128).nullable(),
+    })
+    .strict()
+    .optional(),
 }).strict();
 export type NoteDetail = z.infer<typeof NoteDetailSchema>;
 
@@ -119,3 +148,59 @@ export const NotesListResponseSchema = z
   })
   .strict();
 export type NotesListResponse = z.infer<typeof NotesListResponseSchema>;
+
+/** Opt-in local browsing; independent of the legacy list and future hybrid retrieval. */
+export const BrowseQuerySchema = z
+  .object({
+    q: z.string().trim().min(1).max(256).optional(),
+    tag: TagSlugSchema.optional(),
+    project: TagSlugSchema.optional(),
+    kind: NoteKindFilterSchema.optional(),
+    start: z.string().datetime({ offset: true }).optional(),
+    end: z.string().datetime({ offset: true }).optional(),
+    cursor: z
+      .string()
+      .max(1200)
+      .regex(/^[A-Za-z0-9_-]+$/)
+      .optional(),
+  })
+  .strict()
+  .refine(
+    ({ start, end }) => !start || !end || Date.parse(start) < Date.parse(end),
+  );
+export type BrowseQuery = z.infer<typeof BrowseQuerySchema>;
+export const BrowsePageSchema = z
+  .object({
+    notes: z
+      .array(
+        NotePreviewSchema.extend({
+          summary: z.string().min(1).max(640),
+          tags: z.array(TagSlugSchema).max(100).optional(),
+        }),
+      )
+      .max(24),
+    nextCursor: z
+      .string()
+      .max(1200)
+      .regex(/^[A-Za-z0-9_-]+$/)
+      .nullable(),
+  })
+  .strict();
+export type BrowsePage = z.infer<typeof BrowsePageSchema>;
+export const BrowseFacetsSchema = z
+  .object({
+    projects: z.array(TagFacetSchema).max(200),
+    kinds: z
+      .array(
+        z
+          .object({
+            slug: NoteKindFilterSchema,
+            count: z.number().int().positive().safe(),
+          })
+          .strict(),
+      )
+      .max(6),
+    truncated: z.boolean(),
+  })
+  .strict();
+export type BrowseFacets = z.infer<typeof BrowseFacetsSchema>;

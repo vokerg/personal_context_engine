@@ -19,6 +19,11 @@ export function localConfig(env) {
     !["true", "false"].includes(env.PCE_INGEST_GITHUB)
   )
     throw new Error("PCE_INGEST_GITHUB must be true or false");
+  if (
+    env.PCE_LOCAL_BROWSE !== undefined &&
+    !["true", "false"].includes(env.PCE_LOCAL_BROWSE)
+  )
+    throw new Error("PCE_LOCAL_BROWSE must be true or false");
   if (!env.DATABASE_URL) throw new Error("Set DATABASE_URL in the root .env.");
   const port = (value, fallback) => {
     if (value !== undefined && !/^\d{1,5}$/.test(value))
@@ -33,6 +38,7 @@ export function localConfig(env) {
   return {
     apiPort,
     webPort,
+    browseEnabled: env.PCE_LOCAL_BROWSE === "true",
     origin: `http://127.0.0.1:${webPort}`,
     contentRoot: resolve(
       env.PCE_CONTENT_ROOT ?? "../personal_context_engine_content",
@@ -119,7 +125,13 @@ export async function readCaptures(root, { gitSnapshot = false } = {}) {
   return { captures: results, rejectedCount };
 }
 
-export function createLocalReader(db, allowedIds) {
+export function createLocalReader(
+  db,
+  allowedIds,
+  { browseEnabled = false, cursorSecret } = {},
+) {
+  if (browseEnabled && (!cursorSecret || Buffer.byteLength(cursorSecret) < 32))
+    throw new Error("Browse signing key required");
   const owned = (owner) => ({ ownerSubject: owner, id: { in: allowedIds } });
   const preview = {
     id: true,
@@ -150,6 +162,29 @@ export function createLocalReader(db, allowedIds) {
     return where;
   };
   return {
+    ...(browseEnabled
+      ? {
+          async pageByOwner(owner, query) {
+            if (owner !== subject) return { notes: [], nextCursor: null };
+            const { createBrowseRepository } = await import("@pce/db");
+            return createBrowseRepository(
+              db,
+              allowedIds,
+              cursorSecret,
+            ).pageByOwner(owner, query);
+          },
+          async facetsByOwner(owner) {
+            if (owner !== subject)
+              return { projects: [], kinds: [], truncated: false };
+            const { createBrowseRepository } = await import("@pce/db");
+            return createBrowseRepository(
+              db,
+              allowedIds,
+              cursorSecret,
+            ).facetsByOwner(owner);
+          },
+        }
+      : {}),
     async listByOwner(owner, filters = {}) {
       if (owner !== subject) return [];
       return (
@@ -169,9 +204,49 @@ export function createLocalReader(db, allowedIds) {
       if (owner !== subject || !allowedIds.includes(id)) return null;
       const note = await db.note.findFirst({
         where: { ...owned(owner), id },
-        select: { ...preview, body: true },
+        select: {
+          ...preview,
+          body: true,
+          ...(browseEnabled
+            ? {
+                originalInput: true,
+                capturedAtRaw: true,
+                source: true,
+                kind: true,
+                domains: true,
+                projects: true,
+                actionHint: true,
+                reviewRequired: true,
+                occurredAtRaw: true,
+                dueAtRaw: true,
+                timezone: true,
+              }
+            : {}),
+        },
       });
-      return note ? dto(note) : null;
+      if (!note) return null;
+      if (!browseEnabled) return dto(note);
+      return {
+        id: note.id,
+        title: note.title,
+        summary: note.summary,
+        tags: note.tags,
+        capturedAt: note.capturedAt.toISOString(),
+        body: note.body,
+        originalInput: note.originalInput,
+        metadata: {
+          capturedAtRaw: note.capturedAtRaw,
+          source: note.source,
+          kind: note.kind,
+          domains: note.domains,
+          projects: note.projects,
+          actionHint: note.actionHint,
+          reviewRequired: note.reviewRequired,
+          occurredAt: note.occurredAtRaw,
+          dueAt: note.dueAtRaw,
+          timezone: note.timezone,
+        },
+      };
     },
   };
 }

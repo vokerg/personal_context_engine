@@ -524,3 +524,24 @@ test("note chip metadata uses only owner-scoped selected rows", async () => {
     assert.equal(query.select.tags, true);
   }
 });
+
+test("local database browsing stays off by default and requires an ephemeral server-side signing key", () => {
+  assert.equal(localConfig({ DATABASE_URL: "synthetic" }).browseEnabled, false);
+  assert.equal(
+    localConfig({ DATABASE_URL: "synthetic", PCE_LOCAL_BROWSE: "true" })
+      .browseEnabled,
+    true,
+  );
+  assert.throws(() =>
+    localConfig({ DATABASE_URL: "synthetic", PCE_LOCAL_BROWSE: "yes" }),
+  );
+  assert.equal(createLocalReader({}, []).pageByOwner, undefined);
+  assert.throws(() => createLocalReader({}, [], { browseEnabled: true }));
+  assert.equal(
+    typeof createLocalReader({}, [], {
+      browseEnabled: true,
+      cursorSecret: "synthetic-server-secret-".repeat(3),
+    }).pageByOwner,
+    "function",
+  );
+});
