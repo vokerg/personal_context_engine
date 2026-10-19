@@ -46,6 +46,18 @@
 - P-002/P-003 are partially validated by code: only ULID/UUID identifiers, strict offset-bearing timestamps, defined enum values, non-mutating lowercase slug validation and constrained YAML syntax are accepted. This is an intentional compatibility restriction; widening syntax or changing identity/collision policy requires a version-aware migration.
 - **Original input is terminal** in v1 Markdown: all Markdown after `## Original input` belongs to the original transcription. Optional descriptive sections go before it. No tags, action hints or deadlines are inferred at parse time.
 
+## Partial identity verification increment (#44; not a production decision)
+
+The existing D-012 interim HS256 verification remains supported for disposable
+local sessions. A second pinned RSA public-key/RS256 verifier can be configured
+as an alternative (never concurrently), with the same issuer/audience/scoped
+subject checks. This is a **partial implementation**, not acceptance of an
+identity provider or completed #44: there is no token minting, OAuth/PKCE,
+refresh/revocation, JWKS discovery, multi-key rollover or production account
+mapping. Production deployment and a change of default login flow require a
+separate review and verified operator setup. See the authentication threat
+boundary in [security](09-security-and-privacy.md#pinned-issuer-rs256-verification-foundation-44-partial).
+
 ## Deferred decisions
 
 - Choose the hosted/scheduled LLM provider, budget and execution model for unattended aggregators.
@@ -172,3 +184,39 @@ search default or claiming #48 hybrid retrieval, production identity or hosted
 availability. Original text and advisory fields remain read-only. No schema or
 content migration is required; clearing the flag restores the legacy preview.
 See [the local browse contract and synthetic evidence](08-clients-and-notifications.md#opt-in-local-database-browsing-52).
+
+## Proposed taxonomy research boundary (2026-10-18, issue #54)
+
+**No new taxonomy decision has been accepted.** D-018 continues to authorize
+observed, owner-scoped tags and clickable facets, but not a standard/default
+vocabulary, automatic synonyms or modification of historical tag slugs.
+The alternatives, evidence requirements, synthetic examples and reversible
+read-projection sketch are in
+[the domain/taxonomy specification](06-domain-and-taxonomy.md#optional-taxonomy-research-and-reversible-alias-approach-54-not-approved).
+
+The least disruptive *candidate* is optional, dismissible suggestions. Any
+owner-scoped alias mapping is a **separate future opt-in**, with raw/source tags
+unchanged, distinct-note facet counting, explicit versioning and reversible
+display/filter behavior. Global required tags and destructive renaming are not
+recommended. This is a research conclusion, **not** permission to implement
+a schema migration, alter capture prompts, change the API contract or process
+private corpus metrics in public CI.
+
+**Decision pending:** obtain representative owner-authorized tag usage
+observations and direct owner feedback on synonym meaning and workflow
+friction; review privacy and backward compatibility; then record a dated,
+numbered accepted decision or retain D-018 with no change. Issue #54 stays
+open for those product inputs; a docs-only PR does not close it.
+
+## Embedding worker completion boundary (2026-10-19, issue #47)
+
+The opt-in, finite DB embedding worker has a replaceable OpenAI adapter,
+idempotent chunk/model jobs, lease recovery and bounded retries. Follow-up
+completion adds durable owner/day request reservations and rate windows,
+resumable preparation checkpoints, explicit startup privacy validation, and
+synthetic provider-to-PostgreSQL tests. The server-only owner-scoped lexical
+fallback reads DB originals independently of provider/index availability,
+including DB-only source records. HTTP/hybrid retrieval and default search
+activation remain #48/#50; no identity provider, automatic ingress hook,
+continuous deployment or actual private-text egress is implied. See the
+[worker runbook](03-repositories-and-operations.md#explicit-embeddings-pass-issue-47).

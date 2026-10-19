@@ -122,6 +122,36 @@ controls; CORS is not authentication and JWT possession alone does not
 provide logout/revocation. The final identity provider and token refresh
 mechanism remain deferred.
 
+## Pinned issuer RS256 verification foundation (#44; partial)
+
+An optional server-only verification mode accepts **RS256** JWTs signed by an
+issuer whose **SPKI RSA public key (2048 bits or larger)** and exact `kid` are
+provisioned from trusted configuration. Use `API_AUTH_ISSUER`,
+`API_AUTH_AUDIENCE`, `API_AUTH_RS256_KEY_ID` and
+`API_AUTH_RS256_PUBLIC_KEY_PEM` together. The verifier does not fetch URLs or
+keys supplied inside an untrusted JWT: `jku`, `jwk`, `x5u` and `x5c`
+headers are rejected, as are `crit` and any algorithm besides RS256.
+The same strict issuer, **single audience**, subject, scope, time and one-hour
+maximum-lifetime checks as the original HS256 path remain in force.
+
+HS256 remains backward-compatible for trusted local sessions using
+`API_AUTH_HS256_SECRET`. The two modes are **mutually exclusive**; partially
+configured environments and private-key PEM input fail startup. To rotate an
+RSA signing key, update the pinned `kid` and public key atomically in trusted
+configuration; during this first stage there is **no multiple-key rotation
+window**, discovery endpoint or JWKS fetch/cache. Pinning does not create an
+issuer, confer owner mapping, establish token revocation or make a deployment
+production ready. Never accept a token signed by an untrusted issuer merely
+because its claims look syntactically correct. Tests generate disposable RSA
+keys and synthetic notes only; no real tokens, user records or network calls.
+
+**Still required before #44 can close:** an authorized OAuth 2.1/PKCE-capable
+issuer and tested client compatibility, secure issuance/refresh/revocation and
+key rollover, persistent principal-to-owner mapping and DB authorization,
+identity lifecycle, HTTPS/rate limits, and deployment validation. Generic API
+startup still attaches no production private note reader. This is a deliberately
+bounded verification primitive, not a production authentication launch.
+
 ## Explicit local workspace boundary (#38)
 
 `npm run dev:local` is a separate development entry point, rejected outside
@@ -212,3 +242,43 @@ or shared browser URLs. Metadata/originals are exposed only through the existing
 authenticated, owner-scoped detail route. Literal rendering prevents source text
 from becoming HTML or executable instructions. The flag defaults off and does
 not authorize ChatGPT search cutover, embeddings egress or external actions.
+
+### Embedding egress boundary (issue #47)
+
+The finite embedding worker is disabled by default and requires both
+`PCE_EMBEDDINGS_ENABLED=true` and an independent operator-approved
+`PCE_EMBEDDING_EGRESS_APPROVED` sentinel. The trusted owner subject is a
+server-side input, not authorization from an API client. A deployed service
+must integrate verified identity before accepting owner-selected jobs.
+The adapter sends only bounded, current, owner-scoped chunks through HTTPS
+to the selected server-side provider. No note text, response body or API key
+is logged; public CI uses synthetic fixtures and fake HTTP only.
+
+Queued jobs survive worker restarts. SQL ownership, revision and unexpired
+lease checks protect claims/vector writes against cross-owner replays and
+stale responses. Source mutation cascades delete derived vectors. Token usage
+and estimated nano-USD cost track **successful** stored results; failed
+provider requests reserve worst-case tokens independently of stored results.
+The DB enforces owner-scoped request ceilings across simultaneous workers;
+other applications' usage and provider-wide billing are outside that gate. Review actual retention,
+provider settings, billing controls and egress consent before any private
+payloads are sent. Lexical DB search behind #48 and production OAuth identity
+behind #44 are independent; no unapproved search cutover is implied.
+
+### Embedding request ceilings and lexical independence (#47)
+
+The opt-in finite worker reserves worst-case tokens atomically with each job
+claim. Per-owner UTC-day and rate-window locks prevent parallel workers from
+bypassing limits. Reservations survive failed calls, crashes and chunk/source
+deletion, and are intentionally not refunded. They bound requests issued by
+this implementation, not charges from other clients or an entire provider
+account. Existing pre-migration requests are not retrospectively accounted.
+Explicit egress enablement plus the separate approval sentinel remain required;
+`dev:local` does not start embedding processing. The standalone launcher validates
+owner and cursor before opening the database. Public CI uses no provider keys.
+
+The server-only lexical repository queries all DB notes under an SQL owner
+predicate and reads no embedding tables. A future authenticated retrieval
+integration must pass the verified subject, preserve its feature gate, and
+never substitute GitHub search for API-only records. This addition does not
+change default ChatGPT search, private-read routes or local checkout scoping.

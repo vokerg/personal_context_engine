@@ -99,3 +99,7 @@ Routes validate transport and auth; application services orchestrate; domain cod
 - **Switch retrieval deliberately:** ChatGPT's current repo search remains until DB lexical/hybrid retrieval (#48) is benchmarked, secured and deliberately opted into. No automatic switch or claim of hosted availability.
 
 See [13 — Evolution plan](13-evolution-plan.md), [D-019](11-decisions.md) and [security](09-security-and-privacy.md).
+
+## Optional staged embedding storage (#46)
+
+The separately gated PostgreSQL schema now supports owner-bound, revision-invalidated normalized note chunks and nullable 1536-dimensional pgvector embeddings. A deterministic **manual** preparation API exists; no background worker, provider request, automatic backfill, vector index or DB search cutover is enabled by the schema. Production extension availability and #44 token identity must be verified before deployment/use. See [16 — Embedding storage](16-embedding-storage.md).

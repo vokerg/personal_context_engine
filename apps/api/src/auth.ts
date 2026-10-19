@@ -1,5 +1,11 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-import type { ApiAuthConfig } from "./config.js";
+import {
+  constants,
+  createHmac,
+  createPublicKey,
+  timingSafeEqual,
+  verify as verifySignature,
+} from "node:crypto";
+import type { ApiAuthConfig, ApiRs256AuthConfig } from "./config.js";
 
 /** Identity comes only from an authenticated token, never from a route or query. */
 export interface AuthenticatedPrincipal {
@@ -75,30 +81,92 @@ export function createHmacTokenVerifier(
       .digest();
     if (!timingSafeEqual(mac, expected)) return null;
 
-    const now = nowSeconds();
-    if (
-      claims.iss !== config.issuer ||
-      claims.aud !== config.audience ||
-      typeof claims.sub !== "string" ||
-      !subjectPattern.test(claims.sub) ||
-      typeof claims.scope !== "string" ||
-      !Number.isSafeInteger(claims.iat) ||
-      !Number.isSafeInteger(claims.exp) ||
-      (claims.nbf !== undefined && !Number.isSafeInteger(claims.nbf))
-    )
-      return null;
+    return validateClaims(claims, config, nowSeconds());
+  };
+}
 
-    const issued = claims.iat as number;
-    const expires = claims.exp as number;
+/** Reused claim profile for local HS256 and pinned issuer RS256 credentials. */
+function validateClaims(
+  claims: Record<string, unknown>,
+  config: { issuer: string; audience: string },
+  now: number,
+): AuthenticatedPrincipal | null {
+  if (
+    claims.iss !== config.issuer ||
+    claims.aud !== config.audience ||
+    typeof claims.sub !== "string" ||
+    !subjectPattern.test(claims.sub) ||
+    typeof claims.scope !== "string" ||
+    !Number.isSafeInteger(claims.iat) ||
+    !Number.isSafeInteger(claims.exp) ||
+    (claims.nbf !== undefined && !Number.isSafeInteger(claims.nbf))
+  )
+    return null;
+
+  const issued = claims.iat as number;
+  const expires = claims.exp as number;
+  if (
+    issued > now + 60 ||
+    expires <= now ||
+    expires <= issued ||
+    expires - issued > 3600 ||
+    (claims.nbf !== undefined && (claims.nbf as number) > now)
+  )
+    return null;
+  const principal = {
+    subject: claims.sub,
+    scopes: claims.scope.split(" ").filter(Boolean),
+  };
+  return isAuthenticatedPrincipal(principal) ? principal : null;
+}
+
+/** Verify only a configured RSA public key; never fetch key URLs from tokens. */
+export function createRs256TokenVerifier(
+  config: ApiRs256AuthConfig,
+  nowSeconds: () => number = () => Math.floor(Date.now() / 1000),
+): TokenVerifier {
+  if (!config.publicKeyPem.startsWith("-----BEGIN PUBLIC KEY-----")) {
+    throw new Error("RS256 verifier requires an SPKI public key");
+  }
+  const key = createPublicKey(config.publicKeyPem);
+  if (
+    key.asymmetricKeyType !== "rsa" ||
+    (key.asymmetricKeyDetails?.modulusLength ?? 0) < 2048
+  ) {
+    throw new Error(
+      "RS256 verifier requires an RSA public key of at least 2048 bits",
+    );
+  }
+  return async (token) => {
+    if (token.length > 4096) return null;
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const [encodedHeader, encodedClaims, encodedSignature] = parts;
+    if (!encodedHeader || !encodedClaims || !encodedSignature) return null;
+    const header = decodePart(encodedHeader);
+    const claims = decodePart(encodedClaims);
+    if (!record(header) || !record(claims)) return null;
     if (
-      issued > now + 60 ||
-      expires <= now ||
-      expires <= issued ||
-      expires - issued > 3600 ||
-      (claims.nbf !== undefined && (claims.nbf as number) > now)
+      header.alg !== "RS256" ||
+      header.typ !== "JWT" ||
+      header.kid !== config.keyId ||
+      header.crit !== undefined ||
+      header.jku !== undefined ||
+      header.jwk !== undefined ||
+      header.x5u !== undefined ||
+      header.x5c !== undefined
     )
       return null;
-    const scopes = claims.scope.split(" ").filter(Boolean);
-    return { subject: claims.sub, scopes };
+    if (!base64Url.test(encodedSignature)) return null;
+    const signature = Buffer.from(encodedSignature, "base64url");
+    if (signature.toString("base64url") !== encodedSignature) return null;
+    const valid = verifySignature(
+      "RSA-SHA256",
+      Buffer.from(encodedHeader + "." + encodedClaims, "ascii"),
+      { key, padding: constants.RSA_PKCS1_PADDING },
+      signature,
+    );
+    if (!valid) return null;
+    return validateClaims(claims, config, nowSeconds());
   };
 }

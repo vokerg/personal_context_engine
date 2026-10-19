@@ -4,3 +4,5 @@ export function assertNever(value: never): never {
 }
 
 export * from "./capture.js";
+
+export * from "./chunks.js";

@@ -1,6 +1,15 @@
+import { embeddingConfig } from "./embedding-config.js";
 import { createHash } from "node:crypto";
 import { isAbsolute } from "node:path";
-import { checkDatabase, createDatabaseClient } from "@pce/db";
+import {
+  checkDatabase,
+  createDatabaseClient,
+  createEmbeddingJobRepository,
+} from "@pce/db";
+import {
+  createOpenAIEmbeddingProvider,
+  runEmbeddingPass,
+} from "./embeddings.js";
 import type { ContentStore } from "./content-store/port.js";
 import { FilesystemContentStore } from "./content-store/filesystem.js";
 import { githubContentStoreFromEnv } from "./content-store/github.js";
@@ -30,6 +39,7 @@ if (!mode) {
 }
 
 async function start(mode: string): Promise<void> {
+  if (mode === "embeddings-once") return startEmbeddings();
   if (mode !== "once") throw new Error("Unsupported worker mode.");
   if (!process.env.DATABASE_URL) throw new Error("Database is required.");
   let store: ContentStore;
@@ -72,6 +82,27 @@ async function start(mode: string): Promise<void> {
     });
     // Counts only; never expose note bodies, paths or identifiers in logs.
     console.log("Worker pass complete " + JSON.stringify(result));
+  } finally {
+    await db.$disconnect();
+  }
+}
+
+/** Explicit trusted command; never started by local preview or ingestion. */
+async function startEmbeddings(): Promise<void> {
+  const { owner, key, project, afterNoteId } = embeddingConfig(process.env);
+  // Validate the provider before opening DB; no content leaves the host if invalid.
+  const provider = createOpenAIEmbeddingProvider(key, project);
+  const db = createDatabaseClient();
+  try {
+    await db.$connect();
+    await checkDatabase(db);
+    const report = await runEmbeddingPass({
+      queue: createEmbeddingJobRepository(db),
+      provider,
+      ownerSubject: owner,
+      ...(afterNoteId ? { afterNoteId } : {}),
+    });
+    console.log("Embedding pass complete " + JSON.stringify(report));
   } finally {
     await db.$disconnect();
   }

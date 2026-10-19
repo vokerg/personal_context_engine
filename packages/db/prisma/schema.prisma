@@ -63,7 +63,9 @@ model Note {
   createdAt       DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime     @updatedAt @db.Timestamptz(3)
   attempts        ProcessingAttempt[]
+  chunks          NoteChunk[]
 
+  @@unique([id, ownerSubject])
   @@unique([sourcePath, sourceRevision])
   @@index([ownerSubject, capturedAt])
   @@index([captureId])
@@ -120,4 +122,86 @@ model IngestionCheckpoint {
   updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
 
   @@map("ingestion_checkpoints")
+}
+
+enum EmbeddingStatus {
+  PENDING
+  LEASED
+  READY
+  RETRY
+  FAILED
+}
+
+// Materialized only from an owner-verified, committed note. The composite FK
+// prevents a chunk from claiming another note's owner, even through raw SQL.
+// Null-owned legacy notes cannot be indexed until an authorized migration.
+model NoteChunk {
+  id              String           @id @db.Char(64)
+  noteId          String           @db.VarChar(36)
+  ownerSubject    String           @db.VarChar(128)
+  note            Note             @relation(fields: [noteId, ownerSubject], references: [id, ownerSubject], onDelete: Cascade, onUpdate: Restrict)
+  sourceRevision  String           @db.VarChar(128)
+  noteContentHash String           @db.Char(64)
+  chunkerVersion  String           @db.VarChar(64)
+  section         String           @db.VarChar(24)
+  ordinal         Int
+  startOffset     Int
+  endOffset       Int
+  contentHash     String           @db.Char(64)
+  text            String           @db.Text
+  embeddings      ChunkEmbedding[]
+  createdAt       DateTime         @default(now()) @db.Timestamptz(3)
+
+  @@unique([noteId, chunkerVersion, section, ordinal])
+  @@index([ownerSubject, noteId])
+  @@map("note_chunks")
+}
+
+// Provider execution is future issue #47. Vector is deliberately inaccessible
+// via Prisma's regular CRUD API; later writers must use bounded, validated SQL.
+// The first storage contract fixes 1536 dimensions until a reviewed migration.
+model ChunkEmbedding {
+  id            String            @id @db.Char(64)
+  chunkId       String            @db.Char(64)
+  chunk         NoteChunk         @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  provider      String            @db.VarChar(64)
+  modelId       String            @db.VarChar(128)
+  dimensions    Int
+  status        EmbeddingStatus   @default(PENDING)
+  vector        Unsupported("vector(1536)")?
+  attemptCount  Int               @default(0)
+  leaseOwner    String?           @db.VarChar(128)
+  leaseUntil    DateTime?         @db.Timestamptz(3)
+  nextRetryAt   DateTime?         @db.Timestamptz(3)
+  lastErrorCode String?           @db.VarChar(64)
+  indexedAt     DateTime?         @db.Timestamptz(3)
+  usageTokens   Int?
+  estimatedCostNanoUsd BigInt?
+  createdAt     DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime          @updatedAt @db.Timestamptz(3)
+
+  @@unique([chunkId, modelId, dimensions])
+  @@index([status, nextRetryAt])
+  @@map("chunk_embeddings")
+}
+
+// Conservative reservations survive retries, crashes and chunk deletion.
+model EmbeddingDailyBudget {
+  ownerSubject   String   @db.VarChar(128)
+  day            DateTime @db.Date
+  reservedTokens Int      @default(0)
+  requestCount   Int      @default(0)
+
+  @@id([ownerSubject, day])
+  @@map("embedding_daily_budgets")
+}
+
+// The rate window is independent of UTC-day reset; checkpoints contain no text.
+model EmbeddingScan {
+  ownerSubject    String   @id @db.VarChar(128)
+  afterNoteId     String?  @db.VarChar(36)
+  windowStartedAt DateTime @default(now()) @db.Timestamptz(3)
+  windowRequests  Int      @default(0)
+
+  @@map("embedding_scans")
 }

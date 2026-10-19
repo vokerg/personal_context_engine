@@ -19,6 +19,7 @@
   ],
   "scripts": {
     "dev:local": "node scripts/local-dev.mjs",
+    "embeddings:once": "WORKER_MODE=embeddings-once node --env-file=.env apps/worker/dist/main.js",
     "dev": "concurrently -k -n api,worker,web \"npm run dev:api\" \"npm run dev:worker\" \"npm run dev:web\"",
     "dev:api": "npm run build -w @pce/contracts && npm run dev -w @pce/api",
     "dev:worker": "npm run dev -w @pce/worker",
