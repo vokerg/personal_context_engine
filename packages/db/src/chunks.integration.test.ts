@@ -81,6 +81,9 @@ Synthetic original 😀.
       expect(first.ownerSubject).toBe("chunk-owner-a");
       expect(first.sourceRevision).toBe(input.sourceRevision);
       expect(first.text.length).toBeGreaterThan(0);
+      const previousSummary = (
+        await chunks.listCurrentByOwner(input.noteId, "chunk-owner-a")
+      ).find((chunk) => chunk.section === "summary")!;
 
       const embeddingId = createHash("sha256")
         .update(first.id + "/synthetic-model")
@@ -141,10 +144,31 @@ Synthetic original 😀.
       expect(await chunks.sync(input.noteId, "chunk-owner-a")).toMatchObject({
         status: "synchronized",
       });
-      const revised = (
-        await chunks.listCurrentByOwner(input.noteId, "chunk-owner-a")
-      )[0]!;
+      const currentChunks = await chunks.listCurrentByOwner(
+        input.noteId,
+        "chunk-owner-a",
+      );
+      const revised = currentChunks[0]!;
       expect(revised.noteContentHash).not.toBe(first.noteContentHash);
+      const updatedSummary = currentChunks.find(
+        (chunk) => chunk.section === "summary",
+      )!;
+      expect(updatedSummary.id).not.toBe(previousSummary.id);
+      // A delayed provider result for removed source text cannot be
+      // attached to the new chunk at the same ordinal.
+      await expect(
+        client.chunkEmbedding.create({
+          data: {
+            id: createHash("sha256")
+              .update(previousSummary.id + "/late-result")
+              .digest("hex"),
+            chunkId: previousSummary.id,
+            provider: "synthetic",
+            modelId: "synthetic-1536",
+            dimensions: 1536,
+          },
+        }),
+      ).rejects.toMatchObject({ code: "P2003" });
     });
 
     it("rejects foreign-owner claims at the DB boundary and in repository reads", async () => {
