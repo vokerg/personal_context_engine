@@ -4,11 +4,14 @@ import { parseNoteMarkdown, verifyInboxNotePath } from "@pce/core";
 
 export { PrismaClient } from "@prisma/client";
 export { createTagFacetRepository, TAG_FACET_LIMIT } from "./tags.js";
+export { createLexicalSearchRepository } from "./lexical-search.js";
 export { createNoteChunkRepository } from "./chunks.js";
 export {
   createEmbeddingJobRepository,
   EMBEDDING_MODEL,
   EMBEDDING_DIMENSIONS,
+  EMBEDDING_TOKEN_RESERVATION,
+  EMBEDDING_DAILY_TOKEN_LIMIT,
 } from "./embedding-jobs.js";
 export type { EmbeddingJob, EmbeddingFailureCode } from "./embedding-jobs.js";
 

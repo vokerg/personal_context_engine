@@ -219,3 +219,21 @@ across simultaneous workers or provider projects. Review actual retention,
 provider settings, billing controls and egress consent before any private
 payloads are sent. Lexical DB search behind #48 and production OAuth identity
 behind #44 are independent; no unapproved search cutover is implied.
+
+### Embedding request ceilings and lexical independence (#47)
+
+The opt-in finite worker reserves worst-case tokens atomically with each job
+claim. Per-owner UTC-day and rate-window locks prevent parallel workers from
+bypassing limits. Reservations survive failed calls, crashes and chunk/source
+deletion, and are intentionally not refunded. They bound requests issued by
+this implementation, not charges from other clients or an entire provider
+account. Existing pre-migration requests are not retrospectively accounted.
+Explicit egress enablement plus the separate approval sentinel remain required;
+`dev:local` does not start embedding processing. The standalone launcher validates
+owner and cursor before opening the database. Public CI uses no provider keys.
+
+The server-only lexical repository queries all DB notes under an SQL owner
+predicate and reads no embedding tables. A future authenticated retrieval
+integration must pass the verified subject, preserve its feature gate, and
+never substitute GitHub search for API-only records. This addition does not
+change default ChatGPT search, private-read routes or local checkout scoping.
