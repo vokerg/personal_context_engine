@@ -94,9 +94,13 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
   const secret = env.API_AUTH_HS256_SECRET;
   const publicKeyPem = env.API_AUTH_RS256_PUBLIC_KEY_PEM;
   const keyId = env.API_AUTH_RS256_KEY_ID;
-  const anyAuthConfigured = [issuer, audience, secret, publicKeyPem, keyId].some(
-    (value) => value !== undefined,
-  );
+  const anyAuthConfigured = [
+    issuer,
+    audience,
+    secret,
+    publicKeyPem,
+    keyId,
+  ].some((value) => value !== undefined);
   if (mode === "production" && !anyAuthConfigured) {
     throw new Error("Production requires authenticated API configuration");
   }
@@ -110,7 +114,8 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
       audience.trim() !== audience ||
       !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/.test(issuer) ||
       !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/.test(audience) ||
-      (secret !== undefined && (publicKeyPem !== undefined || keyId !== undefined))
+      (secret !== undefined &&
+        (publicKeyPem !== undefined || keyId !== undefined))
     ) {
       throw new Error(
         "API authentication requires one complete, exclusive token verifier",
