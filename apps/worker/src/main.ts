@@ -1,7 +1,14 @@
 import { createHash } from "node:crypto";
 import { isAbsolute } from "node:path";
-import { checkDatabase, createDatabaseClient, createEmbeddingJobRepository } from "@pce/db";
-import { createOpenAIEmbeddingProvider, runEmbeddingPass } from "./embeddings.js";
+import {
+  checkDatabase,
+  createDatabaseClient,
+  createEmbeddingJobRepository,
+} from "@pce/db";
+import {
+  createOpenAIEmbeddingProvider,
+  runEmbeddingPass,
+} from "./embeddings.js";
 import type { ContentStore } from "./content-store/port.js";
 import { FilesystemContentStore } from "./content-store/filesystem.js";
 import { githubContentStoreFromEnv } from "./content-store/github.js";
@@ -81,11 +88,16 @@ async function start(mode: string): Promise<void> {
 
 /** Explicit trusted command; never started by local preview or ingestion. */
 async function startEmbeddings(): Promise<void> {
-  if (process.env.PCE_EMBEDDINGS_ENABLED !== "true" ||
-      process.env.PCE_EMBEDDING_EGRESS_APPROVED !== "I_APPROVE_PRIVATE_TEXT_TO_OPENAI")
+  if (
+    process.env.PCE_EMBEDDINGS_ENABLED !== "true" ||
+    process.env.PCE_EMBEDDING_EGRESS_APPROVED !==
+      "I_APPROVE_PRIVATE_TEXT_TO_OPENAI"
+  )
     throw new Error("Embedding egress is not approved.");
-  if (process.env.OPENAI_EMBEDDING_MODEL !== "text-embedding-3-small" ||
-      !process.env.DATABASE_URL)
+  if (
+    process.env.OPENAI_EMBEDDING_MODEL !== "text-embedding-3-small" ||
+    !process.env.DATABASE_URL
+  )
     throw new Error("Unsupported embedding model or missing DB.");
   const owner = process.env.PCE_EMBEDDING_OWNER_SUBJECT;
   const key = process.env.OPENAI_API_KEY;
@@ -103,7 +115,8 @@ async function startEmbeddings(): Promise<void> {
       provider,
       ownerSubject: owner,
       ...(process.env.PCE_EMBEDDING_AFTER_NOTE_ID
-        ? { afterNoteId: process.env.PCE_EMBEDDING_AFTER_NOTE_ID } : {}),
+        ? { afterNoteId: process.env.PCE_EMBEDDING_AFTER_NOTE_ID }
+        : {}),
     });
     console.log("Embedding pass complete " + JSON.stringify(report));
   } finally {
