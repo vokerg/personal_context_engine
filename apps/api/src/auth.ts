@@ -125,6 +125,9 @@ export function createRs256TokenVerifier(
   config: ApiRs256AuthConfig,
   nowSeconds: () => number = () => Math.floor(Date.now() / 1000),
 ): TokenVerifier {
+  if (!config.publicKeyPem.startsWith("-----BEGIN PUBLIC KEY-----")) {
+    throw new Error("RS256 verifier requires an SPKI public key");
+  }
   const key = createPublicKey(config.publicKeyPem);
   if (
     key.asymmetricKeyType !== "rsa" ||
