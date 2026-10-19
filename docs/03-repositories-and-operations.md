@@ -403,3 +403,63 @@ without webhooks. The ingestion panel distinguishes the last successful check
 from the last clean reconciliation and displays conflicts/missing/invalid counts.
 Run the launcher while local polling is desired; no always-on service is installed.
 See the [trusted operation and rollback runbook](05-ingestion.md#durable-local-reconciliation-43).
+
+
+## Explicit embeddings pass (issue #47)
+
+This is an **opt-in finite PostgreSQL worker**, not a scheduler, automatic
+capture hook or part of `dev:local`. The main worker remains idle by default.
+Chunk records/vector storage (#46) must be migrated before it runs.
+The existing GitHub ingestion/finalization and ChatGPT GitHub search are
+untouched. No GitHub write-back is required for vectors.
+
+Before enabling any private-text provider request, the owner must review the
+selected provider's data handling, retention/region and actual project billing,
+then approve this specific egress outside GitHub. Keep an ignored, mode-0600
+`.env` with `DATABASE_URL`, project-scoped `OPENAI_API_KEY`,
+`OPENAI_PROJECT_ID`, `OPENAI_EMBEDDING_MODEL=text-embedding-3-small`,
+`PCE_EMBEDDINGS_ENABLED=true`,
+`PCE_EMBEDDING_EGRESS_APPROVED=I_APPROVE_PRIVATE_TEXT_TO_OPENAI` and a
+**trusted persisted** `PCE_EMBEDDING_OWNER_SUBJECT`. Do not derive that subject
+from arbitrary client arguments. Start only a trusted server process:
+
+```sh
+WORKER_MODE=embeddings-once node apps/worker/dist/main.js
+```
+
+Build first (`npm run build`). Supply the ignored values to the process through
+a trusted environment; Node does not automatically load root `.env` in this
+command. One pass scans at most 16 owner-scoped candidate notes for new/stale
+chunks, creates durable idempotent jobs, and processes at most four requests.
+Each chunk is at most 2,048 Unicode code points (up to 8,192 UTF-8 bytes).
+Successful requests persist token usage, model/version, and an **estimate** at
+the documented $0.02/1M token rate. This is not a bill, a project-wide hard
+spend cap or an accounting of provider-side charges for failed/time-out calls.
+
+The worker conservatively reserves 8,192 input tokens per request and stops
+when verified successful usage plus that reserve would exceed 60,000 tokens
+per owner in the current UTC day. **Use one worker per owner**: this gate is not
+a global, concurrency-safe or cross-service billing policy. It checks only
+currently retained successful vectors, and an external provider may still bill
+retries. Enforce actual spend limits separately in the OpenAI project before
+any approval for unattended operation.
+
+Leases last two minutes; a subsequent explicit run reclaims expired leases,
+with at most six attempts, exponential retries for 429/5xx/timeouts and
+fixed error codes without provider response bodies. Terminal 4xx/malformed
+vectors are marked FAILED (manual investigation/requeue needed). A changed
+source revision deletes chunks/vectors, and an outdated result cannot persist.
+Overlarge notes are skipped intact. If an overlarge note blocks candidate
+scanning, an operator can set `PCE_EMBEDDING_AFTER_NOTE_ID` to resume a
+bounded keyset pass after that synthetic/verified ID; do not log note IDs
+or private text in public artifacts.
+
+There is no automatic loop, OpenAI key provisioning, continuous scheduling,
+production cost control, hybrid retrieval API, or fallback to GitHub for
+API-only notes. When provider/indexing is unavailable, the durable DB originals
+remain readable through separately authorized DB paths; owner-scoped lexical/
+hybrid search is tracked in #48. **Do not switch ChatGPT repository search.**
+Synthetic CI uses a fake provider and an isolated PostgreSQL vector store;
+it never authorizes real data egress. To stop indexing, unset the one-shot
+mode or `PCE_EMBEDDINGS_ENABLED` flag. Existing indexed vectors remain until
+a deliberate deletion/migration.
