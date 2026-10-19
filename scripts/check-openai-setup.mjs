@@ -11,14 +11,14 @@ export async function checkOpenAISetup(
   const key = env.OPENAI_API_KEY;
   const result = {
     configured: false,
-    embeddingsEnabled: false,
+    embeddingsEnabled: env.PCE_EMBEDDINGS_ENABLED === "true",
     model,
     liveCheck: "not_requested",
   };
   if (model !== "text-embedding-3-small")
     return { ...result, code: "UNSUPPORTED_PLANNED_MODEL" };
-  if (![undefined, "false"].includes(env.PCE_EMBEDDINGS_ENABLED))
-    return { ...result, code: "EMBEDDING_RUNTIME_NOT_IMPLEMENTED" };
+  if (![undefined, "false", "true"].includes(env.PCE_EMBEDDINGS_ENABLED))
+    return { ...result, code: "INVALID_EMBEDDING_FLAG" };
   if (!project || !/^proj[-_][A-Za-z0-9]+$/.test(project))
     return { ...result, code: "PROJECT_ID_REQUIRED" };
   if (!key || !/^sk-[A-Za-z0-9_-]{20,}$/.test(key))
