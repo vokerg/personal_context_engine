@@ -128,6 +128,9 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
         throw new Error("RS256 requires a public key and pinned key ID");
       }
       try {
+        if (!publicKeyPem.startsWith("-----BEGIN PUBLIC KEY-----")) {
+          throw new Error("only SPKI public keys are allowed");
+        }
         const key = createPublicKey(publicKeyPem);
         if (
           key.asymmetricKeyType !== "rsa" ||
