@@ -32,7 +32,15 @@ function validWorker(worker: string): void {
 
 function jobId(chunkId: string): string {
   return createHash("sha256")
-    .update(["pce-embedding", PROVIDER, EMBEDDING_MODEL, EMBEDDING_DIMENSIONS, chunkId].join("\0"))
+    .update(
+      [
+        "pce-embedding",
+        PROVIDER,
+        EMBEDDING_MODEL,
+        EMBEDDING_DIMENSIONS,
+        chunkId,
+      ].join("\0"),
+    )
     .digest("hex");
 }
 
@@ -47,8 +55,12 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
     async prepareNote(noteId: string, ownerSubject: string) {
       validOwner(ownerSubject);
       const status = await chunkRepository.sync(noteId, ownerSubject);
-      if (status.status === "missing" || status.status === "oversized") return status;
-      const chunks = await chunkRepository.listCurrentByOwner(noteId, ownerSubject);
+      if (status.status === "missing" || status.status === "oversized")
+        return status;
+      const chunks = await chunkRepository.listCurrentByOwner(
+        noteId,
+        ownerSubject,
+      );
       if (chunks.length) {
         await db.chunkEmbedding.createMany({
           data: chunks.map((chunk) => ({
@@ -68,7 +80,10 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
      * allows operators to skip an invalid/oversized note without losing data.
      * This performs no provider calls and does not claim completion.
      */
-    async candidateNotes(ownerSubject: string, afterId?: string): Promise<string[]> {
+    async candidateNotes(
+      ownerSubject: string,
+      afterId?: string,
+    ): Promise<string[]> {
       validOwner(ownerSubject);
       if (afterId !== undefined && !/^[0-9a-zA-Z-]{1,36}$/.test(afterId))
         throw new TypeError("Invalid note cursor");
@@ -102,7 +117,11 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
       return notes.map((n) => n.id);
     },
 
-    async claim(ownerSubject: string, workerId: string, now: Date): Promise<EmbeddingJob | null> {
+    async claim(
+      ownerSubject: string,
+      workerId: string,
+      now: Date,
+    ): Promise<EmbeddingJob | null> {
       validOwner(ownerSubject);
       validWorker(workerId);
       return db.$transaction(async (tx) => {
@@ -162,14 +181,25 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
 
     /** Atomic compare-and-set against lease + owner + current source. */
     async complete(
-      ownerSubject: string, workerId: string, id: string, vector: number[],
-      usageTokens: number, now: Date,
+      ownerSubject: string,
+      workerId: string,
+      id: string,
+      vector: number[],
+      usageTokens: number,
+      now: Date,
     ): Promise<boolean> {
       validOwner(ownerSubject);
       validWorker(workerId);
-      if (vector.length !== EMBEDDING_DIMENSIONS || vector.some((x) => !Number.isFinite(x)))
+      if (
+        vector.length !== EMBEDDING_DIMENSIONS ||
+        vector.some((x) => !Number.isFinite(x))
+      )
         throw new TypeError("Invalid embedding dimensions or values");
-      if (!Number.isSafeInteger(usageTokens) || usageTokens < 0 || usageTokens > 1_000_000)
+      if (
+        !Number.isSafeInteger(usageTokens) ||
+        usageTokens < 0 ||
+        usageTokens > 1_000_000
+      )
         throw new TypeError("Invalid provider usage");
       const literal = "[" + vector.join(",") + "]";
       const changed = await db.$executeRaw`
@@ -194,21 +224,33 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
     },
 
     async fail(
-      ownerSubject: string, workerId: string, id: string,
-      code: EmbeddingFailureCode, retryable: boolean, attempt: number, now: Date,
+      ownerSubject: string,
+      workerId: string,
+      id: string,
+      code: EmbeddingFailureCode,
+      retryable: boolean,
+      attempt: number,
+      now: Date,
     ): Promise<boolean> {
       validOwner(ownerSubject);
       validWorker(workerId);
-      const delay = Math.min(3_600_000, 5000 * 2 ** Math.min(10, Math.max(0, attempt - 1)));
+      const delay = Math.min(
+        3_600_000,
+        5000 * 2 ** Math.min(10, Math.max(0, attempt - 1)),
+      );
       const terminal = !retryable || attempt >= 6;
       const updated = await db.chunkEmbedding.updateMany({
         where: {
-          id, leaseOwner: workerId, status: "LEASED", leaseUntil: { gt: now },
+          id,
+          leaseOwner: workerId,
+          status: "LEASED",
+          leaseUntil: { gt: now },
           chunk: { ownerSubject, note: { ownerSubject } },
         },
         data: {
           status: terminal ? "FAILED" : "RETRY",
-          leaseOwner: null, leaseUntil: null,
+          leaseOwner: null,
+          leaseUntil: null,
           nextRetryAt: terminal ? null : new Date(now.getTime() + delay),
           lastErrorCode: code,
         },
@@ -218,7 +260,9 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
 
     async usedTokensToday(ownerSubject: string, now: Date): Promise<number> {
       validOwner(ownerSubject);
-      const midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      const midnight = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+      );
       const rows = await db.$queryRaw<Array<{ total: bigint }>>`
         SELECT COALESCE(SUM(e."usageTokens"), 0)::bigint AS total
         FROM "chunk_embeddings" e INNER JOIN "note_chunks" c ON c."id" = e."chunkId"
