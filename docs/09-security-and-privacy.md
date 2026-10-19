@@ -196,3 +196,26 @@ source removal/conflicts; the readable checkout allowlist still gates reads.
 Standalone opt-in GitHub ingestion independently checks private metadata before
 running. Existing tables support one trusted content repository per local DB;
 checkpoint scoping does not claim multi-repository or production tenant identity.
+
+
+### Embedding egress boundary (issue #47)
+
+The finite embedding worker is disabled by default and requires both
+`PCE_EMBEDDINGS_ENABLED=true` and an independent operator-approved
+`PCE_EMBEDDING_EGRESS_APPROVED` sentinel. The trusted owner subject is a
+server-side input, not authorization from an API client. A deployed service
+must integrate verified identity before accepting owner-selected jobs.
+The adapter sends only bounded, current, owner-scoped chunks through HTTPS
+to the selected server-side provider. No note text, response body or API key
+is logged; public CI uses synthetic fixtures and fake HTTP only.
+
+Queued jobs survive worker restarts. SQL ownership, revision and unexpired
+lease checks protect claims/vector writes against cross-owner replays and
+stale responses. Source mutation cascades delete derived vectors. Token usage
+and estimated nano-USD cost track **successful** stored results; failed
+provider requests and other applications' usage are not accounted for. The
+finite per-owner daily gate is a safety backstop, **not a hard spend limit**
+across simultaneous workers or provider projects. Review actual retention,
+provider settings, billing controls and egress consent before any private
+payloads are sent. Lexical DB search behind #48 and production OAuth identity
+behind #44 are independent; no unapproved search cutover is implied.
