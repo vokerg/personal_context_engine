@@ -122,6 +122,36 @@ controls; CORS is not authentication and JWT possession alone does not
 provide logout/revocation. The final identity provider and token refresh
 mechanism remain deferred.
 
+## Pinned issuer RS256 verification foundation (#44; partial)
+
+An optional server-only verification mode accepts **RS256** JWTs signed by an
+issuer whose **SPKI RSA public key (2048 bits or larger)** and exact `kid` are
+provisioned from trusted configuration. Use `API_AUTH_ISSUER`,
+`API_AUTH_AUDIENCE`, `API_AUTH_RS256_KEY_ID` and
+`API_AUTH_RS256_PUBLIC_KEY_PEM` together. The verifier does not fetch URLs or
+keys supplied inside an untrusted JWT: `jku`, `jwk`, `x5u` and `x5c`
+headers are rejected, as are `crit` and any algorithm besides RS256.
+The same strict issuer, **single audience**, subject, scope, time and one-hour
+maximum-lifetime checks as the original HS256 path remain in force.
+
+HS256 remains backward-compatible for trusted local sessions using
+`API_AUTH_HS256_SECRET`. The two modes are **mutually exclusive**; partially
+configured environments and private-key PEM input fail startup. To rotate an
+RSA signing key, update the pinned `kid` and public key atomically in trusted
+configuration; during this first stage there is **no multiple-key rotation
+window**, discovery endpoint or JWKS fetch/cache. Pinning does not create an
+issuer, confer owner mapping, establish token revocation or make a deployment
+production ready. Never accept a token signed by an untrusted issuer merely
+because its claims look syntactically correct. Tests generate disposable RSA
+keys and synthetic notes only; no real tokens, user records or network calls.
+
+**Still required before #44 can close:** an authorized OAuth 2.1/PKCE-capable
+issuer and tested client compatibility, secure issuance/refresh/revocation and
+key rollover, persistent principal-to-owner mapping and DB authorization,
+identity lifecycle, HTTPS/rate limits, and deployment validation. Generic API
+startup still attaches no production private note reader. This is a deliberately
+bounded verification primitive, not a production authentication launch.
+
 ## Explicit local workspace boundary (#38)
 
 `npm run dev:local` is a separate development entry point, rejected outside

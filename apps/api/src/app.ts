@@ -18,6 +18,7 @@ import {
 import { loadApiConfig, type ApiConfig } from "./config.js";
 import {
   createHmacTokenVerifier,
+  createRs256TokenVerifier,
   isAuthenticatedPrincipal,
   type AuthenticatedPrincipal,
   type TokenVerifier,
@@ -63,7 +64,11 @@ export function createApp(options: ApiOptions = {}) {
   const notes = options.dependencies?.notes;
   const verifyToken =
     options.dependencies?.verifyToken ??
-    (config.auth ? createHmacTokenVerifier(config.auth) : undefined);
+    (config.rs256Auth
+      ? createRs256TokenVerifier(config.rs256Auth)
+      : config.auth
+        ? createHmacTokenVerifier(config.auth)
+        : undefined);
   if (notes && !verifyToken) {
     throw new Error("Private notes require an authenticated token verifier");
   }

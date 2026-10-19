@@ -46,6 +46,18 @@
 - P-002/P-003 are partially validated by code: only ULID/UUID identifiers, strict offset-bearing timestamps, defined enum values, non-mutating lowercase slug validation and constrained YAML syntax are accepted. This is an intentional compatibility restriction; widening syntax or changing identity/collision policy requires a version-aware migration.
 - **Original input is terminal** in v1 Markdown: all Markdown after `## Original input` belongs to the original transcription. Optional descriptive sections go before it. No tags, action hints or deadlines are inferred at parse time.
 
+## Partial identity verification increment (#44; not a production decision)
+
+The existing D-012 interim HS256 verification remains supported for disposable
+local sessions. A second pinned RSA public-key/RS256 verifier can be configured
+as an alternative (never concurrently), with the same issuer/audience/scoped
+subject checks. This is a **partial implementation**, not acceptance of an
+identity provider or completed #44: there is no token minting, OAuth/PKCE,
+refresh/revocation, JWKS discovery, multi-key rollover or production account
+mapping. Production deployment and a change of default login flow require a
+separate review and verified operator setup. See the authentication threat
+boundary in [security](09-security-and-privacy.md#pinned-issuer-rs256-verification-foundation-44-partial).
+
 ## Deferred decisions
 
 - Choose the hosted/scheduled LLM provider, budget and execution model for unattended aggregators.
