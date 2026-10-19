@@ -47,13 +47,12 @@ function token(
     }),
   ).toString("base64url");
   const signed = header + "." + claims;
-  return (
-    signed +
-    "." +
-    sign("RSA-SHA256", Buffer.from(signed, "ascii"), privateKey).toString(
-      "base64url",
-    )
+  const signature = sign(
+    "RSA-SHA256",
+    Buffer.from(signed, "ascii"),
+    privateKey,
   );
+  return signed + "." + signature.toString("base64url");
 }
 
 describe("pinned RS256 issuer verification (#44)", () => {
@@ -65,7 +64,7 @@ describe("pinned RS256 issuer verification (#44)", () => {
     });
   });
 
-  it("rejects token-directed keys and signature/algorithm confusion", async () => {
+  it("rejects algorithm confusion and untrusted key headers", async () => {
     const verify = createRs256TokenVerifier(rsConfig, () => now);
     const valid = token();
     const invalid = [
@@ -174,9 +173,8 @@ describe("pinned RS256 issuer verification (#44)", () => {
       const allowed = await request(token());
       expect(allowed.statusCode).toBe(200);
       expect(allowed.json().notes).toHaveLength(1);
-      expect((await request(token({ scope: "capture:write" }))).statusCode).toBe(
-        403,
-      );
+      const noScope = await request(token({ scope: "capture:write" }));
+      expect(noScope.statusCode).toBe(403);
       const forged = await request(token({ sub: "owner-b" }));
       expect(forged.statusCode).toBe(200);
       expect(forged.json().notes).toEqual([]);
