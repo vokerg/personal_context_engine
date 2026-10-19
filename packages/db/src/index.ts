@@ -5,6 +5,8 @@ import { parseNoteMarkdown, verifyInboxNotePath } from "@pce/core";
 export { PrismaClient } from "@prisma/client";
 export { createTagFacetRepository, TAG_FACET_LIMIT } from "./tags.js";
 export { createNoteChunkRepository } from "./chunks.js";
+export { createEmbeddingJobRepository, EMBEDDING_MODEL, EMBEDDING_DIMENSIONS } from "./embedding-jobs.js";
+export type { EmbeddingJob, EmbeddingFailureCode } from "./embedding-jobs.js";
 
 export type ProjectionConflictCode =
   | "CAPTURE_CONFLICT"
