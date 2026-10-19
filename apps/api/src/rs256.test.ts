@@ -4,7 +4,11 @@ import { createApp } from "./app.js";
 import { createRs256TokenVerifier } from "./auth.js";
 import { loadApiConfig } from "./config.js";
 
-const identity = { issuer: "test-issuer", audience: "test-api", keyId: "test-key-1" };
+const identity = {
+  issuer: "test-issuer",
+  audience: "test-api",
+  keyId: "test-key-1",
+};
 const primary = generateKeyPairSync("rsa", {
   modulusLength: 2048,
   publicKeyEncoding: { type: "spki", format: "pem" },
@@ -24,7 +28,12 @@ function token(
   privateKey = primary.privateKey,
 ): string {
   const header = Buffer.from(
-    JSON.stringify({ alg: "RS256", typ: "JWT", kid: identity.keyId, ...headerOverrides }),
+    JSON.stringify({
+      alg: "RS256",
+      typ: "JWT",
+      kid: identity.keyId,
+      ...headerOverrides,
+    }),
   ).toString("base64url");
   const claims = Buffer.from(
     JSON.stringify({
@@ -149,12 +158,14 @@ describe("pinned RS256 issuer verification (#44)", () => {
         notes: {
           listByOwner: async (subject) =>
             subject === "owner-a"
-              ? [{
-                  id: "01K00000000000000000000001",
-                  title: "Synthetic",
-                  summary: "Synthetic summary",
-                  capturedAt: "2026-10-16T10:00:00+02:00",
-                }]
+              ? [
+                  {
+                    id: "01K00000000000000000000001",
+                    title: "Synthetic",
+                    summary: "Synthetic summary",
+                    capturedAt: "2026-10-16T10:00:00+02:00",
+                  },
+                ]
               : [],
           getByOwner: async () => null,
         },
