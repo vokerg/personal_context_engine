@@ -50,12 +50,13 @@ describe("deterministic provider-independent chunking", () => {
     expect(chunks.map((chunk) => chunk.text).join("")).toBe(originalInput);
   });
 
-  it("has stable positional IDs but distinct content hashes for edits", () => {
+  it("keeps IDs for identical text but changes IDs and hashes when text changes", () => {
     const base = { noteId, originalInput: "before", summary: "", body: "" };
     const first = chunkNoteText(base)[0]!;
     const second = chunkNoteText({ ...base, originalInput: "after" })[0]!;
-    expect(first.id).toBe(second.id);
+    expect(first.id).not.toBe(second.id);
     expect(first.contentHash).not.toBe(second.contentHash);
+    expect(chunkNoteText(base)[0]?.id).toBe(first.id);
     expect(chunkNoteText({ ...base, noteId: "another" })[0]?.id).not.toBe(
       first.id,
     );
