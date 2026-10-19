@@ -80,3 +80,7 @@ results; a discovery cursor does not assert that all notes imported. Old code
 ignores this table. Roll back code with workers stopped and retain the table;
 never reset source notes or attempt history to reset a scan. See the
 [ingestion runbook](../../docs/05-ingestion.md#durable-local-reconciliation-43).
+
+## Optional pgvector chunks (#46)
+
+The additive pgvector schema requires the extension available before migration deployment. Synthetic local Compose and database CI use a pgvector-enabled PostgreSQL 16 image. Source-note import is unchanged except that a revised source atomically invalidates old chunks and vectors; replay leaves indexed chunks intact. Chunk preparation is **manual/server-only**, not an embedding worker or API route. Only verified, non-null note owners may prepare or read chunks. See [storage/preflight/rollback runbook](../../docs/16-embedding-storage.md); do not migrate an unverified production host without checking extension installation and privileges.
