@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { Prisma, type PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 import { CHUNKER_VERSION } from "@pce/core";
 import { createNoteChunkRepository } from "./chunks.js";
 
@@ -192,7 +192,7 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
         },
         data: {
           status: terminal ? "FAILED" : "RETRY",
-          leaseOwner: null, leaseUntil: null, vector: Prisma.DbNull,
+          leaseOwner: null, leaseUntil: null,
           nextRetryAt: terminal ? null : new Date(now.getTime() + delay),
           lastErrorCode: code,
         },
