@@ -61,10 +61,18 @@ export function chunkNoteText(input: ChunkSource): NoteChunkDraft[] {
         characters.length,
       );
       const text = characters.slice(startOffset, endOffset).join("");
+      const contentHash = sha256(text);
+      // Include the text hash so an old embedding cannot attach to a
+      // different chunk after a note revision reuses the same position.
       const id = sha256(
-        ["pce-chunk", CHUNKER_VERSION, input.noteId, section, ordinal].join(
-          "\0",
-        ),
+        [
+          "pce-chunk",
+          CHUNKER_VERSION,
+          input.noteId,
+          section,
+          ordinal,
+          contentHash,
+        ].join("\0"),
       );
       chunks.push({
         id,
@@ -72,7 +80,7 @@ export function chunkNoteText(input: ChunkSource): NoteChunkDraft[] {
         ordinal,
         startOffset,
         endOffset,
-        contentHash: sha256(text),
+        contentHash,
         text,
       });
     }
