@@ -106,6 +106,22 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
       validOwner(ownerSubject);
       validWorker(workerId);
       return db.$transaction(async (tx) => {
+        // A crash after the final paid attempt must not leave a permanent
+        // expired LEASED row that no worker can ever claim again.
+        await tx.chunkEmbedding.updateMany({
+          where: {
+            status: "LEASED",
+            attemptCount: { gte: 6 },
+            leaseUntil: { lte: now },
+            chunk: { ownerSubject, note: { ownerSubject } },
+          },
+          data: {
+            status: "FAILED",
+            leaseOwner: null,
+            leaseUntil: null,
+            lastErrorCode: "LEASE_EXHAUSTED",
+          },
+        });
         const rows = await tx.$queryRaw<EmbeddingJob[]>`
           SELECT e."id", c."id" AS "chunkId", c."text", e."attemptCount"
           FROM "chunk_embeddings" e
