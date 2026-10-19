@@ -133,7 +133,9 @@ export function createRs256TokenVerifier(
     key.asymmetricKeyType !== "rsa" ||
     (key.asymmetricKeyDetails?.modulusLength ?? 0) < 2048
   ) {
-    throw new Error("RS256 verifier requires an RSA public key of at least 2048 bits");
+    throw new Error(
+      "RS256 verifier requires an RSA public key of at least 2048 bits",
+    );
   }
   return async (token) => {
     if (token.length > 4096) return null;
