@@ -57,7 +57,7 @@ function token(
 }
 
 describe("pinned RS256 issuer verification (#44)", () => {
-  it("accepts a valid scoped token without any private signing key on the API", async () => {
+  it("accepts a valid scoped RS256 token", async () => {
     const verify = createRs256TokenVerifier(rsConfig, () => now);
     expect(await verify(token())).toEqual({
       subject: "owner-a",
@@ -65,7 +65,7 @@ describe("pinned RS256 issuer verification (#44)", () => {
     });
   });
 
-  it("rejects algorithm confusion, token-directed keys and invalid signature", async () => {
+  it("rejects token-directed keys and signature/algorithm confusion", async () => {
     const verify = createRs256TokenVerifier(rsConfig, () => now);
     const valid = token();
     const invalid = [
@@ -145,28 +145,25 @@ describe("pinned RS256 issuer verification (#44)", () => {
     ).toThrow();
   });
 
-  it("applies the new verifier to owner-scoped HTTP reads, preserving 401/403/404", async () => {
+  it("enforces scoped HTTP access and owner isolation", async () => {
     const config = loadApiConfig({
       API_AUTH_ISSUER: identity.issuer,
       API_AUTH_AUDIENCE: identity.audience,
       API_AUTH_RS256_PUBLIC_KEY_PEM: primary.publicKey,
       API_AUTH_RS256_KEY_ID: identity.keyId,
     });
+    const sample = {
+      id: "01K00000000000000000000001",
+      title: "Synthetic",
+      summary: "Synthetic summary",
+      capturedAt: "2026-10-16T10:00:00+02:00",
+    };
     const app = createApp({
       config,
       dependencies: {
         notes: {
           listByOwner: async (subject) =>
-            subject === "owner-a"
-              ? [
-                  {
-                    id: "01K00000000000000000000001",
-                    title: "Synthetic",
-                    summary: "Synthetic summary",
-                    capturedAt: "2026-10-16T10:00:00+02:00",
-                  },
-                ]
-              : [],
+            subject === "owner-a" ? [sample] : [],
           getByOwner: async () => null,
         },
       },
