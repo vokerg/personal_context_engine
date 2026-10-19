@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import {
-  EMBEDDING_DIMENSIONS, EMBEDDING_MODEL,
-  type EmbeddingJob, type EmbeddingFailureCode,
+  EMBEDDING_DIMENSIONS,
+  EMBEDDING_MODEL,
+  type EmbeddingJob,
+  type EmbeddingFailureCode,
 } from "@pce/db";
 
 export type EmbeddingResult = { vector: number[]; usageTokens: number };
@@ -24,8 +26,10 @@ export function createOpenAIEmbeddingProvider(
   project: string,
   request: typeof fetch = fetch,
 ): EmbeddingProvider {
-  if (!/^sk-[A-Za-z0-9_-]{20,}$/.test(key) ||
-      !/^proj[-_][A-Za-z0-9]+$/.test(project))
+  if (
+    !/^sk-[A-Za-z0-9_-]{20,}$/.test(key) ||
+    !/^proj[-_][A-Za-z0-9]+$/.test(project)
+  )
     throw new Error("Invalid server embedding configuration");
   return {
     async embed(text) {
@@ -59,20 +63,34 @@ export function createOpenAIEmbeddingProvider(
       }
       try {
         const payload: unknown = await response.json();
-        if (!payload || typeof payload !== "object") throw new Error("Invalid payload");
+        if (!payload || typeof payload !== "object")
+          throw new Error("Invalid payload");
         const data = (payload as { data?: unknown }).data;
         const usage = (payload as { usage?: unknown }).usage;
-        if (!Array.isArray(data) || data.length !== 1 || !data[0] ||
-            !Array.isArray(data[0].embedding) ||
-            !usage || typeof usage !== "object")
+        if (
+          !Array.isArray(data) ||
+          data.length !== 1 ||
+          !data[0] ||
+          !Array.isArray(data[0].embedding) ||
+          !usage ||
+          typeof usage !== "object"
+        )
           throw new Error("Invalid embedding response");
         const tokens = (usage as { prompt_tokens?: unknown }).prompt_tokens;
-        if (!Number.isSafeInteger(tokens) || (tokens as number) < 0 ||
-            (tokens as number) > 1_000_000 ||
-            data[0].embedding.length !== EMBEDDING_DIMENSIONS ||
-            data[0].embedding.some((v: unknown) => typeof v !== "number" || !Number.isFinite(v)))
+        if (
+          !Number.isSafeInteger(tokens) ||
+          (tokens as number) < 0 ||
+          (tokens as number) > 1_000_000 ||
+          data[0].embedding.length !== EMBEDDING_DIMENSIONS ||
+          data[0].embedding.some(
+            (v: unknown) => typeof v !== "number" || !Number.isFinite(v),
+          )
+        )
           throw new Error("Invalid vector/usage");
-        return { vector: data[0].embedding as number[], usageTokens: tokens as number };
+        return {
+          vector: data[0].embedding as number[],
+          usageTokens: tokens as number,
+        };
       } catch {
         throw new EmbeddingProviderError("INVALID_RESPONSE", false);
       }
@@ -82,10 +100,28 @@ export function createOpenAIEmbeddingProvider(
 
 export interface EmbeddingQueue {
   candidateNotes(owner: string, afterId?: string): Promise<string[]>;
-  prepareNote(noteId: string, owner: string): Promise<{ status: string; count: number }>;
+  prepareNote(
+    noteId: string,
+    owner: string,
+  ): Promise<{ status: string; count: number }>;
   claim(owner: string, worker: string, now: Date): Promise<EmbeddingJob | null>;
-  complete(owner: string, worker: string, id: string, vector: number[], tokens: number, now: Date): Promise<boolean>;
-  fail(owner: string, worker: string, id: string, code: EmbeddingFailureCode, retryable: boolean, attempt: number, now: Date): Promise<boolean>;
+  complete(
+    owner: string,
+    worker: string,
+    id: string,
+    vector: number[],
+    tokens: number,
+    now: Date,
+  ): Promise<boolean>;
+  fail(
+    owner: string,
+    worker: string,
+    id: string,
+    code: EmbeddingFailureCode,
+    retryable: boolean,
+    attempt: number,
+    now: Date,
+  ): Promise<boolean>;
   usedTokensToday(owner: string, now: Date): Promise<number>;
 }
 
@@ -106,7 +142,10 @@ export async function runEmbeddingPass(options: EmbeddingPassOptions) {
   const { queue, provider, ownerSubject } = options;
   const worker = options.workerId ?? randomUUID();
   const now = options.now ?? (() => new Date());
-  const prepared = await queue.candidateNotes(ownerSubject, options.afterNoteId);
+  const prepared = await queue.candidateNotes(
+    ownerSubject,
+    options.afterNoteId,
+  );
   let oversized = 0;
   for (const id of prepared) {
     const result = await queue.prepareNote(id, ownerSubject);
@@ -135,13 +174,21 @@ export async function runEmbeddingPass(options: EmbeddingPassOptions) {
     report.requests++;
     try {
       const answer = await provider.embed(job.text);
-      if (answer.vector.length !== EMBEDDING_DIMENSIONS ||
-          answer.vector.some((v) => !Number.isFinite(v)) ||
-          !Number.isSafeInteger(answer.usageTokens) ||
-          answer.usageTokens < 0 || answer.usageTokens > RESERVED_BYTES_PER_CALL)
+      if (
+        answer.vector.length !== EMBEDDING_DIMENSIONS ||
+        answer.vector.some((v) => !Number.isFinite(v)) ||
+        !Number.isSafeInteger(answer.usageTokens) ||
+        answer.usageTokens < 0 ||
+        answer.usageTokens > RESERVED_BYTES_PER_CALL
+      )
         throw new EmbeddingProviderError("INVALID_RESPONSE", false);
       const stored = await queue.complete(
-        ownerSubject, worker, job.id, answer.vector, answer.usageTokens, now(),
+        ownerSubject,
+        worker,
+        job.id,
+        answer.vector,
+        answer.usageTokens,
+        now(),
       );
       if (stored) {
         report.ready++;
@@ -150,11 +197,18 @@ export async function runEmbeddingPass(options: EmbeddingPassOptions) {
         report.stale++;
       }
     } catch (error) {
-      const classified = error instanceof EmbeddingProviderError
-        ? error : new EmbeddingProviderError("PROVIDER_UNAVAILABLE", true);
+      const classified =
+        error instanceof EmbeddingProviderError
+          ? error
+          : new EmbeddingProviderError("PROVIDER_UNAVAILABLE", true);
       const changed = await queue.fail(
-        ownerSubject, worker, job.id, classified.code, classified.retryable,
-        job.attemptCount, now(),
+        ownerSubject,
+        worker,
+        job.id,
+        classified.code,
+        classified.retryable,
+        job.attemptCount,
+        now(),
       );
       if (!changed) report.stale++;
       else if (classified.retryable && job.attemptCount < 6) report.retry++;
