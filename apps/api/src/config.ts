@@ -1,9 +1,19 @@
+import { createPublicKey } from "node:crypto";
+
 /** Server-side configuration only; no credentials or private data are serialized. */
 export interface ApiAuthConfig {
   issuer: string;
   audience: string;
   /** Server-only HS256 key, at least 32 UTF-8 bytes. */
   secret: string;
+}
+
+/** Static trusted issuer key, never a JWT-controlled jku/jwk fetch. */
+export interface ApiRs256AuthConfig {
+  issuer: string;
+  audience: string;
+  keyId: string;
+  publicKeyPem: string;
 }
 
 export interface ApiConfig {
@@ -13,6 +23,7 @@ export interface ApiConfig {
   corsOrigin: string | null;
   requiresDatabase: boolean;
   auth: ApiAuthConfig | null;
+  rs256Auth?: ApiRs256AuthConfig;
 }
 
 function parseOrigin(
@@ -81,29 +92,62 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
   const issuer = env.API_AUTH_ISSUER;
   const audience = env.API_AUTH_AUDIENCE;
   const secret = env.API_AUTH_HS256_SECRET;
-  const anyAuthConfigured = [issuer, audience, secret].some(
+  const publicKeyPem = env.API_AUTH_RS256_PUBLIC_KEY_PEM;
+  const keyId = env.API_AUTH_RS256_KEY_ID;
+  const anyAuthConfigured = [issuer, audience, secret, publicKeyPem, keyId].some(
     (value) => value !== undefined,
   );
   if (mode === "production" && !anyAuthConfigured) {
     throw new Error("Production requires authenticated API configuration");
   }
   let auth: ApiAuthConfig | null = null;
+  let rs256Auth: ApiRs256AuthConfig | undefined;
   if (anyAuthConfigured) {
     if (
       !issuer ||
       !audience ||
-      !secret ||
       issuer.trim() !== issuer ||
       audience.trim() !== audience ||
       !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/.test(issuer) ||
       !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/.test(audience) ||
-      Buffer.byteLength(secret, "utf8") < 32
+      (secret !== undefined && (publicKeyPem !== undefined || keyId !== undefined))
     ) {
-      throw new Error(
-        "API authentication requires issuer, audience and a strong server-side key",
-      );
+      throw new Error("API authentication requires one complete, exclusive token verifier");
     }
-    auth = { issuer, audience, secret };
+    if (secret !== undefined) {
+      if (Buffer.byteLength(secret, "utf8") < 32) {
+        throw new Error("HS256 signing key must be at least 32 UTF-8 bytes");
+      }
+      auth = { issuer, audience, secret };
+    } else {
+      if (
+        !publicKeyPem ||
+        !keyId ||
+        !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(keyId)
+      ) {
+        throw new Error("RS256 requires a public key and pinned key ID");
+      }
+      try {
+        const key = createPublicKey(publicKeyPem);
+        if (
+          key.asymmetricKeyType !== "rsa" ||
+          (key.asymmetricKeyDetails?.modulusLength ?? 0) < 2048
+        ) {
+          throw new Error("invalid RSA modulus");
+        }
+      } catch {
+        throw new Error("RS256 requires a valid RSA public key of at least 2048 bits");
+      }
+      rs256Auth = { issuer, audience, publicKeyPem, keyId };
+    }
   }
-  return { host, port, environment: mode, corsOrigin, requiresDatabase, auth };
+  return {
+    host,
+    port,
+    environment: mode,
+    corsOrigin,
+    requiresDatabase,
+    auth,
+    ...(rs256Auth ? { rs256Auth } : {}),
+  };
 }
