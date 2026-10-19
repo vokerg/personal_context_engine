@@ -1,8 +1,11 @@
 # 14 — OpenAI project and credential groundwork
 
 **Implemented scope (#58):** configuration diagnostics and this provisioning
-runbook. **Not implemented:** chunk/vector storage (#46), embedding jobs and
-budget enforcement (#47), or hybrid search (#48). GitHub capture, deterministic
+runbook. **Implementation in progress:** chunk/vector storage (#46) is implemented;
+issue #47 adds a finite, explicitly authorized embeddings pass with bounded
+provider usage, retry/lease semantics and persistent vector status. **Not implemented:**
+hosted continuous scheduling, account-wide spend enforcement, production privacy
+approval or hybrid search (#48). GitHub capture, deterministic
 ingestion and repository search remain unchanged. Creating an API key does
 not activate embeddings or authorize sending private notes to a provider.
 
@@ -55,10 +58,11 @@ account data. Never prefix provider secrets with `VITE_` or `EXPO_PUBLIC_`.
 Only a future server-side embedding adapter should receive this key. Existing
 clients, MCP arguments and capture agents must never receive it.
 
-The flag and model name currently express the disabled setup boundary. No
-embedding worker reads them to process jobs yet. The diagnostic rejects
-premature `PCE_EMBEDDINGS_ENABLED=true` rather than implying a working runtime.
-Changing a flag alone cannot implement #46/#47 or approve private-text egress.
+The flag defaults to disabled. An explicit one-pass worker additionally requires
+`WORKER_MODE=embeddings-once`, a trusted persisted owner and
+`PCE_EMBEDDING_EGRESS_APPROVED=I_APPROVE_PRIVATE_TEXT_TO_OPENAI`. The diagnostic
+recognizes the flag but never calls the embeddings endpoint: checking configuration
+is not egress approval or evidence of live provider readiness. See the operations runbook.
 
 ## Verification without embedding text
 
@@ -90,7 +94,7 @@ Common outcomes:
 | `MODEL_NOT_AVAILABLE` | Check account/project access and the selected model |
 | `RATE_OR_QUOTA_LIMIT` | Inspect account limits/usage/billing in the dashboard |
 | `NETWORK_OR_PROVIDER_ERROR` | Check connectivity/status; no private data was sent |
-| `EMBEDDING_RUNTIME_NOT_IMPLEMENTED` | Keep the flag false; implement and review #46/#47 first |
+| `INVALID_EMBEDDING_FLAG` | Set only `true` or `false`; an explicit separate egress approval is also required |
 
 Tests inject fake HTTP responses and synthetic keys. Public CI never needs
 real OpenAI credentials or provider access. Do not add an admin key or a billing

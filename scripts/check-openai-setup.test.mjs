@@ -17,14 +17,15 @@ describe("OpenAI provisioning diagnostics", () => {
     expect(JSON.stringify(result)).not.toContain(env.OPENAI_API_KEY);
     expect(JSON.stringify(result)).not.toContain(env.OPENAI_PROJECT_ID);
   });
-  it("reports missing credentials and rejects premature embedding activation", async () => {
+  it("reports missing credentials and validates opt-in flags", async () => {
     expect((await checkOpenAISetup({})).code).toBe("PROJECT_ID_REQUIRED");
     expect(
       (await checkOpenAISetup({ OPENAI_PROJECT_ID: "proj_synthetic" })).code,
     ).toBe("API_KEY_REQUIRED");
     expect(
       (await checkOpenAISetup({ ...env, PCE_EMBEDDINGS_ENABLED: "true" })).code,
-    ).toBe("EMBEDDING_RUNTIME_NOT_IMPLEMENTED");
+    ).toBe("LOCAL_CONFIG_READY");
+    expect((await checkOpenAISetup({ ...env, PCE_EMBEDDINGS_ENABLED: "true" })).embeddingsEnabled).toBe(true);
   });
   it("makes only an explicit read-only request to the official model metadata endpoint", async () => {
     const result = await checkOpenAISetup(env, {

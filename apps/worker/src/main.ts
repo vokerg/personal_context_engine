@@ -1,6 +1,14 @@
 import { createHash } from "node:crypto";
 import { isAbsolute } from "node:path";
-import { checkDatabase, createDatabaseClient } from "@pce/db";
+import {
+  checkDatabase,
+  createDatabaseClient,
+  createEmbeddingJobRepository,
+} from "@pce/db";
+import {
+  createOpenAIEmbeddingProvider,
+  runEmbeddingPass,
+} from "./embeddings.js";
 import type { ContentStore } from "./content-store/port.js";
 import { FilesystemContentStore } from "./content-store/filesystem.js";
 import { githubContentStoreFromEnv } from "./content-store/github.js";
@@ -30,6 +38,7 @@ if (!mode) {
 }
 
 async function start(mode: string): Promise<void> {
+  if (mode === "embeddings-once") return startEmbeddings();
   if (mode !== "once") throw new Error("Unsupported worker mode.");
   if (!process.env.DATABASE_URL) throw new Error("Database is required.");
   let store: ContentStore;
@@ -72,6 +81,44 @@ async function start(mode: string): Promise<void> {
     });
     // Counts only; never expose note bodies, paths or identifiers in logs.
     console.log("Worker pass complete " + JSON.stringify(result));
+  } finally {
+    await db.$disconnect();
+  }
+}
+
+/** Explicit trusted command; never started by local preview or ingestion. */
+async function startEmbeddings(): Promise<void> {
+  if (
+    process.env.PCE_EMBEDDINGS_ENABLED !== "true" ||
+    process.env.PCE_EMBEDDING_EGRESS_APPROVED !==
+      "I_APPROVE_PRIVATE_TEXT_TO_OPENAI"
+  )
+    throw new Error("Embedding egress is not approved.");
+  if (
+    process.env.OPENAI_EMBEDDING_MODEL !== "text-embedding-3-small" ||
+    !process.env.DATABASE_URL
+  )
+    throw new Error("Unsupported embedding model or missing DB.");
+  const owner = process.env.PCE_EMBEDDING_OWNER_SUBJECT;
+  const key = process.env.OPENAI_API_KEY;
+  const project = process.env.OPENAI_PROJECT_ID;
+  if (!owner || !key || !project)
+    throw new Error("Missing owner or server-side embedding credentials.");
+  // Validate the provider before opening DB; no content leaves the host if invalid.
+  const provider = createOpenAIEmbeddingProvider(key, project);
+  const db = createDatabaseClient();
+  try {
+    await db.$connect();
+    await checkDatabase(db);
+    const report = await runEmbeddingPass({
+      queue: createEmbeddingJobRepository(db),
+      provider,
+      ownerSubject: owner,
+      ...(process.env.PCE_EMBEDDING_AFTER_NOTE_ID
+        ? { afterNoteId: process.env.PCE_EMBEDDING_AFTER_NOTE_ID }
+        : {}),
+    });
+    console.log("Embedding pass complete " + JSON.stringify(report));
   } finally {
     await db.$disconnect();
   }
