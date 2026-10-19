@@ -112,7 +112,9 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
       !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/.test(audience) ||
       (secret !== undefined && (publicKeyPem !== undefined || keyId !== undefined))
     ) {
-      throw new Error("API authentication requires one complete, exclusive token verifier");
+      throw new Error(
+        "API authentication requires one complete, exclusive token verifier",
+      );
     }
     if (secret !== undefined) {
       if (Buffer.byteLength(secret, "utf8") < 32) {
@@ -139,7 +141,9 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
           throw new Error("invalid RSA modulus");
         }
       } catch {
-        throw new Error("RS256 requires a valid RSA public key of at least 2048 bits");
+        throw new Error(
+          "RS256 requires a valid RSA public key of at least 2048 bits",
+        );
       }
       rs256Auth = { issuer, audience, publicKeyPem, keyId };
     }
