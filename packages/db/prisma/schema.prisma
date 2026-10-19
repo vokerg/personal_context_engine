@@ -184,3 +184,24 @@ model ChunkEmbedding {
   @@index([status, nextRetryAt])
   @@map("chunk_embeddings")
 }
+
+// Conservative reservations survive retries, crashes and chunk deletion.
+model EmbeddingDailyBudget {
+  ownerSubject   String   @db.VarChar(128)
+  day            DateTime @db.Date
+  reservedTokens Int      @default(0)
+  requestCount   Int      @default(0)
+
+  @@id([ownerSubject, day])
+  @@map("embedding_daily_budgets")
+}
+
+// The rate window is independent of UTC-day reset; checkpoints contain no text.
+model EmbeddingScan {
+  ownerSubject    String   @id @db.VarChar(128)
+  afterNoteId     String?  @db.VarChar(36)
+  windowStartedAt DateTime @default(now()) @db.Timestamptz(3)
+  windowRequests  Int      @default(0)
+
+  @@map("embedding_scans")
+}

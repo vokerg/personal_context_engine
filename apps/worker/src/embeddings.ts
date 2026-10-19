@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import {
   EMBEDDING_DIMENSIONS,
   EMBEDDING_MODEL,
+  EMBEDDING_TOKEN_RESERVATION,
+  EMBEDDING_DAILY_TOKEN_LIMIT,
   type EmbeddingJob,
   type EmbeddingFailureCode,
 } from "@pce/db";
@@ -33,6 +35,11 @@ export function createOpenAIEmbeddingProvider(
     throw new Error("Invalid server embedding configuration");
   return {
     async embed(text) {
+      if (
+        !text ||
+        Buffer.byteLength(text, "utf8") > EMBEDDING_TOKEN_RESERVATION
+      )
+        throw new EmbeddingProviderError("INVALID_RESPONSE", false);
       let response: Response;
       try {
         response = await request("https://api.openai.com/v1/embeddings", {
@@ -122,12 +129,11 @@ export interface EmbeddingQueue {
     attempt: number,
     now: Date,
   ): Promise<boolean>;
-  usedTokensToday(owner: string, now: Date): Promise<number>;
+  reservedTokensToday(owner: string, now: Date): Promise<number>;
+  checkpointScan(owner: string, afterNoteId: string | null): Promise<void>;
 }
 
 const MAX_REQUESTS = 4;
-const RESERVED_BYTES_PER_CALL = 8192;
-const DAILY_TOKEN_LIMIT = 60_000;
 
 export interface EmbeddingPassOptions {
   queue: EmbeddingQueue;
@@ -151,6 +157,9 @@ export async function runEmbeddingPass(options: EmbeddingPassOptions) {
     const result = await queue.prepareNote(id, ownerSubject);
     if (result.status === "oversized") oversized++;
   }
+  // Advance only after all preparations commit. Empty page wraps the next
+  // pass, so oversized/empty notes cannot starve later notes indefinitely.
+  await queue.checkpointScan(ownerSubject, prepared.at(-1) ?? null);
   const report = {
     prepared: prepared.length - oversized,
     oversized,
@@ -161,17 +170,33 @@ export async function runEmbeddingPass(options: EmbeddingPassOptions) {
     stale: 0,
     dailyLimitReached: false,
   };
-  let used = await queue.usedTokensToday(ownerSubject, now());
-  if (used + RESERVED_BYTES_PER_CALL > DAILY_TOKEN_LIMIT)
+  let reserved = await queue.reservedTokensToday(ownerSubject, now());
+  if (reserved + EMBEDDING_TOKEN_RESERVATION > EMBEDDING_DAILY_TOKEN_LIMIT)
     report.dailyLimitReached = true;
 
-  // Reserving the maximum possible number of tokens (<= UTF-8 bytes) for
-  // each bounded chunk ensures that this pass cannot exceed its byte budget.
-  // Run only one trusted worker per owner to treat the daily cap as a gate.
+  // The DB reserves the worst-case token count atomically with each claim,
+  // including retries and expired leases. Local reads are reporting only.
   for (let i = 0; i < MAX_REQUESTS && !report.dailyLimitReached; i++) {
     const job = await queue.claim(ownerSubject, worker, now());
     if (!job) break;
     report.requests++;
+    // Validate even replaceable queues before any private-text egress.
+    if (
+      !job.text ||
+      Buffer.byteLength(job.text, "utf8") > EMBEDDING_TOKEN_RESERVATION
+    ) {
+      await queue.fail(
+        ownerSubject,
+        worker,
+        job.id,
+        "INVALID_RESPONSE",
+        false,
+        job.attemptCount,
+        now(),
+      );
+      report.failed++;
+      continue;
+    }
     try {
       const answer = await provider.embed(job.text);
       if (
@@ -179,7 +204,7 @@ export async function runEmbeddingPass(options: EmbeddingPassOptions) {
         answer.vector.some((v) => !Number.isFinite(v)) ||
         !Number.isSafeInteger(answer.usageTokens) ||
         answer.usageTokens < 0 ||
-        answer.usageTokens > RESERVED_BYTES_PER_CALL
+        answer.usageTokens > EMBEDDING_TOKEN_RESERVATION
       )
         throw new EmbeddingProviderError("INVALID_RESPONSE", false);
       const stored = await queue.complete(
@@ -192,7 +217,6 @@ export async function runEmbeddingPass(options: EmbeddingPassOptions) {
       );
       if (stored) {
         report.ready++;
-        used += answer.usageTokens;
       } else {
         report.stale++;
       }
@@ -214,8 +238,12 @@ export async function runEmbeddingPass(options: EmbeddingPassOptions) {
       else if (classified.retryable && job.attemptCount < 6) report.retry++;
       else report.failed++;
     }
-    if (used + RESERVED_BYTES_PER_CALL > DAILY_TOKEN_LIMIT)
+    reserved = await queue.reservedTokensToday(ownerSubject, now());
+    if (reserved + EMBEDDING_TOKEN_RESERVATION > EMBEDDING_DAILY_TOKEN_LIMIT)
       report.dailyLimitReached = true;
   }
+  reserved = await queue.reservedTokensToday(ownerSubject, now());
+  report.dailyLimitReached =
+    reserved + EMBEDDING_TOKEN_RESERVATION > EMBEDDING_DAILY_TOKEN_LIMIT;
   return report;
 }

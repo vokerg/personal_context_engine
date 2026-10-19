@@ -424,41 +424,62 @@ then approve this specific egress outside GitHub. Keep an ignored, mode-0600
 from arbitrary client arguments. Start only a trusted server process:
 
 ```sh
-WORKER_MODE=embeddings-once node apps/worker/dist/main.js
+npm run embeddings:once
 ```
 
-Build first (`npm run build`). Supply the ignored values to the process through
-a trusted environment; Node does not automatically load root `.env` in this
-command. One pass scans at most 16 owner-scoped candidate notes for new/stale
-chunks, creates durable idempotent jobs, and processes at most four requests.
-Each chunk is at most 2,048 Unicode code points (up to 8,192 UTF-8 bytes).
-Successful requests persist token usage, model/version, and an **estimate** at
-the documented $0.02/1M token rate. This is not a bill, a project-wide hard
-spend cap or an accounting of provider-side charges for failed/time-out calls.
+Build first (`npm run build`) and apply checked-in migrations (`npm run
+db:migrate`) against the intended database. `npm run embeddings:once` loads
+ignored root `.env`; shell-exported values take precedence. The model defaults
+to `text-embedding-3-small`. One pass scans at most 16 owner-scoped candidate
+notes for new/stale chunks, creates durable idempotent jobs, and processes at
+most four requests. Each chunk is at most 2,048 Unicode code points (up to
+8,192 UTF-8 bytes). Successful requests persist token usage, model/version,
+and an estimate at the original implementation's $0.02/1M token rate; verify
+current provider pricing separately. This is not an invoice.
 
-The worker conservatively reserves 8,192 input tokens per request and stops
-when verified successful usage plus that reserve would exceed 60,000 tokens
-per owner in the current UTC day. **Use one worker per owner**: this gate is not
-a global, concurrency-safe or cross-service billing policy. It checks only
-currently retained successful vectors, and an external provider may still bill
-retries. Enforce actual spend limits separately in the OpenAI project before
-any approval for unattended operation.
+**Database-enforced ceilings:** each claim reserves 8,192 tokens, including
+retries and recovered leases, before any provider call. Reservations are
+never refunded: failed/time-out requests can be charged. A locked owner/UTC-day
+budget permits at most 60,000 reserved tokens (seven attempts) per day, and
+four claims in a 60-second window. Concurrent processes share these limits.
+Counts/reservations survive restarts and source updates/deletion; retained
+successful vectors are no longer the basis of the spending gate. This is a
+conservative PCE request ceiling, not a provider/account-wide billing limit.
+Other tools using the same key are outside it. Budget records contain only
+trusted owner, day and counters; no original text. Existing historical calls
+before this migration cannot be reconstructed into the new counters.
+
+Preparation progress is checkpointed after the page commits and resumed by
+subsequent explicit runs. Empty pages reset the cursor for reconciliation;
+oversized/empty notes cannot permanently starve later IDs. A crash before
+checkpointing safely repeats idempotent preparation. Concurrent scans may
+repeat pages; durable job uniqueness prevents duplicate indexing. A separate
+hosted scheduler and transactional ingress enqueue hook remain #45/deployment
+work; this worker reconciles only committed DB notes and never delays capture.
 
 Leases last two minutes; a subsequent explicit run reclaims expired leases,
 with at most six attempts, exponential retries for 429/5xx/timeouts and
 fixed error codes without provider response bodies. Terminal 4xx/malformed
 vectors are marked FAILED (manual investigation/requeue needed). A changed
 source revision deletes chunks/vectors, and an outdated result cannot persist.
-Overlarge notes are skipped intact. If an overlarge note blocks candidate
-scanning, an operator can set `PCE_EMBEDDING_AFTER_NOTE_ID` to resume a
-bounded keyset pass after that synthetic/verified ID; do not log note IDs
-or private text in public artifacts.
+Overlarge notes are skipped intact. An operator can optionally set
+`PCE_EMBEDDING_AFTER_NOTE_ID` to override the persisted keyset cursor; normally
+leave it unset. Do not log note IDs or private text in public artifacts.
 
-There is no automatic loop, OpenAI key provisioning, continuous scheduling,
-production cost control, hybrid retrieval API, or fallback to GitHub for
-API-only notes. When provider/indexing is unavailable, the durable DB originals
-remain readable through separately authorized DB paths; owner-scoped lexical/
-hybrid search is tracked in #48. **Do not switch ChatGPT repository search.**
+**Lexical fallback:** `@pce/db.createLexicalSearchRepository(db).searchByOwner`
+reads all of the verified owner's DB originals (title, summary, body and
+original input) using PostgreSQL's `simple` lexical configuration. It requires
+neither chunks/vectors nor a provider or GitHub checkout. Queries are bounded
+(500 characters, at most 50 results) and parameterized; returned source IDs,
+revisions and bounded original snippets preserve provenance. API-origin notes
+are included without inventing a GitHub URL. Server callers must derive owner
+from verified identity and expose this port only through a separately gated,
+authenticated retrieval integration (#48). No HTTP search route, hybrid
+ranking, production identity, ChatGPT search cutover or continuous scheduler
+is activated here. Tests demonstrate retrieval of synthetic DB-only originals
+during a provider outage. The existing local checkout-based UI retains its
+current scope; this server port does not silently widen its allowlist.
+
 Synthetic CI uses a fake provider and an isolated PostgreSQL vector store;
 it never authorizes real data egress. To stop indexing, unset the one-shot
 mode or `PCE_EMBEDDINGS_ENABLED` flag. Existing indexed vectors remain until

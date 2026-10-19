@@ -1,3 +1,4 @@
+import { embeddingConfig } from "./embedding-config.js";
 import { createHash } from "node:crypto";
 import { isAbsolute } from "node:path";
 import {
@@ -88,22 +89,7 @@ async function start(mode: string): Promise<void> {
 
 /** Explicit trusted command; never started by local preview or ingestion. */
 async function startEmbeddings(): Promise<void> {
-  if (
-    process.env.PCE_EMBEDDINGS_ENABLED !== "true" ||
-    process.env.PCE_EMBEDDING_EGRESS_APPROVED !==
-      "I_APPROVE_PRIVATE_TEXT_TO_OPENAI"
-  )
-    throw new Error("Embedding egress is not approved.");
-  if (
-    process.env.OPENAI_EMBEDDING_MODEL !== "text-embedding-3-small" ||
-    !process.env.DATABASE_URL
-  )
-    throw new Error("Unsupported embedding model or missing DB.");
-  const owner = process.env.PCE_EMBEDDING_OWNER_SUBJECT;
-  const key = process.env.OPENAI_API_KEY;
-  const project = process.env.OPENAI_PROJECT_ID;
-  if (!owner || !key || !project)
-    throw new Error("Missing owner or server-side embedding credentials.");
+  const { owner, key, project, afterNoteId } = embeddingConfig(process.env);
   // Validate the provider before opening DB; no content leaves the host if invalid.
   const provider = createOpenAIEmbeddingProvider(key, project);
   const db = createDatabaseClient();
@@ -114,9 +100,7 @@ async function startEmbeddings(): Promise<void> {
       queue: createEmbeddingJobRepository(db),
       provider,
       ownerSubject: owner,
-      ...(process.env.PCE_EMBEDDING_AFTER_NOTE_ID
-        ? { afterNoteId: process.env.PCE_EMBEDDING_AFTER_NOTE_ID }
-        : {}),
+      ...(afterNoteId ? { afterNoteId } : {}),
     });
     console.log("Embedding pass complete " + JSON.stringify(report));
   } finally {

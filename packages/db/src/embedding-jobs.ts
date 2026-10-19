@@ -5,6 +5,9 @@ import { createNoteChunkRepository } from "./chunks.js";
 
 export const EMBEDDING_MODEL = "text-embedding-3-small";
 export const EMBEDDING_DIMENSIONS = 1536;
+export const EMBEDDING_TOKEN_RESERVATION = 8192;
+export const EMBEDDING_DAILY_TOKEN_LIMIT = 60_000;
+export const EMBEDDING_REQUESTS_PER_MINUTE = 4;
 const PROVIDER = "openai";
 const OWNER = /^[A-Za-z0-9][A-Za-z0-9._:|@-]{0,127}$/;
 const WORKER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
@@ -87,10 +90,15 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
       validOwner(ownerSubject);
       if (afterId !== undefined && !/^[0-9a-zA-Z-]{1,36}$/.test(afterId))
         throw new TypeError("Invalid note cursor");
+      const checkpoint =
+        afterId === undefined
+          ? await db.embeddingScan.findUnique({ where: { ownerSubject } })
+          : null;
+      const cursor = afterId ?? checkpoint?.afterNoteId ?? "";
       const notes = await db.$queryRaw<Array<{ id: string }>>`
         SELECT n."id" FROM "notes" n
         WHERE n."ownerSubject" = ${ownerSubject}
-          AND (${afterId ?? ""} = '' OR n."id" > ${afterId ?? ""})
+          AND (${cursor} = '' OR n."id" > ${cursor})
           AND (
             NOT EXISTS (
               SELECT 1 FROM "note_chunks" c
@@ -117,6 +125,17 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
       return notes.map((n) => n.id);
     },
 
+    async checkpointScan(ownerSubject: string, afterNoteId: string | null) {
+      validOwner(ownerSubject);
+      if (afterNoteId !== null && !/^[0-9a-zA-Z-]{1,36}$/.test(afterNoteId))
+        throw new TypeError("Invalid note cursor");
+      await db.embeddingScan.upsert({
+        where: { ownerSubject },
+        create: { ownerSubject, afterNoteId },
+        update: { afterNoteId },
+      });
+    },
+
     async claim(
       ownerSubject: string,
       workerId: string,
@@ -125,6 +144,40 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
       validOwner(ownerSubject);
       validWorker(workerId);
       return db.$transaction(async (tx) => {
+        const day = new Date(
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+        );
+        // Serialize the budget AND job claim for this owner/day. Reservations
+        // are never refunded: the provider may charge even if the reply is lost.
+        await tx.$executeRaw`
+          INSERT INTO "embedding_scans" ("ownerSubject", "windowStartedAt")
+          VALUES (${ownerSubject}, ${now}) ON CONFLICT DO NOTHING
+        `;
+        const [rate] = await tx.$queryRaw<
+          Array<{ windowStartedAt: Date; windowRequests: number }>
+        >`
+          SELECT "windowStartedAt", "windowRequests" FROM "embedding_scans"
+          WHERE "ownerSubject" = ${ownerSubject} FOR UPDATE
+        `;
+        if (!rate) throw new Error("Embedding rate state unavailable");
+        await tx.$executeRaw`
+          INSERT INTO "embedding_daily_budgets" ("ownerSubject", "day")
+          VALUES (${ownerSubject}, ${day.toISOString().slice(0, 10)}::date) ON CONFLICT DO NOTHING
+        `;
+        const [budget] = await tx.$queryRaw<Array<{ reservedTokens: number }>>`
+          SELECT "reservedTokens" FROM "embedding_daily_budgets"
+          WHERE "ownerSubject" = ${ownerSubject} AND "day" = ${day.toISOString().slice(0, 10)}::date
+          FOR UPDATE
+        `;
+        if (!budget) throw new Error("Embedding budget unavailable");
+        const newWindow =
+          now.getTime() - rate.windowStartedAt.getTime() >= 60_000;
+        if (
+          budget.reservedTokens + EMBEDDING_TOKEN_RESERVATION >
+            EMBEDDING_DAILY_TOKEN_LIMIT ||
+          (!newWindow && rate.windowRequests >= EMBEDDING_REQUESTS_PER_MINUTE)
+        )
+          return null;
         // A crash after the final paid attempt must not leave a permanent
         // expired LEASED row that no worker can ever claim again.
         await tx.chunkEmbedding.updateMany({
@@ -175,6 +228,20 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
             attemptCount: { increment: 1 },
           },
         });
+        await tx.embeddingDailyBudget.update({
+          where: { ownerSubject_day: { ownerSubject, day } },
+          data: {
+            reservedTokens: { increment: EMBEDDING_TOKEN_RESERVATION },
+            requestCount: { increment: 1 },
+          },
+        });
+        await tx.embeddingScan.update({
+          where: { ownerSubject },
+          data: {
+            windowStartedAt: newWindow ? now : rate.windowStartedAt,
+            windowRequests: newWindow ? 1 : rate.windowRequests + 1,
+          },
+        });
         return { ...job, attemptCount: job.attemptCount + 1 };
       });
     },
@@ -219,6 +286,8 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
           AND c."noteContentHash" = n."contentHash"
           AND c."chunkerVersion" = ${CHUNKER_VERSION}
           AND e."modelId" = ${EMBEDDING_MODEL}
+          AND e."provider" = ${PROVIDER}
+          AND e."dimensions" = ${EMBEDDING_DIMENSIONS}
       `;
       return changed === 1;
     },
@@ -258,17 +327,18 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
       return updated.count === 1;
     },
 
-    async usedTokensToday(ownerSubject: string, now: Date): Promise<number> {
+    async reservedTokensToday(
+      ownerSubject: string,
+      now: Date,
+    ): Promise<number> {
       validOwner(ownerSubject);
-      const midnight = new Date(
+      const day = new Date(
         Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
       );
-      const rows = await db.$queryRaw<Array<{ total: bigint }>>`
-        SELECT COALESCE(SUM(e."usageTokens"), 0)::bigint AS total
-        FROM "chunk_embeddings" e INNER JOIN "note_chunks" c ON c."id" = e."chunkId"
-        WHERE c."ownerSubject" = ${ownerSubject} AND e."indexedAt" >= ${midnight}
-      `;
-      return Number(rows[0]?.total ?? 0n);
+      const budget = await db.embeddingDailyBudget.findUnique({
+        where: { ownerSubject_day: { ownerSubject, day } },
+      });
+      return budget?.reservedTokens ?? 0;
     },
   };
 }

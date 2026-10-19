@@ -183,3 +183,16 @@ observations and direct owner feedback on synonym meaning and workflow
 friction; review privacy and backward compatibility; then record a dated,
 numbered accepted decision or retain D-018 with no change. Issue #54 stays
 open for those product inputs; a docs-only PR does not close it.
+
+## Embedding worker completion boundary (2026-10-19, issue #47)
+
+The opt-in, finite DB embedding worker has a replaceable OpenAI adapter,
+idempotent chunk/model jobs, lease recovery and bounded retries. Follow-up
+completion adds durable owner/day request reservations and rate windows,
+resumable preparation checkpoints, explicit startup privacy validation, and
+synthetic provider-to-PostgreSQL tests. The server-only owner-scoped lexical
+fallback reads DB originals independently of provider/index availability,
+including DB-only source records. HTTP/hybrid retrieval and default search
+activation remain #48/#50; no identity provider, automatic ingress hook,
+continuous deployment or actual private-text egress is implied. See the
+[worker runbook](03-repositories-and-operations.md#explicit-embeddings-pass-issue-47).

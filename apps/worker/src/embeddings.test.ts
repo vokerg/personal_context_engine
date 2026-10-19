@@ -12,12 +12,13 @@ function fakeQueue(overrides: Partial<EmbeddingQueue> = {}): EmbeddingQueue {
     { id: "job-a", chunkId: "chunk-a", text: "Synthetic.", attemptCount: 1 },
   ];
   return {
+    checkpointScan: vi.fn(async () => {}),
     candidateNotes: vi.fn(async () => ["note-a"]),
     prepareNote: vi.fn(async () => ({ status: "synchronized", count: 1 })),
     claim: vi.fn(async () => jobs.shift() ?? null),
     complete: vi.fn(async () => true),
     fail: vi.fn(async () => true),
-    usedTokensToday: vi.fn(async () => 0),
+    reservedTokensToday: vi.fn(async () => 0),
     ...overrides,
   };
 }
@@ -60,7 +61,7 @@ describe("asynchronous embedding pass with fake provider (no network)", () => {
   });
 
   it("bounds paid requests and refuses more work when daily owner budget is reached", async () => {
-    const queue = fakeQueue({ usedTokensToday: async () => 59_000 });
+    const queue = fakeQueue({ reservedTokensToday: async () => 59_000 });
     const embed = vi.fn();
     const report = await runEmbeddingPass({
       queue,
@@ -183,5 +184,76 @@ describe("asynchronous embedding pass with fake provider (no network)", () => {
     await expect(malformed.embed("Synthetic.")).rejects.toMatchObject({
       code: "INVALID_RESPONSE",
     });
+  });
+  it("bounds each pass even when a replacement queue always returns work", async () => {
+    const queue = fakeQueue({
+      claim: async () => ({
+        id: "job",
+        chunkId: "chunk",
+        text: "Synthetic.",
+        attemptCount: 1,
+      }),
+    });
+    const embed = vi.fn(async () => ({ vector, usageTokens: 1 }));
+    const result = await runEmbeddingPass({
+      queue,
+      provider: { embed },
+      ownerSubject: "owner-a",
+    });
+    expect(result.requests).toBe(4);
+    expect(embed).toHaveBeenCalledTimes(4);
+    expect(queue.checkpointScan).toHaveBeenCalledWith("owner-a", "note-a");
+  });
+
+  it("does not send oversized private input even through a replaceable queue or provider", async () => {
+    const text = "x".repeat(8193);
+    const queue = fakeQueue({
+      claim: vi
+        .fn()
+        .mockResolvedValueOnce({
+          id: "job",
+          chunkId: "chunk",
+          text,
+          attemptCount: 1,
+        })
+        .mockResolvedValue(null),
+    });
+    const embed = vi.fn();
+    expect(
+      (
+        await runEmbeddingPass({
+          queue,
+          provider: { embed },
+          ownerSubject: "owner-a",
+        })
+      ).failed,
+    ).toBe(1);
+    expect(embed).not.toHaveBeenCalled();
+    const request = vi.fn();
+    const provider = createOpenAIEmbeddingProvider(
+      "sk-synthetic-private-key-123456789",
+      "proj_synthetic",
+      request,
+    );
+    await expect(provider.embed(text)).rejects.toMatchObject({
+      code: "INVALID_RESPONSE",
+    });
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("leaves scan progress unchanged if preparation fails before durable completion", async () => {
+    const queue = fakeQueue({
+      prepareNote: async () => {
+        throw new Error("DB unavailable");
+      },
+    });
+    await expect(
+      runEmbeddingPass({
+        queue,
+        provider: { embed: vi.fn() },
+        ownerSubject: "owner-a",
+      }),
+    ).rejects.toThrow();
+    expect(queue.checkpointScan).not.toHaveBeenCalled();
   });
 });
