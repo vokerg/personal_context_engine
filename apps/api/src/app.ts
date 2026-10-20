@@ -1,4 +1,10 @@
 import {
+  CaptureRequestSchema,
+  CaptureResponseSchema,
+  type CaptureRequest,
+  type CaptureResponse,
+} from "@pce/contracts";
+import {
   registerSessionRoutes,
   requireSessionScope,
   type SessionAuth,
@@ -54,6 +60,12 @@ export interface PrivateNoteReader {
 
 export interface ApiDependencies {
   sessionAuth?: SessionAuth;
+  capture?: {
+    persistByOwner(
+      owner: string,
+      input: CaptureRequest,
+    ): Promise<CaptureResponse>;
+  };
   /** A trusted adapter supplied by the DB integration; never a user request. */
   checkDatabase?: () => Promise<boolean>;
   verifyToken?: TokenVerifier;
@@ -190,6 +202,41 @@ export function createApp(options: ApiOptions = {}) {
   );
 
   if (sessionAuth) registerSessionRoutes(app, sessionAuth);
+  if (options.dependencies?.capture) {
+    if (!sessionAuth)
+      throw new Error("Capture requires session authentication");
+    const capture = options.dependencies.capture;
+    app.post(
+      "/api/v1/captures",
+      {
+        bodyLimit: 262144,
+        preHandler: (request, reply) =>
+          requireSessionScope(request, reply, sessionAuth, "capture:write"),
+      },
+      async (request, reply) => {
+        const input = CaptureRequestSchema.safeParse(request.body);
+        if (!input.success)
+          return reply.code(400).send(errorResponse("BAD_REQUEST"));
+        try {
+          return CaptureResponseSchema.parse(
+            await capture.persistByOwner(
+              request.authenticatedPrincipal!.subject,
+              input.data,
+            ),
+          );
+        } catch (error) {
+          if (error instanceof Error && error.name === "CaptureConflict")
+            return reply.code(409).send(errorResponse("BAD_REQUEST"));
+          if (
+            error instanceof TypeError ||
+            (error instanceof Error && error.name === "NoteValidationError")
+          )
+            return reply.code(400).send(errorResponse("BAD_REQUEST"));
+          throw error;
+        }
+      },
+    );
+  }
 
   if (notes) {
     const requireNoteRead = async (

@@ -64,6 +64,7 @@ model Note {
   updatedAt       DateTime     @updatedAt @db.Timestamptz(3)
   attempts        ProcessingAttempt[]
   chunks          NoteChunk[]
+  jobs            DbProcessingJob[]
 
   @@unique([id, ownerSubject])
   @@unique([sourcePath, sourceRevision])
@@ -239,4 +240,34 @@ model ApiGrant {
 
   @@index([sessionId])
   @@map("api_grants")
+}
+
+model ApiCaptureReceipt {
+  id String @id @default(uuid()) @db.Uuid
+  ownerSubject String @db.VarChar(128)
+  idempotencyHash String @db.Char(64)
+  payloadHash String @db.Char(64)
+  noteIds String[]
+  markdowns Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([ownerSubject, idempotencyHash])
+  @@map("api_capture_receipts")
+}
+
+model DbProcessingJob {
+  id String @id @default(uuid()) @db.Uuid
+  ownerSubject String @db.VarChar(128)
+  noteId String @db.VarChar(36)
+  note Note @relation(fields:[noteId,ownerSubject],references:[id,ownerSubject],onDelete:Cascade,onUpdate:Restrict)
+  sourceRevision String @db.VarChar(128)
+  status String @default("PENDING") @db.VarChar(24)
+  attemptCount Int @default(0)
+  leaseOwner String? @db.VarChar(128)
+  leaseUntil DateTime? @db.Timestamptz(3)
+  nextRetryAt DateTime? @db.Timestamptz(3)
+  lastErrorCode String? @db.VarChar(64)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([noteId,sourceRevision])
+  @@index([ownerSubject,status,nextRetryAt])
+  @@map("db_processing_jobs")
 }

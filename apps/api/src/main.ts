@@ -1,5 +1,9 @@
 import { createSessionAuth, sessionConfig } from "./session-auth.js";
-import { checkDatabase, createDatabaseClient } from "@pce/db";
+import {
+  checkDatabase,
+  createDatabaseClient,
+  createApiCaptureRepository,
+} from "@pce/db";
 import { createApp } from "./app.js";
 import { loadApiConfig } from "./config.js";
 
@@ -27,7 +31,10 @@ async function start(): Promise<void> {
             dependencies: {
               checkDatabase: () => checkDatabase(connected),
               ...(sessionOptions
-                ? { sessionAuth: createSessionAuth(connected, sessionOptions) }
+                ? {
+                    sessionAuth: createSessionAuth(connected, sessionOptions),
+                    capture: createApiCaptureRepository(connected),
+                  }
                 : {}),
             },
           }
