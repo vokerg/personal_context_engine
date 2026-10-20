@@ -1,4 +1,10 @@
 import {
+  SearchRequestSchema,
+  SearchResponseSchema,
+  type SearchRequest,
+  type SearchResponse,
+} from "@pce/contracts";
+import {
   BrowseQuerySchema,
   BrowsePageSchema,
   BrowseFacetsSchema,
@@ -44,6 +50,7 @@ export interface AuthenticatedRequestOptions {
   baseUrl: string;
   getAccessToken: AccessTokenProvider;
   useSessionCookie?: boolean;
+  getCsrfToken?: () => string;
   request?: typeof fetch;
   signal?: AbortSignal;
   /** Opt-in per-request timeout (100–60000ms). */
@@ -98,6 +105,7 @@ async function authenticatedGet<T>(
   options: AuthenticatedRequestOptions,
   path: string,
   parse: (data: unknown) => T,
+  body?: unknown,
 ): Promise<T> {
   const url = new URL(path, options.baseUrl);
   if (
@@ -180,10 +188,27 @@ async function authenticatedGet<T>(
       throw new TypeError("Invalid access token format");
     }
     const response = await (options.request ?? fetch)(url, {
-      method: "GET",
+      method: body === undefined ? "GET" : "POST",
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       ...(options.useSessionCookie
-        ? { credentials: "include" as const }
-        : { headers: { Authorization: "Bearer " + token } }),
+        ? {
+            credentials: "include" as const,
+            headers:
+              body === undefined
+                ? {}
+                : {
+                    "Content-Type": "application/json",
+                    "X-PCE-CSRF": options.getCsrfToken?.() ?? "",
+                  },
+          }
+        : {
+            headers: {
+              Authorization: "Bearer " + token,
+              ...(body === undefined
+                ? {}
+                : { "Content-Type": "application/json" }),
+            },
+          }),
       ...(signal ? { signal } : {}),
     });
     if (!response.ok) {
@@ -304,3 +329,26 @@ export function getBrowseFacets(
 }
 export type { BrowseQuery, BrowsePage, BrowseFacets } from "@pce/contracts";
 export { BrowseQuerySchema } from "@pce/contracts";
+
+export function searchContext(
+  options: AuthenticatedRequestOptions,
+  input: SearchRequest,
+): Promise<SearchResponse> {
+  return authenticatedGet(
+    options,
+    "/api/v1/search",
+    SearchResponseSchema.parse,
+    SearchRequestSchema.parse(input),
+  );
+}
+export function getSearchNote(
+  options: AuthenticatedRequestOptions,
+  id: string,
+): Promise<NoteDetail> {
+  return authenticatedGet(
+    options,
+    "/api/v1/search/notes/" + NoteIdSchema.parse(id),
+    NoteDetailSchema.parse,
+  );
+}
+export type { SearchRequest, SearchResponse };

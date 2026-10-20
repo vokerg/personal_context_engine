@@ -233,3 +233,6 @@ export { createSessionRepository } from "./session-auth.js";
 export type { SessionRepository } from "./session-auth.js";
 
 export { createApiCaptureRepository, CaptureConflict } from "./api-capture.js";
+
+export { createSearchRepository } from "./search.js";
+export type { SearchRepository } from "./search.js";

@@ -7,7 +7,10 @@ import {
   getTags,
   getBrowsePage,
   getBrowseFacets,
+  searchContext,
+  getSearchNote,
   type BrowseFacets,
+  type SearchRequest,
   type TagFacetsResponse,
   isNoteId,
   type NoteDetail,
@@ -55,10 +58,12 @@ export function App({
   localDevelopment = import.meta.env.VITE_PCE_LOCAL_DEV === "true",
   baseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:3000",
   browseEnabled = import.meta.env.VITE_PCE_LOCAL_BROWSE === "true",
+  searchEnabled = import.meta.env.VITE_PCE_DB_SEARCH === "true",
 }: {
   baseUrl?: string;
   localDevelopment?: boolean;
   browseEnabled?: boolean;
+  searchEnabled?: boolean;
 }) {
   const sessionAuthentication =
     import.meta.env.VITE_PCE_SESSION_AUTH === "true";
@@ -68,6 +73,7 @@ export function App({
   const [draft, setDraft] = useState("");
   const [token, setToken] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [searchStatus, setSearchStatus] = useState("");
   const [ingestion, setIngestion] = useState<IngestionStatus | null>(null);
   const [listState, setListState] = useState<LoadState>("loading");
   const [listError, setListError] = useState("");
@@ -381,19 +387,61 @@ export function App({
     const controller = new AbortController();
     setListState("loading");
     setListError("");
+    setSearchStatus("");
     const requestOptions = {
       baseUrl,
       getAccessToken: () => token,
       useSessionCookie: sessionAuthentication,
+      getCsrfToken: () =>
+        document.cookie
+          .split("; ")
+          .find((v) => v.startsWith("pce_csrf="))
+          ?.slice(9) ?? "",
       signal: controller.signal,
       timeoutMs: 12000,
     };
-    const request = browseEnabled
-      ? getBrowsePage(requestOptions, {
-          ...apiFilters,
-          ...(browseCursor ? { cursor: browseCursor } : {}),
-        })
-      : getNotes(requestOptions, apiFilters);
+    const query = (apiFilters as { q?: string }).q;
+    const request =
+      searchEnabled && query
+        ? searchContext(requestOptions, {
+            query,
+            limit: 24,
+            ...(filters.tag ? { tags: [filters.tag] } : {}),
+            ...(filters.project ? { project: filters.project } : {}),
+            ...(filters.kind
+              ? { kind: filters.kind as SearchRequest["kind"] }
+              : {}),
+            ...((apiFilters as { start?: string }).start
+              ? { start: (apiFilters as { start: string }).start }
+              : {}),
+            ...((apiFilters as { end?: string }).end
+              ? { end: (apiFilters as { end: string }).end }
+              : {}),
+            ...(browseCursor ? { cursor: browseCursor } : {}),
+          }).then((result) => {
+            if (active)
+              setSearchStatus(
+                result.mode === "hybrid"
+                  ? "Semantic and keyword matches"
+                  : "Keyword matches — semantic search is currently unavailable.",
+              );
+            return {
+              notes: result.results.map((r) => ({
+                id: r.id,
+                title: r.title,
+                summary: r.snippet || r.title,
+                tags: r.tags,
+                capturedAt: r.capturedAt,
+              })),
+              nextCursor: result.nextCursor,
+            };
+          })
+        : browseEnabled
+          ? getBrowsePage(requestOptions, {
+              ...apiFilters,
+              ...(browseCursor ? { cursor: browseCursor } : {}),
+            })
+          : getNotes(requestOptions, apiFilters);
     request
       .then((result) => {
         if (!active) return;
@@ -447,6 +495,11 @@ export function App({
       baseUrl,
       getAccessToken: () => token,
       useSessionCookie: sessionAuthentication,
+      getCsrfToken: () =>
+        document.cookie
+          .split("; ")
+          .find((v) => v.startsWith("pce_csrf="))
+          ?.slice(9) ?? "",
       signal: controller.signal,
       timeoutMs: 12000,
     })
@@ -488,6 +541,11 @@ export function App({
       baseUrl,
       getAccessToken: () => token,
       useSessionCookie: sessionAuthentication,
+      getCsrfToken: () =>
+        document.cookie
+          .split("; ")
+          .find((v) => v.startsWith("pce_csrf="))
+          ?.slice(9) ?? "",
       signal: controller.signal,
       timeoutMs: 12000,
     })
@@ -521,11 +579,16 @@ export function App({
     setDetail(null);
     setDetailState("loading");
     setDetailError("");
-    getNote(
+    (searchEnabled ? getSearchNote : getNote)(
       {
         baseUrl,
         getAccessToken: () => token,
         useSessionCookie: sessionAuthentication,
+        getCsrfToken: () =>
+          document.cookie
+            .split("; ")
+            .find((v) => v.startsWith("pce_csrf="))
+            ?.slice(9) ?? "",
         signal: controller.signal,
         timeoutMs: 12000,
       },
@@ -604,6 +667,7 @@ export function App({
         )}
       </header>
 
+      {token && searchStatus && <p role="status">{searchStatus}</p>}
       {token && notice && (
         <p className="notice" role="status">
           {notice}
@@ -704,7 +768,9 @@ export function App({
                   id="note-query"
                   type="search"
                   maxLength={browseEnabled ? 256 : undefined}
-                  placeholder="Keyword"
+                  placeholder={
+                    searchEnabled ? "Ask or search your notes" : "Keyword"
+                  }
                   value={filters.query}
                   onChange={(event) =>
                     changeFilter({ query: event.target.value })

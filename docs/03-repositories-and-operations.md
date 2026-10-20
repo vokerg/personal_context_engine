@@ -447,10 +447,11 @@ most four requests. Each chunk is at most 2,048 Unicode code points (up to
 and an estimate at the original implementation's $0.02/1M token rate; verify
 current provider pricing separately. This is not an invoice.
 
-**Database-enforced ceilings:** each claim reserves 8,192 tokens, including
+**Database-enforced ceilings:** each claim reserves the chunk's UTF-8 byte count plus 16 tokens (capped
+at 8,192), including
 retries and recovered leases, before any provider call. Reservations are
 never refunded: failed/time-out requests can be charged. A locked owner/UTC-day
-budget permits at most 60,000 reserved tokens (seven attempts) per day, and
+budget permits at most 60,000 reserved tokens per day, and
 four claims in a 60-second window. Concurrent processes share these limits.
 Counts/reservations survive restarts and source updates/deletion; retained
 successful vectors are no longer the basis of the spending gate. This is a

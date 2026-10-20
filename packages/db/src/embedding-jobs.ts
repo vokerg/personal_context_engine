@@ -173,8 +173,7 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
         const newWindow =
           now.getTime() - rate.windowStartedAt.getTime() >= 60_000;
         if (
-          budget.reservedTokens + EMBEDDING_TOKEN_RESERVATION >
-            EMBEDDING_DAILY_TOKEN_LIMIT ||
+          budget.reservedTokens >= EMBEDDING_DAILY_TOKEN_LIMIT ||
           (!newWindow && rate.windowRequests >= EMBEDDING_REQUESTS_PER_MINUTE)
         )
           return null;
@@ -218,6 +217,12 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
         `;
         const job = rows[0];
         if (!job) return null;
+        const reservation = Math.min(
+          EMBEDDING_TOKEN_RESERVATION,
+          Buffer.byteLength(job.text, "utf8") + 16,
+        );
+        if (budget.reservedTokens + reservation > EMBEDDING_DAILY_TOKEN_LIMIT)
+          return null;
         await tx.chunkEmbedding.update({
           where: { id: job.id },
           data: {
@@ -231,7 +236,7 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
         await tx.embeddingDailyBudget.update({
           where: { ownerSubject_day: { ownerSubject, day } },
           data: {
-            reservedTokens: { increment: EMBEDDING_TOKEN_RESERVATION },
+            reservedTokens: { increment: reservation },
             requestCount: { increment: 1 },
           },
         });

@@ -38,7 +38,8 @@ export function localConfig(env) {
   return {
     apiPort,
     webPort,
-    browseEnabled: env.PCE_LOCAL_BROWSE === "true",
+    browseEnabled: env.PCE_LOCAL_BROWSE === "true" || env.PCE_DB_SEARCH === "true",
+    searchEnabled: env.PCE_DB_SEARCH === "true",
     origin: `http://127.0.0.1:${webPort}`,
     contentRoot: resolve(
       env.PCE_CONTENT_ROOT ?? "../personal_context_engine_content",

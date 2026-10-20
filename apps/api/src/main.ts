@@ -1,3 +1,7 @@
+import { randomBytes } from "node:crypto";
+import { createSearchRepository } from "@pce/db";
+import { createSearchService } from "./search.js";
+import { queryEmbeddingProvider } from "./search-provider.js";
 import { createSessionAuth, sessionConfig } from "./session-auth.js";
 import {
   checkDatabase,
@@ -19,6 +23,13 @@ async function start(): Promise<void> {
     }
     const connected = db;
     const sessionOptions = sessionConfig(process.env);
+    if (
+      process.env.PCE_DB_SEARCH &&
+      !["true", "false"].includes(process.env.PCE_DB_SEARCH)
+    )
+      throw new Error("Invalid search flag");
+    if (process.env.PCE_DB_SEARCH === "true" && !sessionOptions)
+      throw new Error("Search requires configured sessions");
     if (sessionOptions && !connected)
       throw new Error("Sessions require a database");
     app = createApp({
@@ -34,6 +45,15 @@ async function start(): Promise<void> {
                 ? {
                     sessionAuth: createSessionAuth(connected, sessionOptions),
                     capture: createApiCaptureRepository(connected),
+                    ...(process.env.PCE_DB_SEARCH === "true"
+                      ? {
+                          search: createSearchService(
+                            createSearchRepository(connected),
+                            randomBytes(32).toString("hex"),
+                            queryEmbeddingProvider(process.env),
+                          ),
+                        }
+                      : {}),
                   }
                 : {}),
             },

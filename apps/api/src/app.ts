@@ -1,3 +1,5 @@
+import { SearchRequestSchema, SearchResponseSchema } from "@pce/contracts";
+import type { SearchService } from "./search.js";
 import {
   CaptureRequestSchema,
   CaptureResponseSchema,
@@ -60,6 +62,7 @@ export interface PrivateNoteReader {
 
 export interface ApiDependencies {
   sessionAuth?: SessionAuth;
+  search?: SearchService;
   capture?: {
     persistByOwner(
       owner: string,
@@ -202,6 +205,56 @@ export function createApp(options: ApiOptions = {}) {
   );
 
   if (sessionAuth) registerSessionRoutes(app, sessionAuth);
+  if (options.dependencies?.search) {
+    if (!sessionAuth) throw new Error("DB search requires scoped sessions");
+    const search = options.dependencies.search;
+    app.post(
+      "/api/v1/search",
+      {
+        preHandler: (request, reply) =>
+          requireSessionScope(request, reply, sessionAuth, "notes:read"),
+      },
+      async (request, reply) => {
+        const input = SearchRequestSchema.safeParse(request.body);
+        if (!input.success)
+          return reply.code(400).send(errorResponse("BAD_REQUEST"));
+        try {
+          return SearchResponseSchema.parse(
+            await search.searchByOwner(
+              request.authenticatedPrincipal!.subject,
+              input.data,
+            ),
+          );
+        } catch (error) {
+          if (error instanceof Error && error.name === "SearchCursorError")
+            return reply.code(400).send(errorResponse("BAD_REQUEST"));
+          throw error;
+        }
+      },
+    );
+    app.get(
+      "/api/v1/search/notes/:id",
+      {
+        preHandler: (request, reply) =>
+          requireSessionScope(request, reply, sessionAuth, "notes:read"),
+      },
+      async (request, reply) => {
+        const id = NoteIdSchema.safeParse(
+          (request.params as { id: string }).id,
+        );
+        if (!id.success)
+          return reply.code(400).send(errorResponse("BAD_REQUEST"));
+        const note = await search.getByOwner(
+          request.authenticatedPrincipal!.subject,
+          id.data,
+        );
+        return note
+          ? NoteDetailSchema.parse(note)
+          : reply.code(404).send(errorResponse("NOT_FOUND"));
+      },
+    );
+  }
+
   if (options.dependencies?.capture) {
     if (!sessionAuth)
       throw new Error("Capture requires session authentication");
