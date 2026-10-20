@@ -25,7 +25,7 @@ logs, shared links and browser storage.
 
 PostgreSQL `simple` full-text ranking matches query terms, with literal substring
 support for punctuation/identifiers. Exact current-owner/model/chunker/revision
-1536-dimensional vectors provide cosine candidates (distance <0.65); reciprocal
+1536-dimensional vectors provide cosine candidates (distance <0.85); reciprocal
 rank fusion uses k=60 and deduplicates per note. Each branch considers at most
 200 candidates and the response pages the first 200 fused notes. This bounded
 window is disclosed by `truncated`; refine filters to explore more. Vector
@@ -73,3 +73,9 @@ these deterministic cases.
 Disable PCE_DB_SEARCH and restart to restore the prior reader/routes/UI. Clearing
 embedding enablement retains keyword search. No destructive schema rollback or
 content change is needed.
+
+A bounded live synthetic Russian payment/invoice probe measured cosine 0.274
+for the relevant source and 0.063 for an unrelated beach note. The initial
+0.35-cosine cutoff excluded that relevant paraphrase; the local gate uses
+0.15 cosine instead and regression-tests this range. This small probe is not a
+representative relevance benchmark; owner acceptance remains part of #50.

@@ -83,7 +83,15 @@ ${original}
     });
     it("finds a no-shared-word Russian finance source through vectors, fuses lexical matches and excludes foreign owners", async () => {
       const owner = "search-" + randomUUID(),
-        id = await seed(owner, "закрыть инвойс", basis(0));
+        // Live synthetic OpenAI probe produced ~0.274 cosine for this paraphrase.
+        // Keep a weak but relevant vector match; an exact basis match hid cutoff bugs.
+        id = await seed(
+          owner,
+          "закрыть инвойс",
+          Array.from({ length: 1536 }, (_, i) =>
+            i === 0 ? 0.274 : i === 1 ? Math.sqrt(1 - 0.274 ** 2) : 0,
+          ),
+        );
       const foreign = await seed(
         "foreign-" + randomUUID(),
         "Какие были оплаты?",

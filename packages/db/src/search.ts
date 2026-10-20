@@ -74,7 +74,7 @@ export function createSearchRepository(db: PrismaClient) {
          AND c."noteContentHash"=f."contentHash" AND c."chunkerVersion"=${CHUNKER_VERSION}
          AND e.status='READY' AND e.vector IS NOT NULL AND e.provider='openai'
          AND e."modelId"=${EMBEDDING_MODEL} AND e.dimensions=${EMBEDDING_DIMENSIONS}
-        GROUP BY f.id HAVING min(e.vector <=> ${literal}::vector)<0.65
+        GROUP BY f.id HAVING min(e.vector <=> ${literal}::vector)<0.85
         ORDER BY distance,f.id COLLATE "C" LIMIT 200`
            : Prisma.sql`SELECT id,0.0::double precision AS distance FROM filtered WHERE false`
        }
