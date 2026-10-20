@@ -74,6 +74,7 @@ ${text}
           redirect_uri: redirect,
           resource: issuer + "/mcp",
           scope,
+          ui_locales: "en-US",
           state: randomBytes(24).toString("base64url"),
           code_challenge: createHash("sha256")
             .update(verifier)
