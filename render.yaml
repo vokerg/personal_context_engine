@@ -1,0 +1,57 @@
+# Only main is deployed. Existing external PostgreSQL is configured privately.
+previews:
+  generation: "off"
+services:
+  - type: web
+    name: personal-context-engine-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    repo: https://github.com/vokerg/personal_context_engine
+    branch: main
+    autoDeployTrigger: commit
+    previews:
+      generation: "off"
+    buildCommand: npm ci --include=dev && npm run prisma:generate && npm run build -w @pce/core && npm run build -w @pce/contracts && npm run build -w @pce/db && npm run build -w @pce/api
+    startCommand: node scripts/deploy-migrate.mjs && npm run start -w @pce/api
+    healthCheckPath: /ready
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_REQUIRE_DB
+        value: "true"
+      - key: PCE_AUTH_MODE
+        value: single-user
+      - key: PCE_OWNER_SUBJECT
+        value: local-developer
+      - key: PCE_WEB_ORIGIN
+        value: https://personal-context-engine-web.vercel.app
+      - key: PCE_API_ORIGIN
+        value: https://personal-context-engine-web.vercel.app
+      - key: PCE_DB_SEARCH
+        value: "true"
+      - key: PCE_MCP_ENABLED
+        value: "false"
+      # Operator-only opt-in; never enabled by applying the public blueprint.
+      - key: PCE_EMBEDDINGS_ENABLED
+        sync: false
+      - key: PCE_EMBEDDING_EGRESS_APPROVED
+        sync: false
+      - key: OPENAI_EMBEDDING_MODEL
+        value: text-embedding-3-small
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: PCE_SINGLE_USER_USERNAME
+        sync: false
+      - key: PCE_SINGLE_USER_PASSWORD_HASH
+        sync: false
+      - key: OPENAI_PROJECT_ID
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false

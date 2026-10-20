@@ -114,6 +114,12 @@ Alternatively run `npm run dev:api`, `npm run dev:worker`, or `npm run dev:web` 
 
 For Expo, set a device-reachable `EXPO_PUBLIC_API_BASE_URL` and run `npm run dev:mobile` with a separately configured simulator/device development environment. Expo Go/native device launch and bundle compatibility must be verified on the target platform; the bootstrap CI only runs TypeScript checking, not an emulator or a production mobile bundle. Authenticated remote client calls require HTTPS; device `localhost` does not reach the host PC. See [client runbook](docs/03-repositories-and-operations.md#minimal-web-and-expo-read-only-clients-14). PostgreSQL/Prisma migration and disposable local DB commands are available through `packages/db/README.md` (issue #8); production note browsing still needs an owner-aware data reader and trusted token issuer. See [repository operations](docs/03-repositories-and-operations.md).
 
+## Hosted deployment
+
+[Vercel web and Render API setup](docs/19-hosted-deployment.md) documents the
+owner-selected main-only deployment, same-origin sessions, private environment
+variables and verification. Hosted ChatGPT connector setup remains a separate step.
+
 ## Contribution and review
 
 Non-trivial code, schema, infrastructure and architecture work **starts with a GitHub issue**. Follow the [contributor workflow](CONTRIBUTING.md), using the [implementation or bug-report templates](.github/ISSUE_TEMPLATE/) and the [PR template](.github/pull_request_template.md). Every implementing PR references its issue, includes actual verification evidence and requires explicit human authorization before merge; a coding agent must not approve its own PR or merge without that authorization. Prefer squash merges. Keep documentation synchronized with behavior.

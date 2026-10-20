@@ -13,6 +13,12 @@ describe("API environment validation", () => {
     });
   });
 
+  it("uses the hosting platform port unless API_PORT explicitly overrides it", () => {
+    expect(loadApiConfig({ PORT: "10000" }).port).toBe(10000);
+    expect(loadApiConfig({ PORT: "10000", API_PORT: "3110" }).port).toBe(3110);
+    expect(() => loadApiConfig({ PORT: "invalid" })).toThrow();
+  });
+
   it("rejects non-port, dangerous origin and inconsistent environment values", () => {
     for (const env of [
       { API_PORT: "NaN" },

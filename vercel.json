@@ -1,0 +1,36 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "npm ci --include=dev",
+  "buildCommand": "npm run build -w @pce/contracts && npm run build -w @pce/api-client && npm run build -w @pce/web",
+  "outputDirectory": "apps/web/dist",
+  "ignoreCommand": "node scripts/vercel-ignore-build.mjs",
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "main": true
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/auth/:path*",
+      "destination": "https://personal-context-engine-api.onrender.com/auth/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "https://personal-context-engine-api.onrender.com/api/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://personal-context-engine-api.onrender.com/health"
+    },
+    {
+      "source": "/ready",
+      "destination": "https://personal-context-engine-api.onrender.com/ready"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
