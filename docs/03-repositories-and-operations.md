@@ -464,9 +464,9 @@ Preparation progress is checkpointed after the page commits and resumed by
 subsequent explicit runs. Empty pages reset the cursor for reconciliation;
 oversized/empty notes cannot permanently starve later IDs. A crash before
 checkpointing safely repeats idempotent preparation. Concurrent scans may
-repeat pages; durable job uniqueness prevents duplicate indexing. A separate
-hosted scheduler and transactional ingress enqueue hook remain #45/deployment
-work; this worker reconciles only committed DB notes and never delays capture.
+repeat pages; durable job uniqueness prevents duplicate indexing. The #45 API capture transaction also enqueues durable DB preparation jobs. A
+separate hosted scheduler remains deployment work; this embedding worker
+reconciles only committed DB notes and never delays capture.
 
 Leases last two minutes; a subsequent explicit run reclaims expired leases,
 with at most six attempts, exponential retries for 429/5xx/timeouts and
@@ -485,11 +485,11 @@ neither chunks/vectors nor a provider or GitHub checkout. Queries are bounded
 revisions and bounded original snippets preserve provenance. API-origin notes
 are included without inventing a GitHub URL. Server callers must derive owner
 from verified identity and expose this port only through a separately gated,
-authenticated retrieval integration (#48). No HTTP search route, hybrid
-ranking, production identity, ChatGPT search cutover or continuous scheduler
-is activated here. Tests demonstrate retrieval of synthetic DB-only originals
-during a provider outage. The existing local checkout-based UI retains its
-current scope; this server port does not silently widen its allowlist.
+authenticated retrieval integration (#48). The original #47 port alone activates no HTTP route. The explicit #48
+`PCE_DB_SEARCH=true` gate now supplies authenticated lexical/hybrid retrieval
+and DB-original detail to the web reader, including API-only notes. Tests cover
+provider-outage fallback. Production deployment, ChatGPT search cutover and a
+continuous scheduler remain separate. See [search operation](17-search.md).
 
 Synthetic CI uses a fake provider and an isolated PostgreSQL vector store;
 it never authorizes real data egress. To stop indexing, unset the one-shot
@@ -510,6 +510,36 @@ copy SportOS database/session keys or provider credentials to PCE.
 `GET /auth/session` verifies the current cookie; `POST /auth/logout` revokes it.
 Browser unsafe methods require X-PCE-CSRF. Authenticated `POST /auth/token` with
 `scope` (`notes:read`, `capture:write`) issues a bounded delegated token pair;
-MCP authorization-code/PKCE discovery and refresh routes are added under #49.
+Optional MCP authorization-code/PKCE discovery, consent, refresh and revocation
+routes are implemented under #49; see [MCP operation](18-mcp.md).
 A caller cannot specify an owner. Removing the mode restores the prior runtime;
 existing additive session tables can remain. No production deployment is implied.
+
+
+## Verified local startup and worker separation (#44/#45/#48/#49)
+
+Use one hostname for web/API sessions. The canonical ports are web **4310** and
+API **3110** (override with `PCE_WEB_PORT` / `API_PORT`). In the root checkout:
+
+```bash
+PCE_AUTH_MODE=dev-single-user PCE_DB_SEARCH=true npm run dev:local
+```
+
+The launcher uses trusted `DIRECT_URL` for migrations when present and keeps
+`DATABASE_URL` for runtime queries. It suppresses migration connection diagnostics.
+This prevents session-level migration locks from being left on a transaction
+pooler. Do not disable advisory locking or bypass migrations to fix a timeout.
+
+`PCE_INGEST_GITHUB=true` retains the existing bounded 30-second GitHub worker.
+The default standalone worker stays idle. Prepare API-origin durable jobs with:
+
+```bash
+WORKER_MODE=db-jobs-once PCE_OWNER_SUBJECT=local-developer node --env-file=.env apps/worker/dist/main.js
+```
+
+This preparation pass calls no provider. Embedding passes remain explicit
+`npm run embeddings:once` with the separate enablement/egress gates. Semantic
+query processing uses those same gates but runs only for user queries; it never
+launches a corpus indexing loop. See [search cost/fallback/rollback](17-search.md)
+and [MCP consent/deployment boundaries](18-mcp.md). No extra username/login is
+introduced for MCP; scopes are delegated from the same browser session.

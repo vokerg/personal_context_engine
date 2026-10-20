@@ -1,9 +1,19 @@
 # 13 — Progressive evolution: optional GitHub ingress, PostgreSQL workers, MCP and UX
 
-**Date:** 2026-10-16; **revised:** 2026-10-17. **Status:** accepted target / roadmap, **not** implemented services. Supersedes the mandatory dual-store direction in the previous version.
+**Date:** 2026-10-16; **revised:** 2026-10-20. **Status:** accepted target / roadmap with the explicitly gated local milestone below; not proof of hosted services. Supersedes the mandatory dual-store direction in the previous version.
 Parent implementation epic: [#42](https://github.com/vokerg/personal_context_engine/issues/42).
 Authority: [intent](../INTENT.md), [decisions](11-decisions.md), [security](09-security-and-privacy.md).
 This document describes contracts and gates for future PRs; it does **not** alter the current Markdown v1 parser, Prisma schema, API, worker or ChatGPT configuration.
+
+## Implemented local milestone (2026-10-20)
+
+Single-user sessions and scoped grants (#44), transactional DB-first API capture
+and preparation jobs (#45), bounded embedding workers (#46/#47), and gated
+owner-scoped web/API lexical/hybrid search (#48) are implemented and tested.
+The optional MCP/OAuth adapter (#49) shares that login and passes official-client
+loopback tests. Hosted HTTPS and live ChatGPT connector/cutover acceptance
+remain open (#49/#50). GitHub capture/search stays available. See
+[search runbook](17-search.md) and [MCP runbook](18-mcp.md).
 
 ## Baseline that must not break
 
@@ -18,13 +28,13 @@ ChatGPT + GitHub connector ---write/read/search---> PRIVATE content repo
                                   PostgreSQL notes
 ```
 
-Keep repo-based ChatGPT search **as the current default** until PostgreSQL retrieval is independently verified and explicitly approved. GitHub files remain a useful input archive and fallback **for GitHub-origin records only**, not a backup of future API-origin captures or derived data.
+Keep repo-based ChatGPT search **as the current default** until PostgreSQL retrieval is independently verified and explicitly approved. GitHub files remain a useful input archive and fallback **for GitHub-origin records only**, not a backup of API-origin captures or derived data.
 
 ## Accepted target: two independent inputs, one operational store
 
 ```text
 A. Existing independent capture:  ChatGPT -> private GitHub inbox -> importer -> PostgreSQL
-B. Future direct capture:        ChatGPT -> token MCP / API -----------> PostgreSQL
+B. Opt-in local direct capture:        ChatGPT -> token MCP / API -----------> PostgreSQL
 C. Work after durable import:                                         DB jobs -> workers -> DB
 D. Read NOW:                    ChatGPT -> existing private GitHub connector
 E. Read LATER, gated:           ChatGPT -> scoped MCP -> DB search API -> PostgreSQL
@@ -58,7 +68,7 @@ E. Read LATER, gated:           ChatGPT -> scoped MCP -> DB search API -> Postgr
 
 ## Tokenized app/MCP trust boundary
 
-Keep all clients, including ChatGPT, away from raw PostgreSQL URLs, GitHub write tokens and OpenAI API keys. The future MCP adapter runs at an HTTPS endpoint under the PCE authorization boundary. Configure an approved login/OAuth 2.1 authorization-code + PKCE flow as supported by the actual ChatGPT client, with short-lived, signed, audience-bound tokens, refresh/revocation policy and narrowly scoped permissions such as `captures:write`, `notes:read`, `ledgers:read`. Server verifies issuer, signature, audience, expiry, scopes and derives owner from the verified principal. User IDs submitted in tool arguments have no authority.
+Keep all clients, including ChatGPT, away from raw PostgreSQL URLs, GitHub write tokens and OpenAI API keys. The optional MCP adapter is locally implemented; hosted use requires HTTPS and verification with the actual supported ChatGPT client. D-021/D-022 select same-login authorization-code + S256 PKCE, short-lived opaque DB-verified audience-bound grants, rotating refresh/revocation and scopes `capture:write` / `notes:read` for the current single-user mode. Issuer and owner are bound through the live server session, not caller parameters. The legacy JWT verifier remains a separate boundary; opaque grants are not falsely described as signed JWTs. Ledger scopes and multi-user onboarding are not implemented.
 
 Proposed tools: `capture_note` for versioned content + idempotency (reports confirmed DB persistence and independent downstream job states, never a GitHub export promise); `get_note` for authorized source/detail; `search_context` for gated retrieval; `get_ledger_evidence` for bounded period facts. Avoid claiming that arbitrary preceding ChatGPT messages or full history are automatically provided to a plugin. The old, closed experimental MCP PR #31 must not be merged as a shortcut without reviewing new identity and DB-primary contracts.
 

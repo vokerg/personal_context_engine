@@ -70,7 +70,8 @@ queries, note IDs, project identifiers or response bodies. Actual ChatGPT
 connector baseline/cutover acceptance remains #50; it is not inferred from
 these deterministic cases.
 
-Disable PCE_DB_SEARCH and restart to restore the prior reader/routes/UI. Clearing
+If MCP is enabled, disable `PCE_MCP_ENABLED` first because its tools require DB
+search. Disable `PCE_DB_SEARCH` and restart to restore the prior reader/routes/UI. Clearing
 embedding enablement retains keyword search. No destructive schema rollback or
 content change is needed.
 

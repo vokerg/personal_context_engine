@@ -220,6 +220,7 @@ model AuthSession {
   revokedAt         DateTime? @db.Timestamptz(3)
   lastSeenAt        DateTime @default(now()) @db.Timestamptz(3)
   grants            ApiGrant[]
+  oauthCodes        OAuthCode[]
 
   @@index([ownerSubject, expiresAt])
   @@map("auth_sessions")
@@ -270,4 +271,20 @@ model DbProcessingJob {
   @@unique([noteId,sourceRevision])
   @@index([ownerSubject,status,nextRetryAt])
   @@map("db_processing_jobs")
+}
+
+// One-use PKCE codes. No authorization code, verifier or bearer plaintext stored.
+model OAuthCode {
+  codeHash String @id @db.Char(64)
+  sessionId String @db.Uuid
+  session AuthSession @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  clientId String @db.VarChar(128)
+  redirectUri String @db.VarChar(2048)
+  resource String @db.VarChar(256)
+  scopes String[]
+  challenge String @db.Char(43)
+  expiresAt DateTime @db.Timestamptz(3)
+  consumedAt DateTime? @db.Timestamptz(3)
+  @@index([expiresAt])
+  @@map("oauth_codes")
 }

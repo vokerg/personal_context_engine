@@ -24,6 +24,8 @@ export function sessionConfig(
   const issuer = new URL(env.PCE_API_ORIGIN ?? "http://127.0.0.1:3110").origin;
   const loopback = (value: string) =>
     ["127.0.0.1", "localhost", "[::1]"].includes(new URL(value).hostname);
+  if (new URL(origin).hostname !== new URL(issuer).hostname)
+    throw new Error("Sessions require one hostname");
   const secure = origin.startsWith("https:") && issuer.startsWith("https:");
   if (
     (!secure && (!loopback(origin) || !loopback(issuer))) ||

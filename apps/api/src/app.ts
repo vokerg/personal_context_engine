@@ -1,3 +1,4 @@
+import { registerMcp, type McpOptions } from "./mcp.js";
 import { SearchRequestSchema, SearchResponseSchema } from "@pce/contracts";
 import type { SearchService } from "./search.js";
 import {
@@ -61,6 +62,7 @@ export interface PrivateNoteReader {
 }
 
 export interface ApiDependencies {
+  mcp?: McpOptions;
   sessionAuth?: SessionAuth;
   search?: SearchService;
   capture?: {
@@ -114,6 +116,13 @@ export function createApp(options: ApiOptions = {}) {
     bodyLimit: 16 * 1024,
     ajv: { customOptions: { coerceTypes: false, removeAdditional: false } },
   });
+
+  if (options.dependencies?.mcp) {
+    const { mcp, search, capture } = options.dependencies;
+    if (!sessionAuth || !search || !capture)
+      throw new Error("MCP requires sessions, search and durable capture");
+    registerMcp(app, mcp, sessionAuth, search, capture);
+  }
 
   app.decorateRequest("authenticatedPrincipal", null);
 

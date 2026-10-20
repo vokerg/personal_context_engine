@@ -251,3 +251,14 @@ API-only records. Query processing is independently egress-gated and bounded;
 UTF-8 byte-based reservations avoid charging every short input as a maximum-sized
 chunk while retaining the hard daily ceiling. ChatGPT repository search remains
 unchanged; remote connector/cutover and production benchmarks remain independent.
+
+### D-022 — Optional same-login OAuth MCP local delivery (2026-10-20)
+
+**Implemented locally; hosted compatibility unverified.** Issue #49 reuses D-021
+single-user browser sessions for explicit OAuth consent, with exact operator
+preregistration, S256 PKCE, one-use hashed codes and short-lived scoped grants.
+The official SDK implements stateless Streamable HTTP; owner comes only from
+verified identity. No remote client metadata fetch, public tunnel, GitHub export
+requirement or automatic ChatGPT retrieval cutover is introduced. See
+[protocol and verification boundaries](18-mcp.md). Hosted HTTPS and live ChatGPT
+acceptance remain open and must be observed before claiming completion.
