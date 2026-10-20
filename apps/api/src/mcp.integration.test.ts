@@ -312,6 +312,28 @@ ${text}
           })
         ).statusCode,
       ).toBe(403);
+      const originless = authorize("notes:read");
+      const originlessGrant = await app.inject({
+        method: "POST",
+        url: "/oauth/authorize",
+        headers: {
+          cookie,
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        payload: new URLSearchParams({
+          ...originless.parameters,
+          csrf,
+          decision: "allow",
+        }).toString(),
+      });
+      expect(originlessGrant.statusCode).toBe(303);
+      const originlessLocation = new URL(
+        String(originlessGrant.headers.location),
+      );
+      expect(originlessLocation.searchParams.get("iss")).toBe(issuer);
+      expect(originlessLocation.searchParams.get("state")).toBe(
+        originless.parameters.state,
+      );
       const c = await code();
       const payload = {
         grant_type: "authorization_code",

@@ -202,7 +202,8 @@ export function registerOAuth(
       cookie = cookies(request.headers.cookie).pce_csrf;
     if (
       !session ||
-      request.headers.origin !== issuer ||
+      (request.headers.origin !== undefined &&
+        request.headers.origin !== issuer) ||
       cookie !== csrf ||
       secretHash(csrf) !== session.csrfHash
     )
