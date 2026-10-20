@@ -334,3 +334,23 @@ To reset a scan, stop all workers and set only that scope's cursor to NULL in a
 trusted DB session; never delete notes/attempts to force a replay. Do not clear
 known IDs to hide an unresolved source deletion. Backup automation #61 remains
 deferred under D-020 and is not activated here.
+
+## Independent durable API ingress (#45)
+
+Authenticated `POST /api/v1/captures` accepts a strict idempotencyKey and up to
+16 v1 Markdown notes (250 KB combined). Server-verified capture:write determines
+the owner. A serializable transaction stores exact supplied Markdown, validated
+note originals/provenance, an owner-bound idempotency receipt and durable DB
+preparation jobs. Only the committed result returns DB_PERSISTED; embeddings are
+asynchronous and never part of the capture success criterion. Reusing a key
+with changed bytes conflicts; foreign IDs conflict generically. Multi-note
+failure rolls back the whole capture. Unchanged GitHub-origin IDs may be
+referenced only with same-owner/exact-byte proof; their source path is retained.
+No API-origin export or GitHub write is required or performed.
+
+`WORKER_MODE=db-jobs-once` with trusted PCE_OWNER_SUBJECT prepares at most 16
+leased DB jobs for the existing embedding queue, with bounded retries and stale
+lease/source handling. It makes no provider request. Derived preparation failure
+leaves the original and receipt intact; FAILED jobs expose fixed codes for
+manual investigation. No action hints execute effects. Local scheduling is
+separate from hosted deployment; no always-on runtime is implied.

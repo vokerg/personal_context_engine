@@ -231,3 +231,12 @@ owner only on loopback; it cannot authenticate a hosted issuer. Existing note
 ownership remains unchanged and legacy null owners are not adopted. Scoped,
 short-lived delegated API tokens share the same login and session revocation.
 OAuth/PKCE delegation for MCP is #49; multi-user/OIDC onboarding is deferred.
+
+## Independent API capture implementation (#45)
+
+The scoped API can now commit original Markdown/notes, owner provenance,
+idempotency receipt and DB preparation jobs in one transaction, without GitHub
+or embedding availability. The existing GitHub importer is unchanged except
+that split captures cannot link different persisted owners. A bounded DB-only
+preparation worker hands work to the existing embedding queue; no automatic
+external actions or production deployment is selected.

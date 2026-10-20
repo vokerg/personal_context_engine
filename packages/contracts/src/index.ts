@@ -204,3 +204,27 @@ export const BrowseFacetsSchema = z
   })
   .strict();
 export type BrowseFacets = z.infer<typeof BrowseFacetsSchema>;
+
+export const CaptureRequestSchema = z
+  .object({
+    idempotencyKey: z
+      .string()
+      .min(1)
+      .max(128)
+      .regex(/^[A-Za-z0-9._:-]+$/),
+    notes: z.array(z.string().min(1).max(250000)).min(1).max(16),
+  })
+  .strict()
+  .refine(
+    (v) => new TextEncoder().encode(JSON.stringify(v.notes)).length <= 250000,
+  );
+export const CaptureResponseSchema = z
+  .object({
+    status: z.literal("DB_PERSISTED"),
+    noteIds: z.array(NoteIdSchema).min(1).max(16),
+    indexing: z.literal("PENDING"),
+    replayed: z.boolean(),
+  })
+  .strict();
+export type CaptureRequest = z.infer<typeof CaptureRequestSchema>;
+export type CaptureResponse = z.infer<typeof CaptureResponseSchema>;

@@ -1,3 +1,4 @@
+import { runDbJobPass } from "./db-jobs.js";
 import { embeddingConfig } from "./embedding-config.js";
 import { createHash } from "node:crypto";
 import { isAbsolute } from "node:path";
@@ -39,6 +40,21 @@ if (!mode) {
 }
 
 async function start(mode: string): Promise<void> {
+  if (mode === "db-jobs-once") {
+    const owner = process.env.PCE_OWNER_SUBJECT;
+    if (!owner || !process.env.DATABASE_URL)
+      throw new Error("DB jobs require trusted owner and DB");
+    const db = createDatabaseClient();
+    try {
+      console.log(
+        "DB preparation complete " +
+          JSON.stringify(await runDbJobPass(db, owner)),
+      );
+    } finally {
+      await db.$disconnect();
+    }
+    return;
+  }
   if (mode === "embeddings-once") return startEmbeddings();
   if (mode !== "once") throw new Error("Unsupported worker mode.");
   if (!process.env.DATABASE_URL) throw new Error("Database is required.");

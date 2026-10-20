@@ -127,6 +127,16 @@ export function createNoteRepository(client: PrismaClient) {
                 where: { id: meta.capture_id },
               });
               if (existingCapture) {
+                const captureOwners = await tx.note.findMany({
+                  where: { captureId: meta.capture_id },
+                  select: { ownerSubject: true },
+                });
+                if (
+                  captureOwners.some(
+                    (row) => row.ownerSubject !== (input.ownerSubject ?? null),
+                  )
+                )
+                  throw new ProjectionConflictError("OWNER_CONFLICT");
                 if (
                   existingCapture.capturedAtRaw !== meta.captured_at ||
                   existingCapture.source !== meta.source ||
@@ -221,3 +231,5 @@ export { createBrowseRepository, BrowseCursorError } from "./browse.js";
 
 export { createSessionRepository } from "./session-auth.js";
 export type { SessionRepository } from "./session-auth.js";
+
+export { createApiCaptureRepository, CaptureConflict } from "./api-capture.js";
