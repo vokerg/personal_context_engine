@@ -67,6 +67,9 @@ try {
   const {createSearchRepository,createApiCaptureRepository}=await import("@pce/db");
   if(config.searchEnabled&&!sessionAuth)throw new Error("Search requires explicit local session mode");
   const search=config.searchEnabled?createSearchService(createSearchRepository(db),randomBytes(32).toString("hex"),queryEmbeddingProvider(process.env)):undefined;
+  const {oauthClients}=await import("../apps/api/dist/oauth.js");
+  const clients=oauthClients(process.env);
+  if(clients.length && (!search || !sessionAuth))throw new Error("MCP requires local search and sessions");
   const ids = [];
   ingestion = startLocalIngestion({
     db,
@@ -89,6 +92,7 @@ try {
     dependencies: {
       ...(sessionAuth ? {sessionAuth,capture:createApiCaptureRepository(db)} : {}),
       ...(search?{search}:{}),
+      ...(clients.length?{mcp:{db,clients}}:{}),
       checkDatabase: () => checkDatabase(db),
       notes: createLocalReader(db, ids, {
         browseEnabled: config.browseEnabled,

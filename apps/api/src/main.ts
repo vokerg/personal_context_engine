@@ -1,3 +1,4 @@
+import { oauthClients } from "./oauth.js";
 import { randomBytes } from "node:crypto";
 import { createSearchRepository } from "@pce/db";
 import { createSearchService } from "./search.js";
@@ -22,6 +23,9 @@ async function start(): Promise<void> {
       await db.$connect();
     }
     const connected = db;
+    const clients = oauthClients(process.env);
+    if (clients.length && (!connected || process.env.PCE_DB_SEARCH !== "true"))
+      throw new Error("MCP requires database search");
     const sessionOptions = sessionConfig(process.env);
     if (
       process.env.PCE_DB_SEARCH &&
@@ -41,6 +45,7 @@ async function start(): Promise<void> {
         ? {
             dependencies: {
               checkDatabase: () => checkDatabase(connected),
+              ...(clients.length ? { mcp: { db: connected, clients } } : {}),
               ...(sessionOptions
                 ? {
                     sessionAuth: createSessionAuth(connected, sessionOptions),

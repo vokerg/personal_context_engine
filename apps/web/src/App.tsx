@@ -637,6 +637,25 @@ export function App({
 
   return (
     <main className="app-shell">
+      {token &&
+        sessionAuthentication &&
+        (() => {
+          const parameters = new URL(window.location.href).searchParams.get(
+            "authorize",
+          );
+          if (!parameters || parameters.length > 4096) return null;
+          const target = new URL("/oauth/authorize", baseUrl);
+          target.search = parameters;
+          return (
+            <aside role="status">
+              <p>
+                A client is requesting access to PCE. Review its permissions
+                before allowing access.
+              </p>
+              <a href={target.toString()}>Review client access</a>
+            </aside>
+          );
+        })()}
       <header className="topbar">
         <div>
           <p className="eyebrow">Read-only workspace</p>
@@ -644,7 +663,9 @@ export function App({
           <p className="subtitle">
             {localDevelopment
               ? "Browse the notes in your local workspace. Capture, editing and reminders are separate workflows."
-              : "Development preview. Production login, editing and reminders are not available."}
+              : sessionAuthentication
+                ? "Sign in to browse your workspace. Editing and reminders are separate workflows."
+                : "Development preview. Production login, editing and reminders are not available."}
           </p>
         </div>
         {token && (

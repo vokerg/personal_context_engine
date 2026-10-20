@@ -305,3 +305,13 @@ binds/origins. It matches SportOS's current local-only development setup, not a
 production login bypass. Public startup remains content-free unless trusted
 adapters and a session/auth verifier are explicitly injected. Deployment and
 MCP connector compatibility are verified separately from synthetic CI.
+
+## Optional same-login MCP/OAuth (#49)
+
+The gated local MCP implementation uses the same single-user session for OAuth
+consent, exact preregistered redirects and S256 PKCE. Codes are hashed, expire in
+two minutes and are consumed once; scoped opaque grants are audience-bound and
+revoked with the parent session. Host/Origin and browser CSRF checks remain in
+force. Web/API cookies require one hostname. No dynamic client metadata fetch,
+public tunnel or live ChatGPT cutover is implicit. See [MCP operation and
+verification limits](18-mcp.md).

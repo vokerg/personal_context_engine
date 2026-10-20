@@ -113,3 +113,12 @@ See [security](09-security-and-privacy.md), [capture contract](04-capture-contra
 **Deliberately gated:** PostgreSQL lexical/pgvector hybrid retrieval is built/tested in parallel and does not replace existing GitHub-based ChatGPT search until validation and explicit user approval. After database search cutover, GitHub is still an optional *capture* input, not a worker-processing store. ChatGPT may invoke evidence tools to produce ledgers interactively; the PCE worker remains deterministic except the future separately authorized embedding API. DeepSeek is unselected. A model only sees the conversation content explicitly available to it; never assume full chat-history export.
 
 See [evolution plan](13-evolution-plan.md), #49/#50 and [security](09-security-and-privacy.md).
+
+## Optional authenticated MCP implementation (#49; local milestone)
+
+A gated Streamable HTTP endpoint now supports DB-first capture and owner-scoped
+search/read using the same single-user login for OAuth PKCE consent. The official
+SDK client's local handshake and tool calls are tested. Remote HTTPS hosting and
+actual ChatGPT connector invocation remain unverified, so the current private
+GitHub capture/search path stays available. See [MCP setup](18-mcp.md) for exact
+configuration, scopes, source-data boundaries and truthful DB acknowledgements.
