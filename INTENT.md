@@ -1,6 +1,6 @@
 # PCE — Current product and delivery intent
 
-**Recorded:** 2026-10-16; **revised:** 2026-10-18. **Status:** accepted target direction, not proof of deployed services.
+**Recorded:** 2026-10-16; **revised:** 2026-10-20. **Status:** accepted target direction, not proof of deployed services.
 **Implementation epic:** [#42](https://github.com/vokerg/personal_context_engine/issues/42); [evolution plan](docs/13-evolution-plan.md); [decision D-019](docs/11-decisions.md).
 
 ## Product purpose
@@ -12,6 +12,17 @@ Make conversations and voice notes into durable personal context that can be **f
 - Existing ChatGPT -> private GitHub capture and repository search/read work in the user's current supported connector surface. The repository can accept input when PCE is down; DB import resumes only after the ingestion service runs.
 - Markdown v1 GitHub ContentStore and the opt-in deterministic worker **currently finalize/move GitHub files** and import their content into a PostgreSQL **projection**. This implementation remains until an issue-backed migration changes and tests it.
 - An opt-in local owner-aware browser exists. Production identity, always-on hosted workers, remote MCP, embeddings, automatic ledgers and notifications are **not** implied by this plan.
+
+## Implemented local milestone — 2026-10-20
+
+Explicit feature gates now provide single-user sessions (#44), DB-first API
+capture/idempotency/jobs (#45), bounded embedding preparation/provider passes
+(#46/#47), and owner-scoped lexical/hybrid web/API retrieval (#48). Optional
+same-login OAuth PKCE and MCP tools (#49) are tested with the official client on
+loopback. These mechanisms do not prove hosted HTTPS/ChatGPT acceptance or
+activate a repository-search cutover. Automatic ledgers, notifications and
+hosted scheduling remain separate. See [search operations](docs/17-search.md)
+and [MCP status](docs/18-mcp.md) for actual configuration and checks.
 
 ## Accepted target — two ingress paths, one operational database
 

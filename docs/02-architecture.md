@@ -2,12 +2,12 @@
 
 ## Context
 
-The **accepted target** has two independent capture inputs, authoritative PostgreSQL persistence, database-backed workers and authenticated read clients. The current GitHub importer still finalizes/moves source files and writes a PostgreSQL projection; this is a **target diagram, not a deployed-service claim**.
+The **accepted target** has two independent capture inputs, authoritative PostgreSQL persistence, database-backed workers and authenticated read clients. The current GitHub importer still finalizes/moves source files and writes a PostgreSQL projection; the diagram includes both implemented local mechanisms and future services, not a deployed-service claim.
 
 ```mermaid
 flowchart TD
   U[Person: voice or text] --> G[ChatGPT GitHub connector: current]
-  U --> M[API or token MCP: future]
+  U --> M[API or token MCP: opt-in local]
   G --> C[(Private GitHub: optional ingress)]
   C --> I[GitHub ingestion and reconciliation adapter]
   I -->|validated originals and jobs| DB[(PostgreSQL: authoritative)]
@@ -18,7 +18,7 @@ flowchart TD
   DB -->|owner-scoped query| API
   API --> WEB[React web]
   API --> MOB[Expo mobile]
-  MCP[MCP retrieval: future] -->|authenticated tools| API
+  MCP[MCP retrieval: opt-in local] -->|authenticated tools| API
 ```
 
 A GitHub capture can succeed with the PCE service unavailable, but it cannot appear in DB search until the ingestion adapter runs. API/MCP capture and database searches require the PCE API/database online. Ingestion must reconcile after missed webhooks and restart from a durable Git revision/checkpoint.
@@ -39,7 +39,7 @@ A GitHub capture can succeed with the PCE service unavailable, but it cannot app
 
 ## Storage and data ownership
 
-- **Current implementation:** original GitHub Markdown, existing source file finalization under `notes/YYYY/MM/`, and a PostgreSQL query projection. This remains until separately migrated.
+- **Current implementation:** GitHub Markdown still uses existing source finalization under `notes/YYYY/MM/` and DB import. API capture independently commits DB originals, provenance, idempotency receipts and preparation jobs; it requires no GitHub export. Opt-in indexing/search and same-login MCP/OAuth are locally tested. Hosted HTTPS and actual ChatGPT acceptance remain unverified; see [search](17-search.md) and [MCP](18-mcp.md).
 - **Accepted target:** PostgreSQL stores source originals, stable IDs, verified owners, Git provenance, revisions, processing jobs and state. GitHub is an optional input and temporary legacy search fallback, not the authority for DB processing.
 - **Derived artifacts:** tags, links, embeddings, evidence packs, sourced ledgers and operational status persist in PostgreSQL with versioning and provenance. No automatic export to GitHub.
 - **Recovery (deferred):** owner decision D-020 leaves backup/PITR/export automation (#61) for later or manual operation, outside current functional delivery gates. The synthetic restore drill is optional; no production backups are claimed.

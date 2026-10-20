@@ -38,7 +38,7 @@ The capture channel and LLM provider are replaceable. GitHub is an optional inpu
 - **Mobile:** React Native, Expo, TypeScript; notifications are a core product requirement.
 - **Backend:** Node.js, TypeScript, Fastify.
 - **Worker:** independently runnable Node.js process.
-- **Persistence:** currently PostgreSQL/Prisma projections of GitHub Markdown; target PostgreSQL authority for originals, jobs and derived artifacts.
+- **Persistence:** PostgreSQL/Prisma, with GitHub imports plus DB-first API originals, durable processing jobs and versioned derived artifacts.
 - **Monorepo:** npm workspaces, shared domain and Zod/HTTP contracts.
 - **LLM:** ChatGPT Project for early interactive capture and summaries; pluggable providers for later automation.
 
