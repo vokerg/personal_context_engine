@@ -42,3 +42,5 @@ Where a contract remains proposed, implement a test-backed specification before 
 - Prefer small adapter contracts and domain invariants to speculative infrastructure.
 
 - [16 — Embedding storage and deterministic chunking](16-embedding-storage.md) — #46 migration, isolation, limits and rollback.
+
+- [17 — Gated DB search](17-search.md) — local search, owner isolation, fallback, budgets and rollback.

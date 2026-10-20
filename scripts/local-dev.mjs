@@ -62,6 +62,11 @@ try {
   db = createDatabaseClient();
   await db.$connect();
   const sessionAuth = sessionOptions ? createSessionAuth(db,sessionOptions) : undefined;
+  const {createSearchService}=await import("../apps/api/dist/search.js");
+  const {queryEmbeddingProvider}=await import("../apps/api/dist/search-provider.js");
+  const {createSearchRepository,createApiCaptureRepository}=await import("@pce/db");
+  if(config.searchEnabled&&!sessionAuth)throw new Error("Search requires explicit local session mode");
+  const search=config.searchEnabled?createSearchService(createSearchRepository(db),randomBytes(32).toString("hex"),queryEmbeddingProvider(process.env)):undefined;
   const ids = [];
   ingestion = startLocalIngestion({
     db,
@@ -82,7 +87,8 @@ try {
       auth: { issuer, audience, secret },
     },
     dependencies: {
-      ...(sessionAuth ? {sessionAuth} : {}),
+      ...(sessionAuth ? {sessionAuth,capture:createApiCaptureRepository(db)} : {}),
+      ...(search?{search}:{}),
       checkDatabase: () => checkDatabase(db),
       notes: createLocalReader(db, ids, {
         browseEnabled: config.browseEnabled,
@@ -99,6 +105,7 @@ try {
       allowedHosts: [],
     },
     define: {
+      "import.meta.env.VITE_PCE_DB_SEARCH": JSON.stringify(String(config.searchEnabled)),
       "import.meta.env.VITE_PCE_SESSION_AUTH": JSON.stringify(String(!!sessionAuth)),
       "import.meta.env.VITE_PCE_LOCAL_DEV": JSON.stringify("true"),
       "import.meta.env.VITE_PCE_LOCAL_BROWSE": JSON.stringify(

@@ -240,3 +240,14 @@ or embedding availability. The existing GitHub importer is unchanged except
 that split captures cannot link different persisted owners. A bounded DB-only
 preparation worker hands work to the existing embedding queue; no automatic
 external actions or production deployment is selected.
+
+## Gated DB retrieval implementation (#48)
+
+The explicit DB search mode adds owner-scoped full-text/exact vector candidates,
+rank fusion, signed bounded pagination, source provenance and original detail.
+The web search consumes this API through the same single-user session. Provider,
+index or budget unavailability degrades to lexical DB originals, including
+API-only records. Query processing is independently egress-gated and bounded;
+UTF-8 byte-based reservations avoid charging every short input as a maximum-sized
+chunk while retaining the hard daily ceiling. ChatGPT repository search remains
+unchanged; remote connector/cutover and production benchmarks remain independent.

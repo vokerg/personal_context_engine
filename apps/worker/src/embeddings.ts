@@ -204,7 +204,11 @@ export async function runEmbeddingPass(options: EmbeddingPassOptions) {
         answer.vector.some((v) => !Number.isFinite(v)) ||
         !Number.isSafeInteger(answer.usageTokens) ||
         answer.usageTokens < 0 ||
-        answer.usageTokens > EMBEDDING_TOKEN_RESERVATION
+        answer.usageTokens >
+          Math.min(
+            EMBEDDING_TOKEN_RESERVATION,
+            Buffer.byteLength(job.text, "utf8") + 16,
+          )
       )
         throw new EmbeddingProviderError("INVALID_RESPONSE", false);
       const stored = await queue.complete(

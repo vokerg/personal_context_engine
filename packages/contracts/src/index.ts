@@ -228,3 +228,54 @@ export const CaptureResponseSchema = z
   .strict();
 export type CaptureRequest = z.infer<typeof CaptureRequestSchema>;
 export type CaptureResponse = z.infer<typeof CaptureResponseSchema>;
+
+export const SearchRequestSchema = z
+  .object({
+    query: z.string().trim().min(1).max(500),
+    tags: z.array(TagSlugSchema).max(10).optional(),
+    project: TagSlugSchema.optional(),
+    kind: NoteKindFilterSchema.optional(),
+    start: z.string().datetime({ offset: true }).optional(),
+    end: z.string().datetime({ offset: true }).optional(),
+    limit: z.number().int().min(1).max(50).default(20),
+    cursor: z
+      .string()
+      .max(1500)
+      .regex(/^[A-Za-z0-9_-]+$/)
+      .optional(),
+  })
+  .strict()
+  .refine((v) => !v.start || !v.end || Date.parse(v.start) < Date.parse(v.end));
+export const SearchResultSchema = z
+  .object({
+    id: NoteIdSchema,
+    title: z.string().min(1).max(200),
+    snippet: z.string().max(480),
+    capturedAt: z.string().datetime({ offset: true }),
+    sourceRevision: z.string().max(128),
+    channel: z.enum(["github", "api", "other"]),
+    tags: z.array(TagSlugSchema),
+    projects: z.array(TagSlugSchema),
+    kind: NoteKindFilterSchema,
+    lexical: z.boolean(),
+    semantic: z.boolean(),
+  })
+  .strict();
+export const SearchResponseSchema = z
+  .object({
+    mode: z.enum(["lexical", "hybrid"]),
+    degradation: z
+      .enum([
+        "disabled",
+        "unindexed",
+        "provider_unavailable",
+        "budget_exhausted",
+      ])
+      .nullable(),
+    results: z.array(SearchResultSchema).max(50),
+    nextCursor: z.string().nullable(),
+    truncated: z.boolean(),
+  })
+  .strict();
+export type SearchRequest = z.infer<typeof SearchRequestSchema>;
+export type SearchResponse = z.infer<typeof SearchResponseSchema>;
