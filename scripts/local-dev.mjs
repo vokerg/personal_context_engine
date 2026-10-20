@@ -55,10 +55,13 @@ try {
   await run(["run", "build"]);
   await run(["run", "db:migrate"]);
   const { createDatabaseClient, checkDatabase } = await import("@pce/db");
+  const { createSessionAuth, sessionConfig } = await import("../apps/api/dist/session-auth.js");
+  const sessionOptions = sessionConfig({...process.env,PCE_WEB_ORIGIN:config.origin,PCE_API_ORIGIN:`http://127.0.0.1:${config.apiPort}`});
   const { createApp } = await import("../apps/api/dist/app.js");
   const { createServer: createVite } = await import("vite");
   db = createDatabaseClient();
   await db.$connect();
+  const sessionAuth = sessionOptions ? createSessionAuth(db,sessionOptions) : undefined;
   const ids = [];
   ingestion = startLocalIngestion({
     db,
@@ -79,6 +82,7 @@ try {
       auth: { issuer, audience, secret },
     },
     dependencies: {
+      ...(sessionAuth ? {sessionAuth} : {}),
       checkDatabase: () => checkDatabase(db),
       notes: createLocalReader(db, ids, {
         browseEnabled: config.browseEnabled,
@@ -95,6 +99,7 @@ try {
       allowedHosts: [],
     },
     define: {
+      "import.meta.env.VITE_PCE_SESSION_AUTH": JSON.stringify(String(!!sessionAuth)),
       "import.meta.env.VITE_PCE_LOCAL_DEV": JSON.stringify("true"),
       "import.meta.env.VITE_PCE_LOCAL_BROWSE": JSON.stringify(
         String(config.browseEnabled),
@@ -107,7 +112,7 @@ try {
       {
         name: "pce-local-session",
         configureServer(server) {
-          server.middlewares.use((req, res, next) => {
+          server.middlewares.use(async (req, res, next) => {
             if (!["/__pce/session", "/__pce/ingestion"].includes(req.url))
               return next();
             res.setHeader("Cache-Control", "no-store");
@@ -118,6 +123,20 @@ try {
               return;
             }
             res.setHeader("Content-Type", "application/json");
+            if (sessionAuth && req.url === "/__pce/session") {
+              try {
+                const request = {headers:req.headers,ip:req.socket.remoteAddress};
+                let current = await sessionAuth.browserSession(request);
+                if (!current && sessionOptions.mode === "dev-single-user") {
+                  const result = await sessionAuth.login({}, { ...request, headers:{...req.headers,origin:config.origin} }, true);
+                  res.setHeader("Set-Cookie",result.cookieHeaders); current=result.session;
+                }
+                if(!current){res.statusCode=401;res.end();return;}
+                res.end(JSON.stringify({token:"session-cookie"}));
+              } catch {res.statusCode=503;res.end();}
+              return;
+            }
+
             res.end(
               JSON.stringify(
                 req.url === "/__pce/ingestion"

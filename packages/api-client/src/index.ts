@@ -43,6 +43,7 @@ export type AccessTokenProvider = () => string | null | Promise<string | null>;
 export interface AuthenticatedRequestOptions {
   baseUrl: string;
   getAccessToken: AccessTokenProvider;
+  useSessionCookie?: boolean;
   request?: typeof fetch;
   signal?: AbortSignal;
   /** Opt-in per-request timeout (100–60000ms). */
@@ -169,13 +170,20 @@ async function authenticatedGet<T>(
     // Async session providers must not authorize an already-cancelled request.
     if (signal?.aborted)
       throw new ApiTransportError(timedOut ? "TIMEOUT" : "CANCELLED");
-    if (token === null) throw new ApiRequestError(401, "UNAUTHORIZED");
-    if (token.length > 4096 || !/^[A-Za-z0-9._-]+$/.test(token)) {
+    if (token === null && !options.useSessionCookie)
+      throw new ApiRequestError(401, "UNAUTHORIZED");
+    if (
+      !options.useSessionCookie &&
+      token !== null &&
+      (token.length > 4096 || !/^[A-Za-z0-9._-]+$/.test(token))
+    ) {
       throw new TypeError("Invalid access token format");
     }
     const response = await (options.request ?? fetch)(url, {
       method: "GET",
-      headers: { Authorization: "Bearer " + token },
+      ...(options.useSessionCookie
+        ? { credentials: "include" as const }
+        : { headers: { Authorization: "Bearer " + token } }),
       ...(signal ? { signal } : {}),
     });
     if (!response.ok) {

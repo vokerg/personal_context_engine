@@ -1,3 +1,4 @@
+import { createSessionAuth, sessionConfig } from "./session-auth.js";
 import { checkDatabase, createDatabaseClient } from "@pce/db";
 import { createApp } from "./app.js";
 import { loadApiConfig } from "./config.js";
@@ -13,10 +14,23 @@ async function start(): Promise<void> {
       await db.$connect();
     }
     const connected = db;
+    const sessionOptions = sessionConfig(process.env);
+    if (sessionOptions && !connected)
+      throw new Error("Sessions require a database");
     app = createApp({
-      config,
+      config: {
+        ...config,
+        corsOrigin: sessionOptions?.origin ?? config.corsOrigin,
+      },
       ...(connected
-        ? { dependencies: { checkDatabase: () => checkDatabase(connected) } }
+        ? {
+            dependencies: {
+              checkDatabase: () => checkDatabase(connected),
+              ...(sessionOptions
+                ? { sessionAuth: createSessionAuth(connected, sessionOptions) }
+                : {}),
+            },
+          }
         : {}),
     });
     if (connected) {

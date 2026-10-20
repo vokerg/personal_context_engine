@@ -60,6 +60,11 @@ export function App({
   localDevelopment?: boolean;
   browseEnabled?: boolean;
 }) {
+  const sessionAuthentication =
+    import.meta.env.VITE_PCE_SESSION_AUTH === "true";
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [authMode, setAuthMode] = useState("dev-single-user");
   const [draft, setDraft] = useState("");
   const [token, setToken] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
@@ -216,6 +221,18 @@ export function App({
   }
 
   function signOut(message = "") {
+    if (sessionAuthentication) {
+      const csrf =
+        document.cookie
+          .split("; ")
+          .find((x) => x.startsWith("pce_csrf="))
+          ?.slice(9) ?? "";
+      void fetch(new URL("/auth/logout", baseUrl), {
+        method: "POST",
+        credentials: "include",
+        headers: { "X-PCE-CSRF": csrf },
+      }).catch(() => {});
+    }
     setToken(null);
     setDraft("");
     setNotice(message);
@@ -243,6 +260,30 @@ export function App({
     }
   }
 
+  useEffect(() => {
+    if (sessionAuthentication)
+      void fetch(new URL("/auth/config", baseUrl), { credentials: "include" })
+        .then((r) => r.json())
+        .then((v) => setAuthMode(v.mode))
+        .catch(() => setNotice("Sign-in service unavailable."));
+  }, [baseUrl, sessionAuthentication]);
+  async function passwordLogin(event: FormEvent) {
+    event.preventDefault();
+    setNotice("");
+    try {
+      const response = await fetch(new URL("/auth/password", baseUrl), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      setPassword("");
+      if (!response.ok) throw new Error("Sign-in failed");
+      setToken("session-cookie");
+    } catch {
+      setNotice("Sign-in failed. Check your username and password.");
+    }
+  }
   async function connectLocal() {
     try {
       setNotice("");
@@ -315,6 +356,12 @@ export function App({
   }, [localDevelopment]);
 
   useEffect(() => {
+    if (sessionAuthentication)
+      void fetch(new URL("/auth/session", baseUrl), { credentials: "include" })
+        .then((r) => {
+          if (r.ok) setToken("session-cookie");
+        })
+        .catch(() => {});
     if (localDevelopment) void connectLocal();
   }, [localDevelopment]);
 
@@ -337,6 +384,7 @@ export function App({
     const requestOptions = {
       baseUrl,
       getAccessToken: () => token,
+      useSessionCookie: sessionAuthentication,
       signal: controller.signal,
       timeoutMs: 12000,
     };
@@ -398,6 +446,7 @@ export function App({
     getBrowseFacets({
       baseUrl,
       getAccessToken: () => token,
+      useSessionCookie: sessionAuthentication,
       signal: controller.signal,
       timeoutMs: 12000,
     })
@@ -438,6 +487,7 @@ export function App({
     getTags({
       baseUrl,
       getAccessToken: () => token,
+      useSessionCookie: sessionAuthentication,
       signal: controller.signal,
       timeoutMs: 12000,
     })
@@ -475,6 +525,7 @@ export function App({
       {
         baseUrl,
         getAccessToken: () => token,
+        useSessionCookie: sessionAuthentication,
         signal: controller.signal,
         timeoutMs: 12000,
       },
@@ -566,7 +617,28 @@ export function App({
               {notice}
             </p>
           )}
-          {localDevelopment ? (
+          {sessionAuthentication && authMode === "single-user" ? (
+            <form onSubmit={passwordLogin}>
+              <label>
+                Username
+                <input
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+              </label>
+              <label>
+                Password
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </label>
+              <button type="submit">Sign in</button>
+            </form>
+          ) : localDevelopment ? (
             <button
               className="primary"
               type="button"
