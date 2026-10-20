@@ -54,6 +54,7 @@ const authorizeSchema = z
     redirect_uri: z.string().max(2048),
     resource: z.string().max(256),
     scope: z.string().min(1).max(100),
+    ui_locales: z.string().max(256).optional(),
     state: z.string().min(16).max(512),
     code_challenge: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
     code_challenge_method: z.literal("S256"),
@@ -153,7 +154,10 @@ export function registerOAuth(
     const session = await auth.browserSession(request);
     if (!session) {
       const target = new URL(origin);
-      target.searchParams.set("authorize", new URLSearchParams(p).toString());
+      const authorizationParameters = new URLSearchParams();
+      for (const [key, value] of Object.entries(p))
+        if (value !== undefined) authorizationParameters.set(key, value);
+      target.searchParams.set("authorize", authorizationParameters.toString());
       return reply.redirect(target.toString());
     }
     const csrf = cookies(request.headers.cookie).pce_csrf;
@@ -168,9 +172,10 @@ export function registerOAuth(
       `<!doctype html><html><head><meta charset="utf-8"><title>Authorize PCE client</title></head><body><h1>Authorize PCE client</h1><p>Client: ${escape(p.client_id)}</p><p>Allow ${escape(p.scope)} for your notes. Read access shares retrieved private text with this client. Capture access stores only explicitly supplied text; it cannot execute actions.</p><form method="post" action="/oauth/authorize">${Object.entries(
         fields,
       )
+        .filter(([, v]) => v !== undefined)
         .map(
           ([k, v]) =>
-            `<input type="hidden" name="${escape(k)}" value="${escape(v)}">`,
+            `<input type="hidden" name="${escape(k)}" value="${escape(String(v))}">`,
         )
         .join(
           "",
