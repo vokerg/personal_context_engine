@@ -21,9 +21,9 @@ async function close() {
   await api?.close();
   await db?.$disconnect();
 }
-function run(args) {
+function run(args, { env = process.env, quiet = false } = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn("npm", args, { stdio: "inherit" });
+    const child = spawn("npm", args, { env, stdio: quiet ? "ignore" : "inherit" });
     child.once("error", reject);
     child.once("exit", (code) =>
       code === 0 ? resolve() : reject(new Error("Setup command failed.")),
@@ -53,7 +53,13 @@ try {
   await portAvailable(config.apiPort);
   await portAvailable(config.webPort);
   await run(["run", "build"]);
-  await run(["run", "db:migrate"]);
+  // Session-level migration locks require the configured direct connection.
+  // Runtime API/worker queries keep the pooled DATABASE_URL unchanged.
+  await run(["run", "db:migrate"], {
+    env: {...process.env, DATABASE_URL:process.env.DIRECT_URL ?? process.env.DATABASE_URL},
+    quiet:true,
+  });
+  console.log("Database migrations checked.");
   const { createDatabaseClient, checkDatabase } = await import("@pce/db");
   const { createSessionAuth, sessionConfig } = await import("../apps/api/dist/session-auth.js");
   const sessionOptions = sessionConfig({...process.env,PCE_WEB_ORIGIN:config.origin,PCE_API_ORIGIN:`http://127.0.0.1:${config.apiPort}`});

@@ -91,3 +91,9 @@ resistance.
 
 References: [MCP authorization](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization)
 and [OpenAI MCP guide](https://developers.openai.com/api/docs/mcp).
+
+Local startup applies migrations with trusted `DIRECT_URL` when configured,
+falling back to `DATABASE_URL` for ordinary unpooled local PostgreSQL. The API
+and workers retain the original runtime pool. Migration diagnostics are
+suppressed to avoid publishing connection metadata. Never use a transaction
+pooler for session-level migration locking; see [Prisma pooling guidance](https://www.prisma.io/docs/postgres/database/connection-pooling).
