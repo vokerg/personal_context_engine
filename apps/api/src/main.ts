@@ -1,3 +1,4 @@
+import { mcpTransportHost } from "./mcp.js";
 import { createDatabaseNoteReader } from "./database-reader.js";
 import { oauthClients } from "./oauth.js";
 import { randomBytes } from "node:crypto";
@@ -25,6 +26,7 @@ async function start(): Promise<void> {
     }
     const connected = db;
     const clients = oauthClients(process.env);
+    const transportHost = mcpTransportHost(process.env);
     if (clients.length && (!connected || process.env.PCE_DB_SEARCH !== "true"))
       throw new Error("MCP requires database search");
     const sessionOptions = sessionConfig(process.env);
@@ -46,7 +48,15 @@ async function start(): Promise<void> {
         ? {
             dependencies: {
               checkDatabase: () => checkDatabase(connected),
-              ...(clients.length ? { mcp: { db: connected, clients } } : {}),
+              ...(clients.length
+                ? {
+                    mcp: {
+                      db: connected,
+                      clients,
+                      ...(transportHost ? { transportHost } : {}),
+                    },
+                  }
+                : {}),
               ...(sessionOptions
                 ? {
                     sessionAuth: createSessionAuth(connected, sessionOptions),

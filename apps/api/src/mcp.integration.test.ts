@@ -108,6 +108,7 @@ ${text}
       expect(granted.statusCode).toBe(303);
       const location = new URL(String(granted.headers.location));
       expect(location.searchParams.get("state")).toBe(a.parameters.state);
+      expect(location.searchParams.get("iss")).toBe(issuer);
       return { ...a, code: location.searchParams.get("code")! };
     }
     async function token(scope?: string) {
@@ -164,6 +165,7 @@ ${text}
           capture: createApiCaptureRepository(db),
           mcp: {
             db,
+            transportHost: "trusted-backend.example",
             clients: oauthClients({
               PCE_MCP_ENABLED: "true",
               PCE_OAUTH_CLIENTS: JSON.stringify([
@@ -226,6 +228,60 @@ ${text}
         (await app.inject("/.well-known/oauth-authorization-server")).json()
           .code_challenge_methods_supported,
       ).toEqual(["S256"]);
+      expect(
+        (await app.inject("/.well-known/oauth-authorization-server")).json()
+          .authorization_response_iss_parameter_supported,
+      ).toBe(true);
+      for (const host of [new URL(issuer).host, "trusted-backend.example"]) {
+        expect(
+          (await app.inject({ method: "GET", url: "/mcp", headers: { host } }))
+            .statusCode,
+        ).toBe(401);
+      }
+      expect(
+        (
+          await app.inject({
+            method: "GET",
+            url: "/mcp",
+            headers: {
+              host: "attacker.invalid",
+              "x-forwarded-host": "trusted-backend.example",
+            },
+          })
+        ).statusCode,
+      ).toBe(403);
+      expect(
+        (
+          await app.inject({
+            method: "GET",
+            url: "/mcp",
+            headers: {
+              host: "trusted-backend.example",
+              origin: "https://attacker.invalid",
+            },
+          })
+        ).statusCode,
+      ).toBe(403);
+      const denied = authorize("notes:read");
+      const refusal = await app.inject({
+        method: "POST",
+        url: "/oauth/authorize",
+        headers: {
+          cookie,
+          origin: issuer,
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        payload: new URLSearchParams({
+          ...denied.parameters,
+          csrf,
+          decision: "deny",
+        }).toString(),
+      });
+      expect(refusal.statusCode).toBe(303);
+      const denial = new URL(String(refusal.headers.location));
+      expect(denial.searchParams.get("error")).toBe("access_denied");
+      expect(denial.searchParams.get("iss")).toBe(issuer);
+      expect(denial.searchParams.get("state")).toBe(denied.parameters.state);
       const a = authorize();
       const login = await app.inject(
         "/oauth/authorize?" + new URLSearchParams(a.parameters),

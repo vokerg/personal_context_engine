@@ -13,6 +13,18 @@
   },
   "rewrites": [
     {
+      "source": "/mcp",
+      "destination": "https://personal-context-engine-api.onrender.com/mcp"
+    },
+    {
+      "source": "/oauth/:path*",
+      "destination": "https://personal-context-engine-api.onrender.com/oauth/:path*"
+    },
+    {
+      "source": "/.well-known/:path*",
+      "destination": "https://personal-context-engine-api.onrender.com/.well-known/:path*"
+    },
+    {
       "source": "/auth/:path*",
       "destination": "https://personal-context-engine-api.onrender.com/auth/:path*"
     },
