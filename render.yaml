@@ -34,6 +34,10 @@ services:
         value: https://personal-context-engine-web.vercel.app
       - key: PCE_DB_SEARCH
         value: "true"
+      - key: PCE_MCP_TRANSPORT_ORIGIN
+        value: https://personal-context-engine-api.onrender.com
+      - key: PCE_OAUTH_CLIENTS
+        sync: false
       - key: PCE_MCP_ENABLED
         value: "false"
       # Operator-only opt-in; never enabled by applying the public blueprint.

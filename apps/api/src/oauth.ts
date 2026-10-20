@@ -40,7 +40,8 @@ export function oauthClients(env: NodeJS.ProcessEnv): OAuthClient[] {
       if (
         u.searchParams.has("code") ||
         u.searchParams.has("state") ||
-        u.searchParams.has("error")
+        u.searchParams.has("error") ||
+        u.searchParams.has("iss")
       )
         throw new Error("Reserved redirect parameter");
     }
@@ -121,6 +122,7 @@ export function registerOAuth(
   };
   app.get("/.well-known/oauth-authorization-server", async () => ({
     issuer,
+    authorization_response_iss_parameter_supported: true,
     authorization_endpoint: issuer + "/oauth/authorize",
     token_endpoint: issuer + "/oauth/token",
     revocation_endpoint: issuer + "/oauth/revoke",
@@ -202,6 +204,7 @@ export function registerOAuth(
       return reply.code(403).send({ error: "access_denied" });
     const target = new URL(p.redirect_uri);
     target.searchParams.set("state", p.state);
+    target.searchParams.set("iss", issuer);
     if (decision === "deny") {
       target.searchParams.set("error", "access_denied");
       return reply.code(303).redirect(target.toString());

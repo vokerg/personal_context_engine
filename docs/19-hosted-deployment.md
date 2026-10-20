@@ -120,3 +120,11 @@ by setting `PCE_EMBEDDINGS_ENABLED=false` and redeploying; keywords remain
 available. Keep MCP disabled until same-host OAuth/discovery/proxy compatibility
 is independently validated. Existing repository search is the fallback; this
 deployment does not authorize a ChatGPT retrieval cutover.
+
+## Optional ChatGPT MCP routing
+
+The proxy also forwards `/mcp`, `/oauth/*` and `/.well-known/*`. MCP remains off
+in the public blueprint. For explicit operator opt-in, configure the trusted
+Render `PCE_MCP_TRANSPORT_ORIGIN` and exact `PCE_OAUTH_CLIENTS` before enabling
+`PCE_MCP_ENABLED`; see [MCP client setup and verification](18-mcp.md).
+Never send database, GitHub or OpenAI credentials to ChatGPT's client form.

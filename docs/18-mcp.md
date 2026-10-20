@@ -97,3 +97,28 @@ falling back to `DATABASE_URL` for ordinary unpooled local PostgreSQL. The API
 and workers retain the original runtime pool. Migration diagnostics are
 suppressed to avoid publishing connection metadata. Never use a transaction
 pooler for session-level migration locking; see [Prisma pooling guidance](https://www.prisma.io/docs/postgres/database/connection-pooling).
+
+## Hosted reverse proxy and ChatGPT client preparation (#83)
+
+The Vercel deployment forwards `/mcp`, `/oauth/*` and `/.well-known/*` to
+Render before the SPA fallback. Keep the public issuer/resource at the Vercel
+origin so the same host-only browser session authenticates consent.
+`PCE_MCP_TRANSPORT_ORIGIN` may explicitly pin the trusted Render origin when its
+proxy transport uses a different Host. Only the canonical issuer Host and that
+operator-pinned Host are accepted; Forwarded/X-Forwarded-Host never authorize a
+request. This setting changes transport routing, not issuer, audience, scopes or
+owner identity. Wrong browser Origins remain forbidden.
+
+Authorization metadata advertises RFC 9207 issuer identification; both allow
+and deny redirects include `iss` exactly equal to the configured issuer. Invalid
+requests still fail locally without redirecting. Registered callbacks may not
+prepopulate `iss`, `state`, `code` or `error`.
+
+In ChatGPT's custom MCP form use the hosted Vercel `/mcp` URL, OAuth, a predefined
+public client (token authentication `none`) and default scope `notes:read`.
+Copy the exact callback shown by ChatGPT into the trusted registration; do not
+infer it from examples. Keep `capture:write` out of this initial client.
+The owner completes login/consent. Verify discovered tools and a harmless
+read-only query before claiming connection. This preparation does not establish
+actual ChatGPT acceptance or authorize a default retrieval cutover.
+See [OpenAI authentication guidance](https://developers.openai.com/plugins/build/auth).

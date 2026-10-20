@@ -281,3 +281,13 @@ The explicitly gated standalone API now uses owner-scoped DB originals for the
 timeline, observed tags/facets and source detail, including API-only records.
 Local browsing retains its checkout snapshot restriction. No new authentication
 provider, schema change, MCP enablement or repository-search cutover is implied.
+
+### Hosted MCP proxy preparation (#83)
+
+The optional hosted MCP adapter retains the canonical Vercel issuer/resource and
+same-login consent. A trusted operator may pin the separate Render transport
+origin; forwarded headers cannot change identity or allowed hosts. RFC 9207
+issuer identification enables compatible client registration. The first
+ChatGPT client is read-only (`notes:read`); owner consent and live acceptance are
+separate from code verification. Existing GitHub capture/search and #50's
+explicit cutover gate remain unchanged.

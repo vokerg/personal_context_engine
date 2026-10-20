@@ -14,6 +14,25 @@ import { registerOAuth, type OAuthClient } from "./oauth.js";
 export interface McpOptions {
   db: PrismaClient;
   clients: OAuthClient[];
+  transportHost?: string;
+}
+// Trusted deployment configuration only; forwarding headers never select this host.
+export function mcpTransportHost(env: NodeJS.ProcessEnv): string | undefined {
+  if (!env.PCE_MCP_TRANSPORT_ORIGIN) return;
+  const value = env.PCE_MCP_TRANSPORT_ORIGIN;
+  const url = new URL(value);
+  if (
+    url.origin !== value ||
+    url.username ||
+    url.password ||
+    (url.protocol !== "https:" &&
+      !(
+        url.protocol === "http:" &&
+        ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)
+      ))
+  )
+    throw new Error("Invalid MCP transport origin");
+  return url.host;
 }
 export function registerMcp(
   app: FastifyInstance,
@@ -30,7 +49,9 @@ export function registerMcp(
     handler: async (request, reply) => {
       // Pin Host as well as Origin to prevent DNS rebinding on local listeners.
       if (
-        request.headers.host !== new URL(auth.config.issuer).host ||
+        (request.headers.host !== new URL(auth.config.issuer).host &&
+          (options.transportHost === undefined ||
+            request.headers.host !== options.transportHost)) ||
         (request.headers.origin !== undefined &&
           ![auth.config.origin, auth.config.issuer].includes(
             request.headers.origin,
