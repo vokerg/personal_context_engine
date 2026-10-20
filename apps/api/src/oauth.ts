@@ -200,14 +200,40 @@ export function registerOAuth(
     }
     const session = await auth.browserSession(request),
       cookie = cookies(request.headers.cookie).pce_csrf;
+    const origin = request.headers.origin,
+      originAllowed =
+        origin === undefined || origin === "null" || origin === issuer,
+      csrfMatchesSession =
+        session !== null && secretHash(csrf) === session.csrfHash,
+      csrfCookieMatchesForm = cookie !== undefined && cookie === csrf;
     if (
       !session ||
-      (request.headers.origin !== undefined &&
-        request.headers.origin !== issuer) ||
-      cookie !== csrf ||
-      secretHash(csrf) !== session.csrfHash
-    )
+      !originAllowed ||
+      !csrfCookieMatchesForm ||
+      !csrfMatchesSession
+    ) {
+      // Keep rejection diagnostics categorical: never log cookies, tokens,
+      // authorization codes, credentials, or note content.
+      console.log(
+        JSON.stringify({
+          event: "oauth_consent_rejected",
+          session: session ? "present" : "missing",
+          origin:
+            origin === undefined
+              ? "missing"
+              : origin === "null"
+                ? "opaque"
+                : origin === issuer
+                  ? "issuer"
+                  : "other",
+          csrfCookie: cookie ? "present" : "missing",
+          csrfForm: csrf ? "present" : "missing",
+          csrfCookieMatchesForm: csrfCookieMatchesForm ? "yes" : "no",
+          csrfMatchesSession: csrfMatchesSession ? "yes" : "no",
+        }),
+      );
       return reply.code(403).send({ error: "access_denied" });
+    }
     const target = new URL(p.redirect_uri);
     target.searchParams.set("state", p.state);
     target.searchParams.set("iss", issuer);
