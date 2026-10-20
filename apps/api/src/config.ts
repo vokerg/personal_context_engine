@@ -63,7 +63,7 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
     throw new Error("NODE_ENV must be development, test or production");
   }
   const mode = environment as ApiConfig["environment"];
-  const portValue = env.API_PORT ?? "3000";
+  const portValue = env.API_PORT ?? env.PORT ?? "3000";
   if (!/^[0-9]{1,5}$/.test(portValue)) {
     throw new Error("API_PORT must be a valid TCP port");
   }

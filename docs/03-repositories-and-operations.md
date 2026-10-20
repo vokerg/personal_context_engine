@@ -543,3 +543,9 @@ query processing uses those same gates but runs only for user queries; it never
 launches a corpus indexing loop. See [search cost/fallback/rollback](17-search.md)
 and [MCP consent/deployment boundaries](18-mcp.md). No extra username/login is
 introduced for MCP; scopes are delegated from the same browser session.
+
+## Hosted web and API (#79)
+
+See [Vercel web and Render API](19-hosted-deployment.md) for the owner-selected
+main-only deployment, same-origin sessions, private environment provisioning,
+verification and rollback. ChatGPT connector setup remains a separate step.

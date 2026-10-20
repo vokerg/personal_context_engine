@@ -262,3 +262,15 @@ verified identity. No remote client metadata fetch, public tunnel, GitHub export
 requirement or automatic ChatGPT retrieval cutover is introduced. See
 [protocol and verification boundaries](18-mcp.md). Hosted HTTPS and live ChatGPT
 acceptance remain open and must be observed before claiming completion.
+
+## D-023 — Initial hosted deployment (accepted owner direction 2026-10-20)
+
+Deploy the React web app to Vercel and the Fastify API to Render, with automatic
+redeployments from `main` only and all branch/PR previews disabled. Reuse the
+existing PostgreSQL, persisted owner and D-021 fixed single-user password
+sessions. Proxy browser API/auth through the Vercel hostname to preserve exact
+origin checks and host-only cookies. DB/OpenAI credentials belong only in
+Render's server environment. MCP/ChatGPT connection and retrieval cutover remain
+separate follow-up work; existing GitHub capture/search stays available. See
+[deployment setup and verification](19-hosted-deployment.md) and issue #79;
+configuration alone does not establish a successful live deployment.
