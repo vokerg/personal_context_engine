@@ -91,6 +91,16 @@ checkout are required by the API. Existing local GitHub ingestion can keep
 feeding the same DB. Hosted ingestion, DB preparation and embedding schedules
 are separate work; no such processes are launched by this web service.
 
+## Hosted DB reader (#81)
+
+The standalone API attaches the trusted timeline/tag/detail reader only when
+single-user sessions and `PCE_DB_SEARCH=true` are explicitly configured. It
+reads all DB originals for the verified owner, including API-only notes, without
+requiring a content checkout. The local launcher retains its additional snapshot
+allowlist; an empty allowlist still exposes nothing. Pages stay bounded at 24
+notes, and the legacy list route returns one bounded page. Facets and original
+source detail apply the same SQL owner predicate. No unowned rows are adopted.
+
 ## Verification and rollback
 
 Verify provider settings show the correct repository, branch `main`, no PR

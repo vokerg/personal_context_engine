@@ -1,3 +1,4 @@
+import { createDatabaseNoteReader } from "./database-reader.js";
 import { oauthClients } from "./oauth.js";
 import { randomBytes } from "node:crypto";
 import { createSearchRepository } from "@pce/db";
@@ -52,6 +53,10 @@ async function start(): Promise<void> {
                     capture: createApiCaptureRepository(connected),
                     ...(process.env.PCE_DB_SEARCH === "true"
                       ? {
+                          notes: createDatabaseNoteReader(
+                            connected,
+                            randomBytes(32).toString("hex"),
+                          ),
                           search: createSearchService(
                             createSearchRepository(connected),
                             randomBytes(32).toString("hex"),

@@ -3,13 +3,13 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 
 const PAGE_SIZE = 24;
 export interface BrowseQuery {
-  q?: string;
-  tag?: string;
-  project?: string;
-  kind?: string;
-  start?: string;
-  end?: string;
-  cursor?: string;
+  q?: string | undefined;
+  tag?: string | undefined;
+  project?: string | undefined;
+  kind?: string | undefined;
+  start?: string | undefined;
+  end?: string | undefined;
+  cursor?: string | undefined;
 }
 export class BrowseCursorError extends Error {
   constructor() {
@@ -18,21 +18,25 @@ export class BrowseCursorError extends Error {
   }
 }
 
-/** Trusted local adapter only. Scope is applied in every SQL query. */
+/** Owner-scoped DB reader with an optional additional local snapshot allowlist. */
 export function createBrowseRepository(
   db: PrismaClient,
-  allowedIds: readonly string[],
+  allowedIds: readonly string[] | undefined,
   cursorSecret: string,
 ) {
   if (Buffer.byteLength(cursorSecret) < 32)
     throw new Error("Browse signing key required");
   const sign = (payload: string) =>
     createHmac("sha256", cursorSecret).update(payload).digest("base64url");
-  const scope = (owner: string, ids: readonly string[]) => Prisma.sql`
-    n."ownerSubject" = ${owner} AND n.id = ANY(${[...ids]}::text[])`;
+  const scope = (
+    owner: string,
+    ids: readonly string[] | undefined,
+  ) => Prisma.sql`
+    n."ownerSubject" = ${owner}
+    ${ids ? Prisma.sql`AND n.id = ANY(${[...ids]}::text[])` : Prisma.empty}`;
   return {
     async pageByOwner(owner: string, query: BrowseQuery = {}) {
-      const ids = [...allowedIds].sort();
+      const ids = allowedIds ? [...allowedIds].sort() : undefined;
       const { cursor, ...filters } = query;
       const fingerprint = createHash("sha256")
         .update(
@@ -85,7 +89,7 @@ export function createBrowseRepository(
           throw new BrowseCursorError();
         }
       }
-      if (!ids.length) return { notes: [], nextCursor: null };
+      if (ids?.length === 0) return { notes: [], nextCursor: null };
       const rows = await db.$queryRaw<
         Array<{
           id: string;
@@ -124,8 +128,9 @@ export function createBrowseRepository(
       };
     },
     async facetsByOwner(owner: string) {
-      const ids = [...allowedIds];
-      if (!ids.length) return { projects: [], kinds: [], truncated: false };
+      const ids = allowedIds ? [...allowedIds] : undefined;
+      if (ids?.length === 0)
+        return { projects: [], kinds: [], truncated: false };
       const [projects, kinds] = await Promise.all([
         db.$queryRaw<Array<{ slug: string; count: bigint }>>(Prisma.sql`
           SELECT p.slug, count(DISTINCT n.id)::bigint AS count

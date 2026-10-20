@@ -274,3 +274,10 @@ Render's server environment. MCP/ChatGPT connection and retrieval cutover remain
 separate follow-up work; existing GitHub capture/search stays available. See
 [deployment setup and verification](19-hosted-deployment.md) and issue #79;
 configuration alone does not establish a successful live deployment.
+
+## Hosted reader wiring (#81)
+
+The explicitly gated standalone API now uses owner-scoped DB originals for the
+timeline, observed tags/facets and source detail, including API-only records.
+Local browsing retains its checkout snapshot restriction. No new authentication
+provider, schema change, MCP enablement or repository-search cutover is implied.
