@@ -494,3 +494,21 @@ Synthetic CI uses a fake provider and an isolated PostgreSQL vector store;
 it never authorizes real data egress. To stop indexing, unset the one-shot
 mode or `PCE_EMBEDDINGS_ENABLED` flag. Existing indexed vectors remain until
 a deliberate deletion/migration.
+
+## Single-user sign-in (#44)
+
+PCE supports the same personal deployment pattern as SportOS. Set
+`PCE_AUTH_MODE=dev-single-user` only for a loopback local workspace; it uses the
+existing `local-developer` owner. `dev:local` obtains opaque cookie sessions
+through its existing same-origin bootstrap and preserves the legacy mode when
+the flag is unset. For hosted use select `single-user`, trusted `PCE_OWNER_SUBJECT`,
+`PCE_WEB_ORIGIN`, `PCE_API_ORIGIN`, username and a scrypt-v1 password hash, with
+HTTPS. The Web UI presents one username/password sign-in in this mode. Never
+copy SportOS database/session keys or provider credentials to PCE.
+
+`GET /auth/session` verifies the current cookie; `POST /auth/logout` revokes it.
+Browser unsafe methods require X-PCE-CSRF. Authenticated `POST /auth/token` with
+`scope` (`notes:read`, `capture:write`) issues a bounded delegated token pair;
+MCP authorization-code/PKCE discovery and refresh routes are added under #49.
+A caller cannot specify an owner. Removing the mode restores the prior runtime;
+existing additive session tables can remain. No production deployment is implied.

@@ -220,3 +220,14 @@ including DB-only source records. HTTP/hybrid retrieval and default search
 activation remain #48/#50; no identity provider, automatic ingress hook,
 continuous deployment or actual private-text egress is implied. See the
 [worker runbook](03-repositories-and-operations.md#explicit-embeddings-pass-issue-47).
+
+## D-021 — Single-user sign-in (accepted owner direction 2026-10-20)
+
+For the current personal deployment, follow SportOS's fixed-owner model rather
+than requiring a new external identity provider: a configured username/scrypt
+password for hosted access, opaque DB-backed sessions, HttpOnly cookies and
+CSRF for browser writes. Explicit local development may bootstrap that same
+owner only on loopback; it cannot authenticate a hosted issuer. Existing note
+ownership remains unchanged and legacy null owners are not adopted. Scoped,
+short-lived delegated API tokens share the same login and session revocation.
+OAuth/PKCE delegation for MCP is #49; multi-user/OIDC onboarding is deferred.

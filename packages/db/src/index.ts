@@ -218,3 +218,6 @@ export function createNoteRepository(client: PrismaClient) {
 }
 
 export { createBrowseRepository, BrowseCursorError } from "./browse.js";
+
+export { createSessionRepository } from "./session-auth.js";
+export type { SessionRepository } from "./session-auth.js";

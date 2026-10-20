@@ -101,7 +101,11 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
     publicKeyPem,
     keyId,
   ].some((value) => value !== undefined);
-  if (mode === "production" && !anyAuthConfigured) {
+  if (
+    mode === "production" &&
+    !anyAuthConfigured &&
+    env.PCE_AUTH_MODE !== "single-user"
+  ) {
     throw new Error("Production requires authenticated API configuration");
   }
   let auth: ApiAuthConfig | null = null;

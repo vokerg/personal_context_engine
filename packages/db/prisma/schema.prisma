@@ -205,3 +205,38 @@ model EmbeddingScan {
 
   @@map("embedding_scans")
 }
+
+// Single-user sessions and delegated API grants. Only digests are persisted.
+model AuthSession {
+  id                String   @id @default(uuid()) @db.Uuid
+  ownerSubject      String   @db.VarChar(128)
+  issuer            String   @db.VarChar(256)
+  audience          String   @db.VarChar(256)
+  tokenHash         String   @unique @db.Char(64)
+  csrfHash          String   @db.Char(64)
+  expiresAt         DateTime @db.Timestamptz(3)
+  absoluteExpiresAt DateTime @db.Timestamptz(3)
+  revokedAt         DateTime? @db.Timestamptz(3)
+  lastSeenAt        DateTime @default(now()) @db.Timestamptz(3)
+  grants            ApiGrant[]
+
+  @@index([ownerSubject, expiresAt])
+  @@map("auth_sessions")
+}
+
+model ApiGrant {
+  id                String   @id @default(uuid()) @db.Uuid
+  sessionId         String   @db.Uuid
+  session           AuthSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  clientId          String   @db.VarChar(128)
+  audience          String   @db.VarChar(256)
+  scopes            String[]
+  accessHash        String   @unique @db.Char(64)
+  refreshHash       String   @unique @db.Char(64)
+  expiresAt         DateTime @db.Timestamptz(3)
+  refreshExpiresAt DateTime @db.Timestamptz(3)
+  revokedAt         DateTime? @db.Timestamptz(3)
+
+  @@index([sessionId])
+  @@map("api_grants")
+}

@@ -282,3 +282,26 @@ predicate and reads no embedding tables. A future authenticated retrieval
 integration must pass the verified subject, preserve its feature gate, and
 never substitute GitHub search for API-only records. This addition does not
 change default ChatGPT search, private-read routes or local checkout scoping.
+
+## Single-user session boundary (#44, D-021)
+
+The explicit session mode follows the inspected SportOS pattern. Only a trusted
+server-configured owner is used; no request may choose identity. Hosted login
+requires scrypt-v1 credentials (N=65536, r=8, p=1), exact browser Origin and HTTPS
+off loopback. Checks are serialized and limited to ten attempts/minute per API
+process. Use one API instance or an ingress rate limiter for deployment.
+
+Only SHA-256 session/CSRF/access/refresh digests persist. Browser cookies are
+HttpOnly (session), SameSite=Lax, host-only and Secure on HTTPS. Unsafe cookie
+requests require the matching readable cookie, X-PCE-CSRF and configured Origin.
+Sessions have 12-hour idle and seven-day absolute expiry; logout immediately
+invalidates derived API grants. Grants are issuer/audience/owner bound, expire
+in 15 minutes and have one-use rotating refresh tokens. No credentials enter
+browser storage. Legacy JWT and explicit single-user modes are separate;
+invalid Authorization headers never fall back to a cookie identity.
+
+`dev-single-user` is explicitly forbidden in production and on non-loopback
+binds/origins. It matches SportOS's current local-only development setup, not a
+production login bypass. Public startup remains content-free unless trusted
+adapters and a session/auth verifier are explicitly injected. Deployment and
+MCP connector compatibility are verified separately from synthetic CI.

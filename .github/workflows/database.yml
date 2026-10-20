@@ -82,4 +82,4 @@ jobs:
           done
           node -e 'const v=require("/tmp/pce-db-ready.json"); if(v.status!=="ready")process.exit(1)'
       - name: PostgreSQL integration tests (synthetic records only)
-        run: npx vitest run --no-file-parallelism packages/db/src/index.integration.test.ts packages/db/src/browse.integration.test.ts packages/db/src/chunks.integration.test.ts packages/db/src/embedding-jobs.integration.test.ts apps/worker/src/worker.integration.test.ts scripts/local-runtime.test.mjs scripts/local-ingestion.test.mjs
+        run: npx vitest run --no-file-parallelism apps/api/src/session-auth.integration.test.ts packages/db/src/index.integration.test.ts packages/db/src/browse.integration.test.ts packages/db/src/chunks.integration.test.ts packages/db/src/embedding-jobs.integration.test.ts apps/worker/src/worker.integration.test.ts scripts/local-runtime.test.mjs scripts/local-ingestion.test.mjs

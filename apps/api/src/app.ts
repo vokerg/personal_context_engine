@@ -1,3 +1,8 @@
+import {
+  registerSessionRoutes,
+  requireSessionScope,
+  type SessionAuth,
+} from "./session-auth.js";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import {
   BrowseQuerySchema,
@@ -48,6 +53,7 @@ export interface PrivateNoteReader {
 }
 
 export interface ApiDependencies {
+  sessionAuth?: SessionAuth;
   /** A trusted adapter supplied by the DB integration; never a user request. */
   checkDatabase?: () => Promise<boolean>;
   verifyToken?: TokenVerifier;
@@ -71,6 +77,7 @@ export function createApp(options: ApiOptions = {}) {
   const config = options.config ?? loadApiConfig();
   const checkDatabase = options.dependencies?.checkDatabase;
   const notes = options.dependencies?.notes;
+  const sessionAuth = options.dependencies?.sessionAuth;
   const verifyToken =
     options.dependencies?.verifyToken ??
     (config.rs256Auth
@@ -78,7 +85,7 @@ export function createApp(options: ApiOptions = {}) {
       : config.auth
         ? createHmacTokenVerifier(config.auth)
         : undefined);
-  if (notes && !verifyToken) {
+  if (notes && !verifyToken && !sessionAuth) {
     throw new Error("Private notes require an authenticated token verifier");
   }
   if (config.requiresDatabase && !checkDatabase) {
@@ -107,6 +114,7 @@ export function createApp(options: ApiOptions = {}) {
     if (allowed) {
       reply.header("Access-Control-Allow-Origin", origin);
       reply.header("Vary", "Origin");
+      if (sessionAuth) reply.header("Access-Control-Allow-Credentials", "true");
     }
     if (
       request.method === "OPTIONS" &&
@@ -114,14 +122,21 @@ export function createApp(options: ApiOptions = {}) {
     ) {
       if (
         !allowed ||
-        request.headers["access-control-request-method"] !== "GET"
+        !["GET", ...(sessionAuth ? ["POST"] : [])].includes(
+          String(request.headers["access-control-request-method"]),
+        )
       ) {
         return reply.code(403).send(errorResponse("FORBIDDEN"));
       }
-      reply.header("Access-Control-Allow-Methods", "GET");
+      reply.header(
+        "Access-Control-Allow-Methods",
+        sessionAuth ? "GET, POST" : "GET",
+      );
       reply.header(
         "Access-Control-Allow-Headers",
-        "Authorization, Content-Type",
+        sessionAuth
+          ? "Authorization, Content-Type, X-PCE-CSRF"
+          : "Authorization, Content-Type",
       );
       return reply.code(204).send();
     }
@@ -174,11 +189,15 @@ export function createApp(options: ApiOptions = {}) {
     ApiVersionResponseSchema.parse({ version: "v1" }),
   );
 
+  if (sessionAuth) registerSessionRoutes(app, sessionAuth);
+
   if (notes) {
     const requireNoteRead = async (
       request: FastifyRequest,
       reply: FastifyReply,
     ) => {
+      if (sessionAuth)
+        return requireSessionScope(request, reply, sessionAuth, "notes:read");
       const authorization = request.headers.authorization;
       const match = /^Bearer ([A-Za-z0-9._-]{1,4096})$/i.exec(
         authorization ?? "",
