@@ -267,17 +267,47 @@ export function registerOAuth(
     }
     return ++count <= 30;
   };
+  const tokenDiagnostic = (
+    flow: "authorization_code" | "refresh_token" | "other",
+    category:
+      | "rate_limited"
+      | "payload"
+      | "client_or_resource"
+      | "code_not_usable"
+      | "scope_mismatch"
+      | "code_race"
+      | "grant_issue"
+      | "refresh_invalid",
+  ) =>
+    // Keep diagnostics categorical: never log request bodies, codes, tokens,
+    // client secrets, cookies, credentials or note content.
+    console.log(
+      JSON.stringify({ event: "oauth_token_rejected", flow, category }),
+    );
   app.post("/oauth/token", async (request, reply) => {
-    if (!rate())
+    const body = request.body;
+    const grantType =
+      body && typeof body === "object" && !Array.isArray(body)
+        ? (body as Record<string, unknown>).grant_type
+        : undefined;
+    const flow: "authorization_code" | "refresh_token" | "other" =
+      grantType === "authorization_code" || grantType === "refresh_token"
+        ? grantType
+        : "other";
+    if (!rate()) {
+      tokenDiagnostic(flow, "rate_limited");
       return reply.code(429).send({ error: "temporarily_unavailable" });
+    }
     const refresh = refreshSchema.safeParse(request.body);
     if (refresh.success) {
       const p = refresh.data;
       if (
         p.resource !== audience ||
         !clients.some((c) => c.clientId === p.client_id)
-      )
+      ) {
+        tokenDiagnostic("refresh_token", "client_or_resource");
         return reply.code(400).send({ error: "invalid_grant" });
+      }
       const result = await auth.refresh(p.refresh_token, p.client_id);
       const client = clients.find((c) => c.clientId === p.client_id)!;
       if (
@@ -288,14 +318,18 @@ export function registerOAuth(
             (s) => !client.scopes.includes(s as z.infer<typeof scopeSchema>),
           )
       ) {
+        tokenDiagnostic("refresh_token", "scope_mismatch");
         await auth.repo.revokeGrant(secretHash(result.access_token));
         return reply.code(400).send({ error: "invalid_grant" });
       }
+      if (!result) tokenDiagnostic("refresh_token", "refresh_invalid");
       return result ?? reply.code(400).send({ error: "invalid_grant" });
     }
     const parsed = codeTokenSchema.safeParse(request.body);
-    if (!parsed.success)
+    if (!parsed.success) {
+      tokenDiagnostic(flow, "payload");
       return reply.code(400).send({ error: "invalid_request" });
+    }
     const p = parsed.data,
       challenge = createHash("sha256")
         .update(p.code_verifier)
@@ -304,8 +338,10 @@ export function registerOAuth(
     if (
       p.resource !== audience ||
       !client?.redirectUris.includes(p.redirect_uri)
-    )
+    ) {
+      tokenDiagnostic("authorization_code", "client_or_resource");
       return reply.code(400).send({ error: "invalid_grant" });
+    }
     const code = await db.oAuthCode.findFirst({
       where: {
         codeHash: secretHash(p.code),
@@ -330,8 +366,13 @@ export function registerOAuth(
       code.scopes.some(
         (s) => !client.scopes.includes(s as z.infer<typeof scopeSchema>),
       )
-    )
+    ) {
+      tokenDiagnostic(
+        "authorization_code",
+        code ? "scope_mismatch" : "code_not_usable",
+      );
       return reply.code(400).send({ error: "invalid_grant" });
+    }
     const consumed = await db.oAuthCode.updateMany({
       where: {
         codeHash: code.codeHash,
@@ -340,11 +381,14 @@ export function registerOAuth(
       },
       data: { consumedAt: auth.now() },
     });
-    if (consumed.count !== 1)
+    if (consumed.count !== 1) {
+      tokenDiagnostic("authorization_code", "code_race");
       return reply.code(400).send({ error: "invalid_grant" });
+    }
     try {
       return await auth.issueGrant(code.sessionId, code.scopes, code.clientId);
     } catch {
+      tokenDiagnostic("authorization_code", "grant_issue");
       return reply.code(400).send({ error: "invalid_grant" });
     }
   });

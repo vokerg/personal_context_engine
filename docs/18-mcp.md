@@ -114,6 +114,11 @@ and deny redirects include `iss` exactly equal to the configured issuer. Invalid
 requests still fail locally without redirecting. Registered callbacks may not
 prepopulate `iss`, `state`, `code` or `error`.
 
+Hosted token-exchange failures may emit categorical diagnostics such as an
+invalid payload, client/resource mismatch, unusable PKCE code, or grant issue.
+These diagnostics intentionally omit request bodies, codes, tokens, cookies,
+credentials and note content.
+
 In ChatGPT's custom MCP form use the hosted Vercel `/mcp` URL, OAuth, a predefined
 public client (token authentication `none`) and default scope `notes:read`.
 Copy the exact callback shown by ChatGPT into the trusted registration; do not
