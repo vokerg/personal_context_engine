@@ -163,7 +163,7 @@ model NoteChunk {
 model ChunkEmbedding {
   id            String            @id @db.Char(64)
   chunkId       String            @db.Char(64)
-  chunk         NoteChunk         @relation(fields: [chunkId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  chunk         NoteChunk         @relation(fields: [chunkId], references: [id], onDelete: Cascade)
   provider      String            @db.VarChar(64)
   modelId       String            @db.VarChar(128)
   dimensions    Int
