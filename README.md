@@ -2,13 +2,13 @@
 
 **Personal Context Engine (PCE)** is an extensible, self-hostable system for capturing unstructured thoughts, preserving their original meaning, turning them into structured records, and surfacing relevant context later.
 
-**Status (2026-10-16): foundation with opt-in local GitHub ingestion, owner-scoped development browsing and synthetic authentication.** This repository has starter API/worker processes, React/Vite and Expo read-only client previews, shared TypeScript workspaces, and pure synthetic-tested v1 Markdown capture validation/serialization in `@pce/core`. An opt-in one-shot worker supports filesystem/PostgreSQL ingestion and crash reconciliation; the normal worker command stays idle. The browser/Expo clients now have development-only, memory-scoped bearer entry and typed list/detail API requests. There is no production login, hosted private-note ingestion, notification delivery or deployment; owner-scoped local-development browsing exists behind explicit opt-in. The documents distinguish agreed direction from implemented functionality.
+**Status (2026-10-20): locally tested single-user capture, indexing and search.** The optional local runtime supports SportOS-style single-user sessions, durable DB-first API/MCP capture, bounded OpenAI embedding passes and gated lexical/hybrid search in the web reader. The existing private-GitHub capture/import path remains available. The default worker stays idle, all provider calls require explicit enablement, and public CI uses synthetic data. Hosted HTTPS deployment, actual ChatGPT connector acceptance, automatic ledgers and push notifications remain unimplemented or unverified; see the linked runbooks for exact boundaries.
 
 ## Next direction: independent capture inputs and PostgreSQL processing
 
-**Current:** ChatGPT can use the private GitHub content repository as a capture/search surface where the connector permits it; an explicitly opted-in local GitHub worker can import and finalize Markdown into PostgreSQL. These are *not* hosted background ingestion, MCP deployment, semantic search, automatic ledgers or push notifications.
+**Current:** private GitHub Markdown remains a working optional capture/search channel. Authenticated API/MCP capture can commit originals, owner provenance, idempotency receipts and processing jobs directly to PostgreSQL. Separate bounded workers prepare chunks and optionally index them with `text-embedding-3-small`; gated web/API retrieval searches DB originals, including API-only notes. OAuth consent shares the same single-user login; the official MCP client is tested locally.
 
-**Agreed target (not implemented yet):** preserve GitHub as an optional capture input independent of PCE uptime; add direct authenticated API/MCP -> **PostgreSQL** capture. PostgreSQL becomes authoritative for originals, DB jobs, search and generated ledgers. Workers process DB jobs and save results to the DB, **not back to GitHub**. GitHub input catches up through durable reconciliation. Add optional OpenAI `text-embedding-3-small` indexing and gated DB retrieval; retain today's repo search until a verified opt-in cutover. Backup automation is deferred by the owner (#61, D-020); it does not block functional delivery. The restore drill is an optional manual tool.
+**Remaining target:** independently deployed HTTPS ingestion/MCP, an observed ChatGPT connector and retrieval cutover, richer DB processing, deliberate ledgers/reminders and push delivery. No hosted scheduler, remote connector compatibility or model-generated action authority is inferred from local tests. Backup automation remains deferred by owner decision D-020 (#61).
 
 See [the project intent](INTENT.md), [coexistence plan](docs/13-evolution-plan.md) and [delivery epic #42](https://github.com/vokerg/personal_context_engine/issues/42). **No current capture route is being removed by this plan.**
 
@@ -23,11 +23,11 @@ See [the project intent](INTENT.md), [coexistence plan](docs/13-evolution-plan.m
 
 ## Product loop
 
-1. Capture voice or text through private GitHub Markdown **or** future authenticated API/MCP.
+1. Capture voice or text through private GitHub Markdown **or** optional authenticated API/MCP.
 2. Preserve original content, schema and provenance; commit API-origin notes directly to PostgreSQL.
 3. Idempotently import GitHub-origin notes to PostgreSQL with durable checkpoints. The existing importer currently also moves GitHub files; removing that dependency is future work.
 4. Run enrichment, embedding, reminder and ledger workers from durable **DB jobs**, persisting derived results to DB.
-5. Expose owner-scoped database browsing and retrieval through API, web, mobile and eventually MCP; keep GitHub search until approved cutover.
+5. Expose owner-scoped database browsing and retrieval through API and web, with optional MCP and a separate mobile preview; keep GitHub search until approved cutover.
 6. Back up/restore PostgreSQL and offer optional explicit portable export, not automatic GitHub replication.
 
 The capture channel and LLM provider are replaceable. GitHub is an optional input adapter/legacy archive, not the long-term processing backend.
@@ -67,12 +67,13 @@ With a root `.env` containing `DATABASE_URL` and the content checkout beside thi
 
 ```bash
 npm ci
-npm run dev:local
+PCE_AUTH_MODE=dev-single-user PCE_DB_SEARCH=true npm run dev:local
 ```
 
 Open `http://127.0.0.1:4310`. The local web session connects automatically;
 no manually generated JWT is needed. The launcher builds the workspaces,
-applies migrations and imports valid Markdown from the content checkout
+applies migrations using `DIRECT_URL` when configured (runtime queries retain
+`DATABASE_URL`) and imports valid Markdown from the content checkout
 without modifying it by default. Set `PCE_INGEST_GITHUB=true`,
 `CONTENT_REPOSITORY` and `CONTENT_BRANCH` in `.env` to activate the real
 worker: it persists inbox notes, commits canonical moves to the verified
@@ -80,8 +81,21 @@ private GitHub repo, and refreshes the checkout every 30 seconds while running.
 Use an existing `gh auth` login or a scoped `CONTENT_GITHUB_TOKEN`.
 API defaults to loopback port 3110. See
 [local workspace configuration](docs/03-repositories-and-operations.md#local-workspace-startup-38).
-This is a single-user local read-only workspace; hosted login, mobile login,
-editing, hosted scheduling and reminders remain separate work.
+The browser connects to one fixed local owner; no password is required on loopback
+in `dev-single-user` mode. Hosted single-user password login is implemented but
+must be deployed and verified over HTTPS. The web reader searches/opens notes;
+capture is through the authenticated API/MCP or existing GitHub workflow.
+
+Keyword search works without OpenAI. Approved local semantic-query tests also
+require `PCE_EMBEDDINGS_ENABLED=true` and
+`PCE_EMBEDDING_EGRESS_APPROVED=I_APPROVE_PRIVATE_TEXT_TO_OPENAI`, with server-only
+credentials and current indexed chunks. These flags permit provider calls; do
+not put keys in a client bundle. Indexing remains a separate explicit one-shot
+worker, not an automatic startup task. Indexing and query requests share a
+60,000-token daily reservation ceiling, with bounded request rates and lexical
+fallback. See [search setup and rollback](docs/17-search.md),
+[embedding operations](docs/03-repositories-and-operations.md#explicit-embeddings-pass-issue-47)
+and [MCP/OAuth setup and remaining acceptance](docs/18-mcp.md).
 
 ## Local development (bootstrap)
 
