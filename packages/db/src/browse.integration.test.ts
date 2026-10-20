@@ -124,6 +124,30 @@ describe.skipIf(!url)("gated owner-scoped SQL browsing", () => {
       ).pageByOwner("browse-owner", { cursor }),
     ).rejects.toBeInstanceOf(BrowseCursorError);
   });
+  it("can browse DB-owned originals without a checkout snapshot while retaining owner isolation", async () => {
+    const all = createBrowseRepository(db, undefined, secret);
+    let cursor: string | undefined;
+    const found: string[] = [];
+    do {
+      const page = await all.pageByOwner(
+        "browse-owner",
+        cursor ? { cursor } : {},
+      );
+      found.push(...page.notes.map((n) => n.id));
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+    expect(found).toEqual(ids.filter((id) => id !== foreign).sort());
+    expect((await all.facetsByOwner("browse-owner")).kinds).toEqual([
+      { slug: "memo", count: 56 },
+    ]);
+    expect(
+      await createBrowseRepository(db, [], secret).pageByOwner("browse-owner"),
+    ).toEqual({ notes: [], nextCursor: null });
+    const restricted = (await repo().pageByOwner("browse-owner")).nextCursor!;
+    await expect(
+      all.pageByOwner("browse-owner", { cursor: restricted }),
+    ).rejects.toBeInstanceOf(BrowseCursorError);
+  });
   it("facets include only observed owner/snapshot data, with an explicit project cap", async () => {
     const facets = await repo().facetsByOwner("browse-owner");
     expect(facets.projects.length).toBe(200);

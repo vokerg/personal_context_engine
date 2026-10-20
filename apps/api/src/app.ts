@@ -56,7 +56,7 @@ export interface PrivateNoteReader {
   /** Optional until a trusted owner-filtered facets adapter is attached. */
   listTagsByOwner?(subject: string): Promise<TagFacetsResponse>;
   getByOwner(subject: string, noteId: string): Promise<NoteDetail | null>;
-  /** Inject both only behind the explicit trusted local browse gate. */
+  /** Inject both only behind an explicit trusted browse/search gate. */
   pageByOwner?(subject: string, query: BrowseQuery): Promise<BrowsePage>;
   facetsByOwner?(subject: string): Promise<BrowseFacets>;
 }
