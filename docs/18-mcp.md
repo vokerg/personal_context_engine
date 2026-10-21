@@ -132,3 +132,12 @@ The owner completes login/consent. Verify discovered tools and a harmless
 read-only query before claiming connection. This preparation does not establish
 actual ChatGPT acceptance or authorize a default retrieval cutover.
 See [OpenAI authentication guidance](https://developers.openai.com/plugins/build/auth).
+
+### Optional retrieval explanation
+
+`PCE_SEARCH_DIAGNOSTICS=true` adds the read-only `diagnose_search` tool to
+`notes:read` grants only. It is absent by default. Use it to explain missing notes,
+coverage, exact cosine scores below/above the production threshold and RRF ranks;
+see [input, output, enablement and limits](17-search.md#opt-in-search-diagnostics-97).
+The flag does not approve provider egress or start indexing. Clients may need to
+refresh tool discovery after the operator restarts the configured runtime.

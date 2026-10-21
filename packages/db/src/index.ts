@@ -236,3 +236,12 @@ export { createApiCaptureRepository, CaptureConflict } from "./api-capture.js";
 
 export { createSearchRepository } from "./search.js";
 export type { SearchRepository } from "./search.js";
+
+export { createSearchDiagnosticsRepository } from "./search-diagnostics.js";
+export type {
+  IndexHealth,
+  RankingDiagnostic,
+  ChunkDiagnostic,
+} from "./search-diagnostics.js";
+
+export { SEARCH_COSINE_THRESHOLD, SEARCH_RRF_K } from "./search-ranking.js";

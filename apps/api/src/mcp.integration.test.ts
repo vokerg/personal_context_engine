@@ -165,6 +165,9 @@ ${text}
           search: createSearchService(
             createSearchRepository(db),
             "x".repeat(32),
+            undefined,
+            undefined,
+            true,
           ),
           capture: createApiCaptureRepository(db),
           mcp: {
@@ -413,6 +416,7 @@ ${text}
             "capture_note",
             "get_note",
             "search_context",
+            "diagnose_search",
           ]),
         );
         const search = await client.callTool({
@@ -422,6 +426,30 @@ ${text}
         const searchText = JSON.stringify(search);
         expect(searchText).toContain(id);
         expect(searchText).not.toContain(other);
+        const diagnosis = await client.callTool({
+          name: "diagnose_search",
+          arguments: { query: "Synthetic evidence", noteId: id, limit: 5 },
+        });
+        const diagnosisText = JSON.stringify(diagnosis);
+        expect(diagnosis.isError).not.toBe(true);
+        expect(diagnosis.structuredContent).toMatchObject({
+          execution: { mode: "lexical", degradation: "disabled" },
+        });
+        expect(diagnosisText).toContain(id);
+        expect(diagnosisText).not.toContain(other);
+        expect(diagnosisText).not.toContain(original);
+        expect(diagnosisText).toContain("disabled");
+        const foreignDiagnosis = await client.callTool({
+          name: "diagnose_search",
+          arguments: { query: "Synthetic evidence", noteId: other },
+        });
+        expect(JSON.stringify(foreignDiagnosis)).toContain("not_found");
+        expect(JSON.stringify(foreignDiagnosis)).not.toContain(other);
+        const forged = await client.callTool({
+          name: "diagnose_search",
+          arguments: { query: "Synthetic", ownerSubject: foreign },
+        });
+        expect(forged.isError).toBe(true);
         const fetched = await client.callTool({
           name: "fetch",
           arguments: { id },
@@ -477,6 +505,92 @@ ${text}
       } finally {
         await client.close();
       }
+    });
+
+    it("omits diagnostics by default and refuses capture-only grants", async () => {
+      const { pair } = await token("notes:read");
+      const off = createApp({
+        config: {
+          environment: "test",
+          host: "127.0.0.1",
+          port: 0,
+          requiresDatabase: false,
+        },
+        dependencies: {
+          sessionAuth: auth,
+          search: createSearchService(
+            createSearchRepository(db),
+            "x".repeat(32),
+          ),
+          capture: createApiCaptureRepository(db),
+          mcp: {
+            db,
+            clients: oauthClients({
+              PCE_MCP_ENABLED: "true",
+              PCE_OAUTH_CLIENTS: JSON.stringify([
+                {
+                  clientId: "synthetic-client",
+                  redirectUris: [redirect],
+                  scopes: ["notes:read", "capture:write"],
+                },
+              ]),
+            }),
+          },
+        },
+      });
+      try {
+        const headers = {
+          host: new URL(issuer).host,
+          authorization: "Bearer " + pair.access_token,
+          accept: "application/json, text/event-stream",
+        };
+        const listed = await off.inject({
+          method: "POST",
+          url: "/mcp",
+          headers,
+          payload: { jsonrpc: "2.0", id: 1, method: "tools/list", params: {} },
+        });
+        expect(listed.statusCode).toBe(200);
+        expect(listed.body).not.toContain("diagnose_search");
+        const called = await off.inject({
+          method: "POST",
+          url: "/mcp",
+          headers,
+          payload: {
+            jsonrpc: "2.0",
+            id: 2,
+            method: "tools/call",
+            params: {
+              name: "diagnose_search",
+              arguments: { query: "synthetic" },
+            },
+          },
+        });
+        expect(called.json().result.isError).toBe(true);
+        expect(called.body).toContain("not found");
+      } finally {
+        await off.close();
+      }
+      const write = await token("capture:write");
+      const denied = await app.inject({
+        method: "POST",
+        url: "/mcp",
+        headers: {
+          host: new URL(issuer).host,
+          authorization: "Bearer " + write.pair.access_token,
+          accept: "application/json, text/event-stream",
+        },
+        payload: {
+          jsonrpc: "2.0",
+          id: 3,
+          method: "tools/call",
+          params: {
+            name: "diagnose_search",
+            arguments: { query: "synthetic" },
+          },
+        },
+      });
+      expect(denied.statusCode).toBe(403);
     });
     it("restricts write tools and HTTP scope, rotates refresh and revokes access and parent sessions", async () => {
       const { pair } = await token("notes:read");
