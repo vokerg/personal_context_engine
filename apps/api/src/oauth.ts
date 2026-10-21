@@ -164,9 +164,12 @@ export function registerOAuth(
     if (!csrf || secretHash(csrf) !== session.csrfHash)
       return reply.code(403).send({ error: "access_denied" });
     const fields = { ...p, csrf };
+    // Chrome applies form-action to the POST's redirect as well. The callback
+    // has already passed the registered client's exact redirect URI check.
+    const callbackOrigin = new URL(p.redirect_uri).origin;
     reply.header(
       "Content-Security-Policy",
-      "default-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+      `default-src 'none'; form-action 'self' ${callbackOrigin}; base-uri 'none'; frame-ancestors 'none'`,
     );
     return reply.type("text/html; charset=utf-8").send(
       `<!doctype html><html><head><meta charset="utf-8"><title>Authorize PCE client</title></head><body><h1>Authorize PCE client</h1><p>Client: ${escape(p.client_id)}</p><p>Allow ${escape(p.scope)} for your notes. Read access shares retrieved private text with this client. Capture access stores only explicitly supplied text; it cannot execute actions.</p><form method="post" action="/oauth/authorize">${Object.entries(

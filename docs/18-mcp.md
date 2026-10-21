@@ -114,6 +114,11 @@ and deny redirects include `iss` exactly equal to the configured issuer. Invalid
 requests still fail locally without redirecting. Registered callbacks may not
 prepopulate `iss`, `state`, `code` or `error`.
 
+The consent page's `form-action` permits self and the origin of the request's
+already validated registered callback. Chrome enforces this restriction on the
+POST's 303 redirect too; self alone issues a code but blocks navigation back to
+the OAuth client. Script loading, base URLs and framing remain disabled.
+
 Hosted token-exchange failures may emit categorical diagnostics such as an
 invalid payload, client/resource mismatch, unusable PKCE code, or grant issue.
 These diagnostics intentionally omit request bodies, codes, tokens, cookies,

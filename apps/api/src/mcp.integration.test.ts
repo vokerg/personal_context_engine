@@ -92,6 +92,9 @@ ${text}
       });
       expect(consent.statusCode).toBe(200);
       expect(consent.body).toContain("Authorize PCE client");
+      expect(consent.headers["content-security-policy"]).toBe(
+        `default-src 'none'; form-action 'self' ${new URL(redirect).origin}; base-uri 'none'; frame-ancestors 'none'`,
+      );
       const granted = await app.inject({
         method: "POST",
         url: "/oauth/authorize",
