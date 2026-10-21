@@ -18,7 +18,7 @@ This documentation is the **architecture baseline and project bible** for Person
 | [10 — Roadmap](10-roadmap.md) | Vertical slices, acceptance gates and deferred features |
 | [11 — Decisions](11-decisions.md) | Accepted, proposed, deferred, open questions |
 | [12 — ChatGPT Project](12-chatgpt-project.md) | Current repo-based capture/search, future MCP boundary |
-| [13 — Evolution plan](13-evolution-plan.md) | Progressive dual-store capture, embeddings, token MCP, gated DB search, UX rollout |
+| [13 — Evolution plan](13-evolution-plan.md) | DB-primary capture with optional GitHub ingress, embeddings, MCP, UX rollout |
 | [14 — OpenAI setup](14-openai-setup.md) | Project/key provisioning, disabled configuration and safe metadata diagnostics |
 | [15 — Database recovery](15-database-recovery.md) | Optional synthetic restore drill and deferred backup policy (D-020) |
 | [Project intent](../INTENT.md) | Concise direction and explicit constraints for future contributors |
@@ -48,3 +48,5 @@ Where a contract remains proposed, implement a test-backed specification before 
 - [18 — Optional MCP and same-login OAuth](18-mcp.md) — gated local protocol, consent and deployment verification boundaries.
 
 - [19 — Vercel web and Render API](19-hosted-deployment.md) — main-only hosted setup, same-origin proxy, secrets and verification.
+
+- [20 — Ordinary contextual research capture](20-research-capture.md) — planned MCP-grounded interactive research, linked versioned reports and private GitHub compatibility contract (#104).
