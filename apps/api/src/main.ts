@@ -71,6 +71,8 @@ async function start(): Promise<void> {
                             createSearchRepository(connected),
                             randomBytes(32).toString("hex"),
                             queryEmbeddingProvider(process.env),
+                            undefined,
+                            process.env.PCE_SEARCH_DIAGNOSTICS === "true",
                           ),
                         }
                       : {}),

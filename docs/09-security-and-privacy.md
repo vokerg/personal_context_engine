@@ -315,3 +315,13 @@ revoked with the parent session. Host/Origin and browser CSRF checks remain in
 force. Web/API cookies require one hostname. No dynamic client metadata fetch,
 public tunnel or live ChatGPT cutover is implicit. See [MCP operation and
 verification limits](18-mcp.md).
+
+### Opt-in search diagnostics (#97)
+
+The default-off `diagnose_search` MCP tool requires a verified `notes:read` grant.
+Owner predicates constrain aggregates, chunk metadata, cosine and rankings in SQL;
+unknown/foreign note IDs are indistinguishable. It returns bounded metadata and
+scores without titles, bodies, query text or vectors. Diagnostics share existing
+query egress approvals and budget/rate enforcement. Source data stays read-only;
+operational query-budget reservations still persist. Never publish live-corpus
+investigation reports, private IDs or scores in the public code repository/CI.

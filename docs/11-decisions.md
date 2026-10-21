@@ -298,3 +298,12 @@ Consent permits form navigation to self and the validated registered callback
 origin, because Chrome applies `form-action` to the successful POST's redirect.
 Exact callback registration, CSRF, PKCE and scoped grant checks remain required;
 no wildcard destination or script execution is enabled.
+
+### Optional search explanation (#97)
+
+The separately gated `diagnose_search` MCP tool explains owner-scoped index health,
+cosine scores and existing lexical/semantic/RRF rankings. It reuses the approved
+query provider and shared budgets, makes no content/indexing changes and is absent
+by default. Production threshold/ranking and retrieval cutover policy remain
+unchanged. Synthetic protocol/database checks establish the mechanism; live
+private investigation evidence stays outside this public repository.

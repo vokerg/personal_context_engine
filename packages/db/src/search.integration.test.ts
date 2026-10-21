@@ -81,6 +81,296 @@ ${original}
         await db.$disconnect();
       }
     });
+
+    it("diagnoses coverage, exact cosine, below-threshold candidates and RRF without exposing foreign data or vectors", async () => {
+      const owner = "diagnostics-" + randomUUID();
+      const relevant = await seed(owner, "synthetic needle", basis(0));
+      const weak = await seed(
+        owner,
+        "unrelated",
+        Array.from({ length: 1536 }, (_, i) =>
+          i === 0 ? 0.1 : i === 1 ? Math.sqrt(0.99) : 0,
+        ),
+      );
+      const missing = await seed(owner, "needle without vector");
+      const foreign = await seed("foreign-" + randomUUID(), "needle", basis(0));
+      const repo = createSearchRepository(db);
+      const provider = {
+        embed: vi.fn(async () => ({ vector: basis(0), usageTokens: 2 })),
+      };
+      const service = createSearchService(
+        repo,
+        "s".repeat(32),
+        provider,
+        undefined,
+        true,
+      );
+      const diagnostic = await service.diagnoseByOwner(owner, {
+        query: "needle",
+        noteId: missing,
+        limit: 20,
+      });
+      expect(diagnostic.index).toMatchObject({
+        totalNotes: 3,
+        indexedNotes: 2,
+        fullyIndexedNotes: 2,
+        coveragePercent: 66.67,
+        missingNotes: 1,
+      });
+      expect(diagnostic.note).toMatchObject({
+        id: missing,
+        totalChunks: 0,
+        eligibleChunks: 0,
+        reason: "included",
+      });
+      const strong = diagnostic.candidates.find((c) => c.id === relevant)!;
+      expect(strong).toMatchObject({
+        semanticRank: 1,
+        passedThreshold: true,
+        finalRank: 1,
+      });
+      expect(strong.bestSimilarity).toBeCloseTo(1, 6);
+      expect(strong.rrfScore).toBeCloseTo(
+        1 / (60 + strong.lexicalRank!) + 1 / 61,
+        10,
+      );
+      expect(diagnostic.candidates.find((c) => c.id === weak)).toMatchObject({
+        passedThreshold: false,
+        semanticRank: null,
+        finalRank: null,
+      });
+      expect(
+        diagnostic.candidates.find((c) => c.id === weak)!.bestSimilarity,
+      ).toBeCloseTo(0.1, 6);
+      const production = await service.searchByOwner(owner, {
+        query: "needle",
+        limit: 20,
+      });
+      expect(
+        diagnostic.candidates.filter((c) => c.included).map((c) => c.id),
+      ).toEqual(production.results.map((c) => c.id));
+      expect(provider.embed).toHaveBeenCalledTimes(1);
+      const text = JSON.stringify(diagnostic);
+      expect(text).not.toContain(foreign);
+      expect(text).not.toContain('"vector":');
+      expect(text).not.toContain("needle without vector");
+      const privateNote = await service.diagnoseByOwner(owner, {
+        query: "needle",
+        noteId: foreign,
+        limit: 5,
+      });
+      const absent = await service.diagnoseByOwner(owner, {
+        query: "needle",
+        noteId: randomUUID(),
+        limit: 5,
+      });
+      expect(privateNote.note).toEqual(absent.note);
+      expect(privateNote.candidates.some((c) => c.id === foreign)).toBe(false);
+      const excluded = await service.diagnoseByOwner(owner, {
+        query: "absent",
+        noteId: missing,
+        limit: 5,
+      });
+      expect(excluded.note).toMatchObject({
+        reason: "no_chunks",
+        eligibleChunks: 0,
+      });
+      await expect(
+        createSearchService(repo, "s".repeat(32), provider).diagnoseByOwner(
+          owner,
+          { query: "needle", limit: 5 },
+        ),
+      ).rejects.toThrow("disabled");
+      await expect(
+        service.diagnoseByOwner(owner, { query: "needle", limit: 21 }),
+      ).rejects.toThrow();
+    });
+    it("counts stale, missing, incompatible and queued embeddings and explains lexical degradation", async () => {
+      const owner = "health-" + randomUUID(),
+        repo = createSearchRepository(db);
+      const ready = await seed(owner, "health", basis(0));
+      const stale = await seed(owner, "health stale", basis(0));
+      await db.noteChunk.updateMany({
+        where: { noteId: stale, ownerSubject: owner },
+        data: { sourceRevision: "stale" },
+      });
+      const wrong = await seed(owner, "health obsolete", basis(0));
+      await db.chunkEmbedding.updateMany({
+        where: { chunk: { noteId: wrong, ownerSubject: owner } },
+        data: { modelId: "old-model" },
+      });
+      const statusCounts: Record<string, number> = {};
+      for (const status of ["PENDING", "LEASED", "RETRY", "FAILED"] as const) {
+        const id = await seed(owner, "health " + status);
+        await createEmbeddingJobRepository(db).prepareNote(id, owner);
+        const changed = await db.chunkEmbedding.updateMany({
+          where: { chunk: { noteId: id, ownerSubject: owner } },
+          data: { status },
+        });
+        statusCounts[status] = changed.count;
+      }
+      const noEmbedding = await seed(
+        owner,
+        "health missing embedding",
+        basis(0),
+      );
+      const deleted = await db.chunkEmbedding.deleteMany({
+        where: { chunk: { noteId: noEmbedding, ownerSubject: owner } },
+      });
+      const inspect = await repo.inspectByOwner(
+        owner,
+        { query: "health", noteId: stale, limit: 5 },
+        basis(0),
+      );
+      expect(inspect.health).toMatchObject({
+        totalNotes: 8,
+        indexedNotes: 1,
+        coveragePercent: 12.5,
+        missingEmbeddings: deleted.count + 3,
+        incompatibleEmbeddings: 3,
+        pending: statusCounts.PENDING,
+        leased: statusCounts.LEASED,
+        retrying: statusCounts.RETRY,
+        failed: statusCounts.FAILED,
+        staleChunks: 3,
+      });
+      expect(inspect.note).toMatchObject({
+        eligibleChunks: 0,
+        currentChunks: 0,
+        staleChunks: 3,
+      });
+      const down = createSearchService(
+        repo,
+        "s".repeat(32),
+        {
+          embed: async () => {
+            throw Error("private payload");
+          },
+        },
+        undefined,
+        true,
+      );
+      const fallback = await down.diagnoseByOwner(owner, {
+        query: "health",
+        noteId: ready,
+        limit: 5,
+      });
+      expect(fallback.execution).toMatchObject({
+        mode: "lexical",
+        degradation: "provider_unavailable",
+      });
+      expect(
+        fallback.candidates.every(
+          (c) => c.bestSimilarity === null && c.semanticRank === null,
+        ),
+      ).toBe(true);
+      expect(JSON.stringify(fallback)).not.toContain("private payload");
+      const disabled = await createSearchService(
+        repo,
+        "s".repeat(32),
+        undefined,
+        undefined,
+        true,
+      ).diagnoseByOwner(owner, { query: "health", limit: 5 });
+      expect(disabled.execution.degradation).toBe("disabled");
+      await db.embeddingDailyBudget.updateMany({
+        where: { ownerSubject: owner },
+        data: { reservedTokens: 60000 },
+      });
+      const embed = vi.fn();
+      const budget = await createSearchService(
+        repo,
+        "s".repeat(32),
+        { embed },
+        undefined,
+        true,
+      ).diagnoseByOwner(owner, { query: "health", limit: 5 });
+      expect(budget.execution.degradation).toBe("budget_exhausted");
+      expect(budget.execution.degradationReason).toBe("daily_token_budget");
+      expect(embed).not.toHaveBeenCalled();
+      const empty = await createSearchService(
+        repo,
+        "s".repeat(32),
+        { embed },
+        undefined,
+        true,
+      ).diagnoseByOwner("empty-" + randomUUID(), { query: "health", limit: 5 });
+      expect(empty.index.coveragePercent).toBe(0);
+      expect(empty.execution.degradation).toBe("unindexed");
+    });
+
+    it("shares diagnostic/search rate limits and explains partial indexing and stale hashes/versions", async () => {
+      const owner = "limits-" + randomUUID(),
+        id = await seed(owner, "partial", basis(0)),
+        repo = createSearchRepository(db);
+      const chunk = await db.noteChunk.findFirstOrThrow({
+        where: { noteId: id, ownerSubject: owner },
+      });
+      await db.$executeRaw`UPDATE chunk_embeddings SET vector=NULL,status='PENDING' WHERE "chunkId"=${chunk.id}`;
+      let time = Date.now();
+      const provider = {
+        embed: vi.fn(async () => ({ vector: basis(0), usageTokens: 1 })),
+      };
+      const service = createSearchService(
+        repo,
+        "s".repeat(32),
+        provider,
+        () => time,
+        true,
+      );
+      const first = await service.diagnoseByOwner(owner, {
+        query: "first",
+        noteId: id,
+        limit: 5,
+      });
+      expect(first.index).toMatchObject({
+        indexedNotes: 1,
+        fullyIndexedNotes: 0,
+        pending: 1,
+      });
+      expect(first.note).toMatchObject({ pending: 1, eligibleChunks: 2 });
+      expect(
+        first.note &&
+          "chunks" in first.note &&
+          first.note.chunks.find((c) => c.id === chunk.id),
+      ).toMatchObject({ hasVector: false, eligible: false, similarity: null });
+      await service.searchByOwner(owner, { query: "second", limit: 20 });
+      await service.diagnoseByOwner(owner, { query: "third", limit: 5 });
+      await service.searchByOwner(owner, { query: "fourth", limit: 20 });
+      expect(
+        (await service.diagnoseByOwner(owner, { query: "fifth", limit: 5 }))
+          .execution.degradation,
+      ).toBe("budget_exhausted");
+      expect(
+        (await service.diagnoseByOwner(owner, { query: "sixth", limit: 5 }))
+          .execution.degradationReason,
+      ).toBe("rate_limit");
+      expect(provider.embed).toHaveBeenCalledTimes(4);
+      time += 60001;
+      expect(
+        (await service.diagnoseByOwner(owner, { query: "fifth", limit: 5 }))
+          .execution.mode,
+      ).toBe("hybrid");
+      expect(provider.embed).toHaveBeenCalledTimes(5);
+      await db.noteChunk.updateMany({
+        where: { noteId: id, ownerSubject: owner },
+        data: { noteContentHash: "0".repeat(64), chunkerVersion: "old" },
+      });
+      const stale = await service.diagnoseByOwner(owner, {
+        query: "partial",
+        noteId: id,
+        limit: 5,
+      });
+      expect(stale.note).toMatchObject({
+        eligibleChunks: 0,
+        semanticReason: "stale_chunks",
+      });
+      expect(stale.index.indexedNotes).toBe(0);
+      expect(stale.execution.degradation).toBe("unindexed");
+      await expect(
+        repo.inspectByOwner(owner, { query: "partial", limit: 5 }, [1]),
+      ).rejects.toThrow("Invalid query vector");
+    });
     it("finds a no-shared-word Russian finance source through vectors, fuses lexical matches and excludes foreign owners", async () => {
       const owner = "search-" + randomUUID(),
         // Live synthetic OpenAI probe produced ~0.274 cosine for this paraphrase.

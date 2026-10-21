@@ -279,3 +279,13 @@ export const SearchResponseSchema = z
   .strict();
 export type SearchRequest = z.infer<typeof SearchRequestSchema>;
 export type SearchResponse = z.infer<typeof SearchResponseSchema>;
+
+/** Explicit diagnostic call: no caller-selected owner, filters or pagination. */
+export const DiagnoseSearchRequestSchema = z
+  .object({
+    query: z.string().trim().min(1).max(500),
+    noteId: NoteIdSchema.optional(),
+    limit: z.number().int().min(1).max(20).default(5),
+  })
+  .strict();
+export type DiagnoseSearchRequest = z.infer<typeof DiagnoseSearchRequestSchema>;

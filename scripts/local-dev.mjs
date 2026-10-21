@@ -72,7 +72,7 @@ try {
   const {queryEmbeddingProvider}=await import("../apps/api/dist/search-provider.js");
   const {createSearchRepository,createApiCaptureRepository}=await import("@pce/db");
   if(config.searchEnabled&&!sessionAuth)throw new Error("Search requires explicit local session mode");
-  const search=config.searchEnabled?createSearchService(createSearchRepository(db),randomBytes(32).toString("hex"),queryEmbeddingProvider(process.env)):undefined;
+  const search=config.searchEnabled?createSearchService(createSearchRepository(db),randomBytes(32).toString("hex"),queryEmbeddingProvider(process.env),undefined,process.env.PCE_SEARCH_DIAGNOSTICS === "true"):undefined;
   const {oauthClients}=await import("../apps/api/dist/oauth.js");
   const clients=oauthClients(process.env);
   if(clients.length && (!search || !sessionAuth))throw new Error("MCP requires local search and sessions");
