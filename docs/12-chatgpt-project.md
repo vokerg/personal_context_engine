@@ -114,6 +114,60 @@ See [security](09-security-and-privacy.md), [capture contract](04-capture-contra
 
 See [evolution plan](13-evolution-plan.md), #49/#50 and [security](09-security-and-privacy.md).
 
+## Tool selection and Project settings (owner UX clarification, #95)
+
+The ChatGPT Project **Instructions** box is a policy prompt, not an MCP app
+attachment or tool permission panel. The owner currently relies on a one-send
+capture flow without a mandatory `@app` prefix. A model can be instructed to
+prefer PCE tools when present, but this does not ensure app invocation on each
+message. Custom MCP tool availability, initial selection and write approvals
+are governed by the ChatGPT product surface and connection permissions, not
+by the Markdown contract or this repository.
+
+Do **not** replace the working private GitHub capture instructions with an
+MCP-only prompt merely because a remote `capture_note` endpoint exists. First
+validate in the actual `NOTES` Project that successive new text and voice
+memo messages save without manual per-message `@Personal Context Engine` or
+`+` selection, and verify DB persistence and safe failure behavior. Until then,
+GitHub remains a temporary, replaceable UX workaround with a documented
+retirement gate under [D-024](11-decisions.md). If experiments require MCP
+selection, keep those as **explicit opt-in tests**, not the default everyday
+capture flow.
+
+OpenAI product documentation: [Projects in ChatGPT](https://help.openai.com/en/articles/10169521-projects-in-chatgpt) and [Developer mode and MCP apps](https://help.openai.com/en/articles/12584461-developer-mode-and-full-mcp-connectors-in-chatgpt).
+
+## Planned tags and research workflow — do not install prematurely (#105)
+
+The existing GitHub-based `NOTES` Project prompt is the working ordinary
+voice/text memo workflow. Keep it installed unchanged until the related
+implementation paths are ready; **this document is a plan, not a prompt
+installation**.
+
+After #99, #103, #100 (optional export) and #104 are verified, **final
+integration issue #105** will produce one consolidated, copy/paste-ready
+versioned prompt in the private content repository and public runbook.
+That final prompt must preserve one-send ordinary capture without required
+`@Personal Context Engine` mention, read a verified GitHub-exported approved
+tag vocabulary when available (few candidate tags or none), and support
+**explicit** ordinary research requests.
+
+Research requests require **PCE MCP** note retrieval as part of the normal
+ChatGPT conversation: call `search_context` (fallback to PCE `search` +
+`fetch`) and open genuinely relevant notes with `get_note`/`fetch`,
+then research current external evidence when appropriate and save a linked
+independent research report via the separately allowlisted capture path.
+A successful empty PCE search differs from unavailable MCP access. In the
+latter case, report incomplete context rather than pretending all private
+notes were checked. This does **not** require ChatGPT's specialized Deep
+Research feature; a Project prompt cannot force-select or grant an MCP tool.
+Only the actual Project surface can validate the invocation UX.
+
+Responsibilities: #100 and #104 implement/review their public and PRIVATE
+content-repository contracts/agent guidance separately. #105 resolves
+conflicting guidance in one final private
+`CHATGPT_PROJECT_INSTRUCTIONS.md`, tests ordinary/research capture and
+rollback, and the owner manually pastes the approved prompt into Project
+settings. No private user content appears in public CI or PRs.
 ## Optional authenticated MCP implementation (#49; local milestone)
 
 A gated Streamable HTTP endpoint now supports DB-first capture and owner-scoped
