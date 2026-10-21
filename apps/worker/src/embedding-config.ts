@@ -1,5 +1,5 @@
 /** No DB access, key logging, or note processing during config validation. */
-export function embeddingConfig(env: NodeJS.ProcessEnv) {
+export function embeddingConfig(env: NodeJS.ProcessEnv, recurring = false) {
   if (
     env.PCE_EMBEDDINGS_ENABLED !== "true" ||
     env.PCE_EMBEDDING_EGRESS_APPROVED !== "I_APPROVE_PRIVATE_TEXT_TO_OPENAI"
@@ -20,7 +20,8 @@ export function embeddingConfig(env: NodeJS.ProcessEnv) {
     !/^[A-Za-z0-9][A-Za-z0-9._:|@-]{0,127}$/.test(owner) ||
     !key ||
     !project ||
-    (afterNoteId !== undefined && !/^[0-9a-zA-Z-]{1,36}$/.test(afterNoteId))
+    (afterNoteId !== undefined &&
+      (recurring || !/^[0-9a-zA-Z-]{1,36}$/.test(afterNoteId)))
   )
     throw new Error(
       "Invalid owner, cursor or server-side embedding credentials.",

@@ -61,7 +61,7 @@ describe("asynchronous embedding pass with fake provider (no network)", () => {
   });
 
   it("bounds paid requests and refuses more work when daily owner budget is reached", async () => {
-    const queue = fakeQueue({ reservedTokensToday: async () => 59_000 });
+    const queue = fakeQueue({ reservedTokensToday: async () => 60_000 });
     const embed = vi.fn();
     const report = await runEmbeddingPass({
       queue,
@@ -72,6 +72,19 @@ describe("asynchronous embedding pass with fake provider (no network)", () => {
     expect(report.requests).toBe(0);
     expect(queue.claim).not.toHaveBeenCalled();
     expect(embed).not.toHaveBeenCalled();
+  });
+
+  it("lets the durable claim decide whether a short chunk fits the remaining daily budget", async () => {
+    const queue = fakeQueue({ reservedTokensToday: async () => 59000 });
+    const embed = vi.fn(async () => ({ vector, usageTokens: 5 }));
+    const report = await runEmbeddingPass({
+      queue,
+      provider: { embed },
+      ownerSubject: "synthetic-owner",
+    });
+    expect(report.ready).toBe(1);
+    expect(report.dailyLimitReached).toBe(false);
+    expect(report.remainingTokens).toBe(1000);
   });
 
   it("retries transient provider errors and terminally rejects bad vector dimensions", async () => {

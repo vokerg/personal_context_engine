@@ -1,3 +1,4 @@
+import { runEmbeddingLoop } from "./embedding-loop.js";
 import { runDbJobPass } from "./db-jobs.js";
 import { embeddingConfig } from "./embedding-config.js";
 import { createHash } from "node:crypto";
@@ -55,7 +56,8 @@ async function start(mode: string): Promise<void> {
     }
     return;
   }
-  if (mode === "embeddings-once") return startEmbeddings();
+  if (mode === "embeddings-once" || mode === "embeddings-loop")
+    return startEmbeddings(mode === "embeddings-loop");
   if (mode !== "once") throw new Error("Unsupported worker mode.");
   if (!process.env.DATABASE_URL) throw new Error("Database is required.");
   let store: ContentStore;
@@ -104,22 +106,46 @@ async function start(mode: string): Promise<void> {
 }
 
 /** Explicit trusted command; never started by local preview or ingestion. */
-async function startEmbeddings(): Promise<void> {
-  const { owner, key, project, afterNoteId } = embeddingConfig(process.env);
+async function startEmbeddings(recurring = false): Promise<void> {
+  const { owner, key, project, afterNoteId } = embeddingConfig(
+    process.env,
+    recurring,
+  );
   // Validate the provider before opening DB; no content leaves the host if invalid.
   const provider = createOpenAIEmbeddingProvider(key, project);
   const db = createDatabaseClient();
+  const controller = new AbortController();
+  const stop = () => controller.abort();
+  if (recurring) {
+    process.once("SIGTERM", stop);
+    process.once("SIGINT", stop);
+  }
   try {
     await db.$connect();
     await checkDatabase(db);
-    const report = await runEmbeddingPass({
-      queue: createEmbeddingJobRepository(db),
-      provider,
-      ownerSubject: owner,
-      ...(afterNoteId ? { afterNoteId } : {}),
-    });
-    console.log("Embedding pass complete " + JSON.stringify(report));
+    const pass = async () => {
+      if (recurring) {
+        const preparation = await runDbJobPass(db, owner);
+        console.log("DB preparation complete " + JSON.stringify(preparation));
+      }
+      const report = await runEmbeddingPass({
+        queue: createEmbeddingJobRepository(db),
+        provider,
+        ownerSubject: owner,
+        ...(afterNoteId ? { afterNoteId } : {}),
+      });
+      console.log(
+        "Embedding pass complete " +
+          JSON.stringify({ at: new Date().toISOString(), ...report }),
+      );
+    };
+    if (recurring) await runEmbeddingLoop(pass, controller.signal);
+    else await pass();
   } finally {
+    if (recurring) {
+      process.removeListener("SIGTERM", stop);
+      process.removeListener("SIGINT", stop);
+    }
     await db.$disconnect();
   }
 }

@@ -385,6 +385,82 @@ Synthetic original.
     expect(replay.requests).toBe(0);
     expect(await db.note.findUnique({ where: { id: noteId } })).not.toBeNull();
   });
+  it("indexes later originals behind the cursor after wrap and spends only bounded short-chunk reservations", async () => {
+    const owner = "embed-recurring-" + randomUUID(),
+      repo = createEmbeddingJobRepository(db);
+    const first = fixture(owner);
+    await createNoteRepository(db).importMarkdown(first.input);
+    const provider = {
+      embed: async () => ({
+        vector: Array<number>(1536).fill(0.125),
+        usageTokens: 5,
+      }),
+    };
+    let now = new Date("2026-10-25T10:00:00Z");
+    await runEmbeddingPass({
+      queue: repo,
+      provider,
+      ownerSubject: owner,
+      now: () => now,
+    });
+    const before = await db.noteChunk.count({ where: { ownerSubject: owner } });
+    await repo.checkpointScan(owner, "z".repeat(26));
+    const later = fixture(owner);
+    await createNoteRepository(db).importMarkdown(later.input);
+    const wrapped = await runEmbeddingPass({
+      queue: repo,
+      provider,
+      ownerSubject: owner,
+      now: () => now,
+    });
+    expect(wrapped.prepared).toBe(0);
+    expect(
+      (await db.embeddingScan.findUnique({ where: { ownerSubject: owner } }))
+        ?.afterNoteId,
+    ).toBeNull();
+    now = new Date(now.getTime() + 60001);
+    await db.embeddingDailyBudget.update({
+      where: {
+        ownerSubject_day: {
+          ownerSubject: owner,
+          day: new Date("2026-10-25T00:00:00Z"),
+        },
+      },
+      data: { reservedTokens: 59000 },
+    });
+    const indexed = await runEmbeddingPass({
+      queue: createEmbeddingJobRepository(db),
+      provider,
+      ownerSubject: owner,
+      now: () => now,
+    });
+    expect(indexed.ready).toBeGreaterThan(0);
+    expect(indexed.reservedTokens).toBeGreaterThan(59000);
+    expect(indexed.reservedTokens).toBeLessThanOrEqual(60000);
+    const rows = await db.noteChunk.findMany({
+      where: { ownerSubject: owner },
+      select: { id: true, embeddings: { select: { status: true } } },
+    });
+    expect(rows.length).toBeGreaterThan(before);
+    expect(
+      rows.every(
+        (c) => c.embeddings.length === 1 && c.embeddings[0]?.status === "READY",
+      ),
+    ).toBe(true);
+    const replay = await runEmbeddingPass({
+      queue: repo,
+      provider,
+      ownerSubject: owner,
+      now: () => now,
+    });
+    expect(replay.requests).toBe(0);
+    expect(await db.noteChunk.count({ where: { ownerSubject: owner } })).toBe(
+      rows.length,
+    );
+    expect(
+      (await db.note.findUnique({ where: { id: later.noteId } }))?.contentHash,
+    ).toBeDefined();
+  });
   it("terminally fails the final expired lease and preserves the note", async () => {
     const { input, noteId } = fixture("embed-terminal-" + randomUUID());
     await createNoteRepository(db).importMarkdown(input);
