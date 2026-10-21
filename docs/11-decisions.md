@@ -291,3 +291,10 @@ issuer identification enables compatible client registration. The first
 ChatGPT client is read-only (`notes:read`); owner consent and live acceptance are
 separate from code verification. Existing GitHub capture/search and #50's
 explicit cutover gate remain unchanged.
+
+### Hosted OAuth callback browser policy (#93)
+
+Consent permits form navigation to self and the validated registered callback
+origin, because Chrome applies `form-action` to the successful POST's redirect.
+Exact callback registration, CSRF, PKCE and scoped grant checks remain required;
+no wildcard destination or script execution is enabled.
