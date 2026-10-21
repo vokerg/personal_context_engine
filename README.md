@@ -32,6 +32,26 @@ See [the project intent](INTENT.md), [coexistence plan](docs/13-evolution-plan.m
 
 The capture channel and LLM provider are replaceable. GitHub is an optional input adapter/legacy archive, not the long-term processing backend.
 
+## Owner-directed next features (2026-10-21; not yet implemented)
+
+- **Tags:** candidate note slugs versus user-approved owner vocabulary (#99);
+  manual per-note add/detach without rewriting GitHub origins (#103). A
+  feature-gated snapshot to private GitHub is a **temporary compatibility
+  hack**, published through an additional job handler on the existing DB
+  worker (#100), not a separate service.
+- **Ordinary research:** only on explicit request, ChatGPT must retrieve related
+  private notes through **PCE MCP** before making context-complete claims,
+  and may use ordinary web search for external sources. A separately sourced
+  versioned research report is linked to the original note; existing DB workers
+  import/index, not research (#104). ChatGPT's special Deep Research mode is
+  not part of the requirement.
+- **Final integration:** review/activate one consolidated ChatGPT `NOTES`
+  Project prompt **last**, after the features and private repo contracts are
+  implemented (#105). The owner manually updates the live Project settings;
+  existing one-send voice/text GitHub capture stays functional meanwhile.
+
+See [the evolution plan](docs/13-evolution-plan.md) and
+[research design](docs/20-research-capture.md).
 ## Planned stack
 
 - **Web:** React, TypeScript, Vite.
