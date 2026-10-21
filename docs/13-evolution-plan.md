@@ -1,6 +1,6 @@
 # 13 — Progressive evolution: optional GitHub ingress, PostgreSQL workers, MCP and UX
 
-**Date:** 2026-10-16; **revised:** 2026-10-20. **Status:** accepted target / roadmap with the explicitly gated local milestone below; not proof of hosted services. Supersedes the mandatory dual-store direction in the previous version.
+**Date:** 2026-10-16; **revised:** 2026-10-21. **Status:** accepted target / roadmap with the explicitly gated local milestone below; not proof of hosted services. Supersedes the mandatory dual-store direction in the previous version.
 Parent implementation epic: [#42](https://github.com/vokerg/personal_context_engine/issues/42).
 Authority: [intent](../INTENT.md), [decisions](11-decisions.md), [security](09-security-and-privacy.md).
 This document describes contracts and gates for future PRs; it does **not** alter the current Markdown v1 parser, Prisma schema, API, worker or ChatGPT configuration.
@@ -14,6 +14,58 @@ The optional MCP/OAuth adapter (#49) shares that login and passes official-clien
 loopback tests. Hosted HTTPS and live ChatGPT connector/cutover acceptance
 remain open (#49/#50). GitHub capture/search stays available. See
 [search runbook](17-search.md) and [MCP runbook](18-mcp.md).
+
+## ChatGPT Project capture UX bridge (D-024)
+
+**Accepted owner requirement (2026-10-21, #95):** Treat the ChatGPT GitHub
+connector as a temporary, easily unplugged **product integration workaround**,
+not as core PCE architecture. The existing `NOTES` Project workflow is to
+open the Project, dictate/type a thought and send without per-message app
+selection. Its instructions write Markdown v1 to the private GitHub inbox.
+Preserve this low-friction experience, provenance and idempotent importer while
+native PCE API/MCP capture is tested in the actual Project surface.
+
+Project instructions may *request* Personal Context Engine tool use when
+available, but they do not grant access or permanently attach MCP tools. A
+working remote `capture_note` action does **not** imply that ChatGPT will
+choose it automatically for every Project message. Requiring `@Personal Context
+Engine` or repeated `+` tool selection for routine text/voice memos is a
+product-UX regression and **not** a valid automatic cutover. Gate retirement
+on owner-observed fresh-chat and successive-message voice/text capture with no
+mandatory explicit tool selection; verify confirmed DB persistence, duplicate
+avoidance, auth/consent friction, failed writes and recovery. Maintain the
+GitHub path as a switchable fallback until these pass. Do not infer the full
+synthetic matrix in #12 has already passed from observed routine usage.
+
+A future optional export of *only approved taxonomy context* from DB to the
+private repository would be a **separate** bounded, versioned, feature-gated,
+one-way compatibility adapter; not general two-way note synchronization. The
+worker's normal DB jobs, capture and search must not depend on that export.
+The removable exporter is an accepted temporary design direction (#100), **not an implemented feature**; installation and final ChatGPT prompt review remain gated by #105.
+See [D-024](11-decisions.md#d-024--temporary-github-connector-capture-ux-bridge-owner-direction-2026-10-21-95).
+
+## Accepted feature lanes: tags, ordinary research and final prompt (D-025/D-026)
+
+**Decided 2026-10-21; design/implementation issues remain open.** Postgres is
+the authoritative operational store. The temporary ChatGPT GitHub connector
+is a removable capture-UX workaround under D-024. No new general DB-to-GitHub
+replication path is authorized.
+
+| Sequence | Issue | Intended behavior |
+| --- | --- | --- |
+| 1 | #99 | Owner-scoped approved-tag registry; raw per-note tags remain candidates unless already approved; zero tags valid; approval is a distinct UI action |
+| 2 | #103 | Manual attach/detach tags to a specific note in the DB via effective-tag overrides; retain immutable GitHub original and reflect effective tags in filters/search |
+| 3 | #100 | Optional approved-tag-only private GitHub snapshot, exported by an **additional durable job handler in the existing worker** (not a new service), coalesced/hash-deduplicated, removable by flag; implement private repo guidance |
+| 4 | #104 | **Ordinary interactive ChatGPT research** only when directly requested; MUST use PCE MCP search/read for related notes, optionally ordinary web research, persist a separate sourced/versioned ResearchReport via private GitHub ingress and DB; existing worker imports/indexes, never researches; implement private repo contract |
+| **Last** | **#105** | Only after preceding features are implemented: reconcile private repo instructions and produce/test a **single final NOTES Project prompt**; user manually installs it; preserve current ordinary memo UX |
+
+PCE MCP `search_context` plus `get_note` are required for context-grounded
+research; a successful no-hit search is okay, but unavailable MCP makes the
+report explicitly incomplete. The ChatGPT Project prompt cannot guarantee
+MCP availability/selection. **No special Deep Research feature is required.**
+Stored reports link a newly captured Note to actually retrieved context note
+IDs and external citation URLs, keeping model-generated content separate from
+the user's original words. See [research contract plan](20-research-capture.md).
 
 ## Baseline that must not break
 
