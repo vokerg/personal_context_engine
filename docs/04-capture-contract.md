@@ -131,3 +131,16 @@ Existing valid bytes are imported unchanged, including unquoted slug syntax.
 Unrecoverable captures go through the worker's durable rejection flow and
 remain under `rejected/`; a repaired revision is a new explicit capture-repair
 operation, never silent deletion or model-invented content.
+
+## Separate research interchange (planned #104)
+
+Markdown note capture v1 **remains unchanged**. In particular, `tags` are
+raw note classification slugs, not an approval state; manual tag edits live in
+DB projections (#99/#103). The terminal `## Original input` section may not
+have generated research appended below it, and unknown frontmatter keys remain
+invalid. An explicit user-requested research report must have its **own**
+separate versioned schema and provenance, with references to verified Note IDs
+and source citations. The research artifact contract, strict validation,
+private GitHub path allowlist, ingestion/recovery and DB schema are to be
+implemented under #104; do not instruct ChatGPT to write research files using
+the current v1-only capture contract. Final NOTES prompt update waits for #105.
