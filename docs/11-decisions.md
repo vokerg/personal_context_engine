@@ -307,3 +307,14 @@ query provider and shared budgets, makes no content/indexing changes and is abse
 by default. Production threshold/ranking and retrieval cutover policy remain
 unchanged. Synthetic protocol/database checks establish the mechanism; live
 private investigation evidence stays outside this public repository.
+
+### Explicit recurring embedding operation (#101)
+
+Owner-authorized recurring indexing uses a separate opt-in worker with bounded
+existing preparation/indexing passes, a post-cycle cooldown and durable scan
+wrap/recovery. Capture and default development startup remain independent of
+provider availability. SQL still enforces request/token ceilings; short chunks
+may use their actual conservative reservation when less than a maximum-sized
+chunk's allowance remains. Local supervision is supported but does not establish
+hosted continuous indexing. Thresholds, ranking and retrieval cutover do not
+change.

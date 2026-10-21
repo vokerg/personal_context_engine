@@ -23,6 +23,13 @@ describe("embedding activation boundary", () => {
   });
   it("defaults the model and validates trusted owner/cursor before opening DB", () => {
     expect(embeddingConfig(env).owner).toBe("synthetic-owner");
+    expect(embeddingConfig(env, true).owner).toBe("synthetic-owner");
+    expect(() =>
+      embeddingConfig(
+        { ...env, PCE_EMBEDDING_AFTER_NOTE_ID: "valid-cursor" },
+        true,
+      ),
+    ).toThrow("cursor");
     for (const invalid of [
       { OPENAI_EMBEDDING_MODEL: "other-model" },
       { DATABASE_URL: "" },

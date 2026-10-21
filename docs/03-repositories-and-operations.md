@@ -549,3 +549,71 @@ introduced for MCP; scopes are delegated from the same browser session.
 See [Vercel web and Render API](19-hosted-deployment.md) for the owner-selected
 main-only deployment, same-origin sessions, private environment provisioning,
 verification and rollback. ChatGPT connector setup remains a separate step.
+
+## Separately opted-in recurring indexing (#101)
+
+Finite `embeddings:once` commands do not schedule later work. New GitHub/API
+originals can therefore remain unprepared even when capture and search are
+healthy. An empty candidate page resets the persisted scan cursor; a subsequent
+pass reconciles notes whose IDs sort behind it. Keep running bounded passes,
+not just a single scan page. API preparation jobs and the scan fallback cover
+independent ingress paths.
+
+For an explicitly approved operator process, configure the same ignored server
+`.env` and egress gates described above, including the persisted
+`PCE_EMBEDDING_OWNER_SUBJECT`. Build, then run:
+
+```sh
+npm run embeddings:watch
+```
+
+This selects `WORKER_MODE=embeddings-loop` in a **separate worker process**.
+Each cycle handles up to 16 durable API preparation jobs, then the existing
+16-note/four-request embedding pass. It waits at least 60 seconds **after** the
+cycle finishes before the next cycle; passes do not overlap. Fixed diagnostic
+messages and count-only reports expose failures, retry/terminal/oversize counts,
+UTC completion time and reserved/remaining daily tokens. A failed cycle retries
+after the same cooldown. SIGTERM/SIGINT finishes the in-flight cycle, cancels
+idle waiting and disconnects. Initial invalid configuration/DB failure exits for
+the supervisor to restart. No `PCE_EMBEDDING_AFTER_NOTE_ID` override is allowed in
+recurring mode: it would defeat durable cursor wrap. One-shot cursor overrides
+remain available for manual recovery.
+
+The DB claim computes the actual conservative UTF-8-byte reservation for the
+next chunk. A pass no longer stops simply because fewer than 8,192 tokens remain;
+short chunks may fit. The unchanged locked 60,000-token/day ceiling and four
+claims/minute gate remain authoritative. `dailyLimitReached` means reservations
+reached the ceiling; a remaining amount smaller than the next chunk may also
+produce zero requests. Inspect remaining budget and diagnostic pending/failed
+counts rather than interpreting zero requests as complete indexing.
+
+On macOS, an operator can supervise this process with a user LaunchAgent:
+`ProgramArguments` must contain the absolute Node executable,
+`--env-file=/absolute/trusted/.env` and the absolute compiled worker `main.js`;
+set `WORKER_MODE=embeddings-loop` and the trusted embedding owner in
+`EnvironmentVariables`, and set the repository `WorkingDirectory`. Use
+`RunAtLoad=true`, `KeepAlive=true`, `ThrottleInterval=60`, an exit timeout of
+90 seconds, and private count-only log files. Store the plist under
+`~/Library/LaunchAgents/` with mode 0600; never embed provider/DB credentials in
+it. Load with `launchctl bootstrap gui/$(id -u) <plist>`; inspect with
+`launchctl print gui/$(id -u)/<label>` and stop with `launchctl bootout`.
+Restart after changing code or configuration. Monitor error logs, READY coverage
+and queue lag; lease/retry/scan state survives restarts.
+
+A local LaunchAgent runs only while that user's Mac session is available; it is
+not an always-on hosted indexing guarantee. Machine sleep/offline time delays
+work until resume. A hosted always-on worker or scheduled job needs a separately
+configured operator deployment; the free API must not host a background loop or
+be silently upgraded. Default API, local preview, public CI and scaffold worker
+still start no indexing. Capture never waits for provider success. Disabling or
+stopping this separate process leaves originals and queued work intact.
+
+A supervisor may alternatively schedule the existing finite modes once per
+minute: run `WORKER_MODE=db-jobs-once` followed by `WORKER_MODE=embeddings-once`,
+both with the same protected environment and verified owner. On launchd use
+`StartInterval=60`, `RunAtLoad=true` and a single label (without `KeepAlive`);
+launchd will not launch a second instance while the current cycle is running.
+A private wrapper may invoke these two Node processes sequentially. This
+operator-only schedule works with the already-merged finite worker modes,
+independently of rollout of the new portable `embeddings:watch` mode. Configure
+both `PCE_OWNER_SUBJECT` and `PCE_EMBEDDING_OWNER_SUBJECT` to the persisted owner.

@@ -171,8 +171,7 @@ export async function runEmbeddingPass(options: EmbeddingPassOptions) {
     dailyLimitReached: false,
   };
   let reserved = await queue.reservedTokensToday(ownerSubject, now());
-  if (reserved + EMBEDDING_TOKEN_RESERVATION > EMBEDDING_DAILY_TOKEN_LIMIT)
-    report.dailyLimitReached = true;
+  if (reserved >= EMBEDDING_DAILY_TOKEN_LIMIT) report.dailyLimitReached = true;
 
   // The DB reserves the worst-case token count atomically with each claim,
   // including retries and expired leases. Local reads are reporting only.
@@ -243,11 +242,14 @@ export async function runEmbeddingPass(options: EmbeddingPassOptions) {
       else report.failed++;
     }
     reserved = await queue.reservedTokensToday(ownerSubject, now());
-    if (reserved + EMBEDDING_TOKEN_RESERVATION > EMBEDDING_DAILY_TOKEN_LIMIT)
+    if (reserved >= EMBEDDING_DAILY_TOKEN_LIMIT)
       report.dailyLimitReached = true;
   }
   reserved = await queue.reservedTokensToday(ownerSubject, now());
-  report.dailyLimitReached =
-    reserved + EMBEDDING_TOKEN_RESERVATION > EMBEDDING_DAILY_TOKEN_LIMIT;
-  return report;
+  report.dailyLimitReached = reserved >= EMBEDDING_DAILY_TOKEN_LIMIT;
+  return {
+    ...report,
+    reservedTokens: reserved,
+    remainingTokens: Math.max(0, EMBEDDING_DAILY_TOKEN_LIMIT - reserved),
+  };
 }

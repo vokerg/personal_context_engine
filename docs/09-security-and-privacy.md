@@ -325,3 +325,14 @@ scores without titles, bodies, query text or vectors. Diagnostics share existing
 query egress approvals and budget/rate enforcement. Source data stays read-only;
 operational query-budget reservations still persist. Never publish live-corpus
 investigation reports, private IDs or scores in the public code repository/CI.
+
+### Recurring embedding worker (#101)
+
+Only explicit `embeddings-loop` mode starts recurring private-text processing;
+it retains the same independent egress consent, configured owner, DB leases,
+rate/token budgets and provider adapter. No capture/API startup hook is added.
+The separate process consumes durable preparation jobs and reconciles new notes
+through scan wrap. It logs fixed errors, UTC timestamps and aggregate counts;
+exceptions and source/provider payloads remain suppressed. Local supervisors
+reference an ignored protected environment file without copying secrets into a
+plist. A local supervisor is not a hosted uptime guarantee.
