@@ -42,7 +42,7 @@ private repository would be a **separate** bounded, versioned, feature-gated,
 one-way compatibility adapter; not general two-way note synchronization. The
 worker's normal DB jobs, capture and search must not depend on that export.
 The removable exporter is an accepted temporary design direction (#100), **not an implemented feature**; installation and final ChatGPT prompt review remain gated by #105.
-See [D-024](11-decisions.md#d-024--temporary-github-connector-capture-ux-bridge-owner-direction-2026-10-21-95).
+See [D-024](11-decisions.md#d-024--temporary-github-connector-capture-ux-bridge).
 
 ## Accepted feature lanes: tags, ordinary research and final prompt (D-025/D-026)
 
