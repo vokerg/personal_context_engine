@@ -76,7 +76,7 @@ The immediate read model should expose **the set of tags that actually occurs in
 
 ## Optional taxonomy research and reversible alias approach (#54; not approved)
 
-**Status: proposed for evaluation, not implemented.** Issues #51 and #53 now provide
+**Historical evaluation status (2026-10-18): proposed, not implemented.** The owner has since accepted candidate/approved tags and manual edits (D-025, #99/#103); only global defaults and aliases remain exploratory. Issues #51 and #53 now provide
 owner-scoped *observed* tag facets and clickable tag filters. This is already useful
 without a prescribed vocabulary. Decision D-018 remains in force: no default or
 canonical tag policy has been accepted. No evidence of a production-wide tag
@@ -171,3 +171,36 @@ sample only in a trusted scope; summarize the result without exposing
 personal taxonomy in the public repository. No automatic canonicalization,
 prompt modification, schema migration or live-user-data mutation is
 authorized by this research.
+
+## Owner-approved candidate/approved tags and manual edits (D-025; #99, #103, #100)
+
+**Accepted product behavior (2026-10-21), implementation pending.** Each note's
+original Markdown v1 `tags` list is source classification, **not** an approved
+vocabulary. A tag is **approved** only when its slug is present in the
+owner-scoped PostgreSQL registry; other observed/LLM-suggested slugs are
+**candidates**. A model may assign zero tags and should prefer useful approved
+slugs over inventing many single-use labels. Approved status is an owner
+decision, never an LLM self-promotion and never authorization to execute tasks.
+
+The UI must support (a) clicking tag text to filter notes, (b) a distinct
+one-click action to promote a candidate into the registry, and (c) attaching
+and detaching tags on a specific note, including free-form newly added tags,
+without implicitly approving them globally. Removing a tag from one note does
+not delete it from the registry or other notes.
+
+Preserve GitHub-sourced original text, file hash, historical slugs and
+provenance: manual attach/detach is a database-side **effective-tag override**
+with audit/concurrency rules, applied consistently to facets, filtering and
+hybrid search. Imports and replay must not overwrite user edits. The registry
+and note editing work with **no GitHub exporter**.
+
+**Temporary ChatGPT bridge (#100):** a feature-flagged, one-way owner-approved
+snapshot may be published at a dedicated path inside the verified private
+content repo by a **new durable job handler in the existing worker** (not a
+separate service). Coalesce changes, avoid duplicate commits by content hash,
+retry safely, and expose lag; the interactive capture agent only **reads**
+this snapshot and never modifies it. Turning off the exporter cannot break
+capturing, tag editing, indexing or searching. Final ChatGPT Project prompt
+integration belongs solely to #105 after the features are delivered. Earlier
+#54 discussions of canonical/global taxonomies are superseded for the
+candidate/approved workflow but remain relevant to optional aliases.
