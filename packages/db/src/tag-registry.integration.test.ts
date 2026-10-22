@@ -62,6 +62,7 @@ describe.skipIf(!url)("approved registry SQL boundaries", () => {
     if (!db) return;
     await db.tagApproval.deleteMany({ where: { ownerSubject: { in: [owner, other] } } });
     await db.tagRegistryRevision.deleteMany({ where: { ownerSubject: { in: [owner, other] } } });
+    await db.processingAttempt.deleteMany({ where: { sourcePath: { in: notes.map((n) => n.sourcePath) } } });
     await db.note.deleteMany({ where: { id: { in: noteIds } } });
     await db.capture.deleteMany({ where: { id: { in: captureIds } } });
     await db.$disconnect();
