@@ -258,3 +258,5 @@ export type {
 } from "./search-diagnostics.js";
 
 export { SEARCH_COSINE_THRESHOLD, SEARCH_RRF_K } from "./search-ranking.js";
+
+export { createResearchRepository, ResearchConflict } from "./research.js";
