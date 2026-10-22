@@ -251,7 +251,7 @@ export function createSessionAuth(
     ) {
       if (
         !scopes.length ||
-        scopes.some((x) => !["notes:read", "capture:write"].includes(x))
+        scopes.some((x) => !["notes:read", "capture:write", "tags:write"].includes(x))
       )
         throw Object.assign(new Error("Invalid scope"), { statusCode: 400 });
       const session = await db.authSession.findFirst({
@@ -333,7 +333,7 @@ export async function requireSessionScope(
         return reply.code(403).send({ error: { code: "FORBIDDEN" } });
       principal = {
         subject: session.ownerSubject,
-        scopes: ["notes:read", "capture:write"],
+        scopes: ["notes:read", "capture:write", "tags:write"],
       };
     }
   }
