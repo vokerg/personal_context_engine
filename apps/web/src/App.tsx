@@ -1009,20 +1009,62 @@ export function App({
                     aria-label="Observed tags"
                   >
                     {tags.tags.map((tag) => (
-                      <button
-                        className="tag-chip"
-                        type="button"
-                        key={tag.slug}
-                        aria-pressed={filters.tag === tag.slug}
-                        aria-label={`Filter by tag ${tag.slug}, ${tag.count} notes`}
-                        onClick={() =>
-                          selectTag(filters.tag === tag.slug ? "" : tag.slug)
-                        }
-                      >
-                        {tag.slug} <span aria-hidden="true">{tag.count}</span>
-                      </button>
+                      <span key={tag.slug} className="tag-pair">
+                        <button
+                          className="tag-chip"
+                          type="button"
+                          aria-pressed={filters.tag === tag.slug}
+                          aria-label={`Filter by tag ${tag.slug}, ${tag.count} notes`}
+                          title={registry ? `Tag status: ${statusOf(tag.slug)}` : undefined}
+                          onClick={() => selectTag(filters.tag === tag.slug ? "" : tag.slug)}
+                        >
+                          {tag.slug} <span aria-hidden="true">{tag.count}</span>
+                        </button>
+                        {registry && !registrySlugs.has(tag.slug) && (
+                          <button className="ghost tag-action" type="button"
+                            aria-label={`Approve tag ${tag.slug}`}
+                            disabled={registryBusy !== null}
+                            onClick={() => void changeApproval(tag.slug, true)}>Approve</button>
+                        )}
+                      </span>
                     ))}
                   </div>
+                  {registryError && (
+                    <div role="alert">
+                      <p>Tag approval unavailable: {registryError}</p>
+                      <button className="secondary" type="button"
+                        onClick={() => setRegistryAttempt((n) => n + 1)}>Retry approvals</button>
+                    </div>
+                  )}
+                  {registry && (
+                    <section aria-label="Approved tag vocabulary">
+                      <h4>Approved vocabulary · revision {registry.revision}</h4>
+                      <p className="subtitle">Approval is global to your vocabulary; it does not change original note tags.</p>
+                      <label htmlFor="catalog-query">Find approved tags</label>
+                      <input id="catalog-query" value={catalogQuery}
+                        onChange={(event) => setCatalogQuery(event.target.value)}
+                        placeholder="Search approved tags" />
+                      <div className="tag-chips" role="group" aria-label="Approved tags">
+                        {registry.approved.filter((tag) =>
+                          (tag.slug + " " + (tag.displayName ?? "")).toLowerCase().includes(catalogQuery.toLowerCase())
+                        ).map((tag) => (
+                          <span className="tag-pair" key={tag.slug}>
+                            <button className="tag-chip" type="button"
+                              aria-label={`Filter by approved tag ${tag.slug}, ${tag.noteCount} notes`}
+                              onClick={() => selectTag(tag.slug)}>
+                              {tag.displayName || tag.slug} <span aria-hidden="true">{tag.noteCount}</span>
+                            </button>
+                            <button type="button" className="ghost tag-action"
+                              disabled={registryBusy !== null}
+                              aria-label={`Unapprove tag ${tag.slug}`}
+                              onClick={() => void changeApproval(tag.slug, false)}>Unapprove</button>
+                          </span>
+                        ))}
+                      </div>
+                      {!registry.approved.length && <p>No approved tags yet. Approve an observed tag to build your vocabulary.</p>}
+                      {registry.truncated && <p role="status">Showing first 200 approved tags; status of other tags may be unverified.</p>}
+                    </section>
+                  )}
                   {tags.truncated && (
                     <p role="status">
                       Showing the first 200 tags. Note chips can select other
@@ -1267,15 +1309,25 @@ export function App({
                     {detail.tags && detail.tags.length > 0 && (
                       <div className="tag-chips" aria-label="Note tags">
                         {detail.tags.map((tag) => (
-                          <button
-                            className="tag-chip"
-                            type="button"
-                            key={tag}
-                            aria-pressed={filters.tag === tag}
-                            onClick={() => selectTag(tag)}
-                          >
-                            {tag}
-                          </button>
+                          <span className="tag-pair" key={tag}>
+                            <button
+                              className="tag-chip"
+                              type="button"
+                              title={registry ? `Tag status: ${statusOf(tag)}` : undefined}
+                              aria-pressed={filters.tag === tag}
+                              onClick={() => selectTag(tag)}
+                            >
+                              {tag}
+                            </button>
+                            {registry && !registrySlugs.has(tag) && (
+                              <button className="ghost tag-action" type="button"
+                                aria-label={`Approve note tag ${tag}`}
+                                disabled={registryBusy !== null}
+                                onClick={() => void changeApproval(tag, true)}>
+                                Approve
+                              </button>
+                            )}
+                          </span>
                         ))}
                       </div>
                     )}
