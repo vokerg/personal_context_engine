@@ -3,9 +3,40 @@ import { createApp } from "../../../apps/api/src/app.js";
 import { createSessionAuth } from "../../../apps/api/src/session-auth.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaClient, createApiCaptureRepository, createResearchRepository } from "./index.js";
-import { captureFixture } from "./api-capture.integration.test.js";
+
 import type { ResearchArtifact } from "@pce/contracts";
 
+function captureFixture() {
+  const id = randomUUID(), capture = randomUUID();
+  return {
+    id, capture,
+    markdown: `---
+schema_version: 1
+id: ${id}
+capture_id: ${capture}
+captured_at: 2026-10-22T11:00:00+02:00
+source: chatgpt_text
+kind: memo
+domains: []
+projects: []
+tags: []
+action_hint: none
+review_required: false
+title: Synthetic research parent
+---
+
+# Synthetic research parent
+
+## Summary
+
+Fixture note, no personal data.
+
+## Original input
+
+Research sample input
+`,
+  };
+}
 const url = process.env.PCE_DB_TEST_URL;
 describe.skipIf(!url)("versioned research report persistence", () => {
   let db: PrismaClient;
