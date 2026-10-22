@@ -84,7 +84,11 @@ export interface ApiDependencies {
   };
   /** Independent registry: no note source writes, and no GitHub dependency. */
   noteTagEdits?: {
-    changeByOwner(owner: string, id: string, edit: NoteTagEditRequest): Promise<NoteTagEditResponse | null>;
+    changeByOwner(
+      owner: string,
+      id: string,
+      edit: NoteTagEditRequest,
+    ): Promise<NoteTagEditResponse | null>;
   };
   tagRegistry?: {
     listByOwner(owner: string): Promise<TagRegistryResponse>;
@@ -173,9 +177,10 @@ export function createApp(options: ApiOptions = {}) {
     ) {
       if (
         !allowed ||
-        !["GET", ...(sessionAuth ? ["POST", "PUT", "PATCH", "DELETE"] : [])].includes(
-          String(request.headers["access-control-request-method"]),
-        )
+        ![
+          "GET",
+          ...(sessionAuth ? ["POST", "PUT", "PATCH", "DELETE"] : []),
+        ].includes(String(request.headers["access-control-request-method"]))
       ) {
         return reply.code(403).send(errorResponse("FORBIDDEN"));
       }
@@ -390,7 +395,9 @@ export function createApp(options: ApiOptions = {}) {
 
   if (options.dependencies?.noteTagEdits) {
     if (!sessionAuth || !notes)
-      throw new Error("Note tag editing requires session authentication and DB notes");
+      throw new Error(
+        "Note tag editing requires session authentication and DB notes",
+      );
     const editor = options.dependencies.noteTagEdits;
     app.patch<{ Params: { id: string } }>(
       "/api/v1/notes/:id/tags",
@@ -401,7 +408,11 @@ export function createApp(options: ApiOptions = {}) {
       async (request, reply) => {
         const id = NoteIdSchema.safeParse(request.params.id);
         const edit = NoteTagEditRequestSchema.safeParse(request.body);
-        if (!id.success || !edit.success || Object.keys(request.query as object).length)
+        if (
+          !id.success ||
+          !edit.success ||
+          Object.keys(request.query as object).length
+        )
           return reply.code(400).send(errorResponse("BAD_REQUEST"));
         try {
           const result = await editor.changeByOwner(

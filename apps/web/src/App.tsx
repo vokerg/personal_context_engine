@@ -683,7 +683,9 @@ export function App({
   async function editNoteTag(operation: "add" | "remove", slug: string) {
     if (!token || !detail?.tagEditing || tagEditBusy) return;
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 64) {
-      setTagEditError("Use lowercase letters, digits and single hyphens (up to 64 characters).");
+      setTagEditError(
+        "Use lowercase letters, digits and single hyphens (up to 64 characters).",
+      );
       return;
     }
     const epoch = editEpoch.current;
@@ -691,22 +693,38 @@ export function App({
     setTagEditBusy(true);
     setTagEditError("");
     try {
-      const result = await changeNoteTag({
-        baseUrl,
-        getAccessToken: () => token,
-        useSessionCookie: sessionAuthentication,
-        getCsrfToken: () => document.cookie.split("; ").find((v) => v.startsWith("pce_csrf="))?.slice(9) ?? "",
-        timeoutMs: 12000,
-      }, id, { operation, slug, expectedRevision: detail.tagEditing.revision });
+      const result = await changeNoteTag(
+        {
+          baseUrl,
+          getAccessToken: () => token,
+          useSessionCookie: sessionAuthentication,
+          getCsrfToken: () =>
+            document.cookie
+              .split("; ")
+              .find((v) => v.startsWith("pce_csrf="))
+              ?.slice(9) ?? "",
+          timeoutMs: 12000,
+        },
+        id,
+        { operation, slug, expectedRevision: detail.tagEditing.revision },
+      );
       if (epoch !== editEpoch.current) return;
-      setDetail((current) => current?.id === id ? { ...current, ...result } : current);
+      setDetail((current) =>
+        current?.id === id ? { ...current, ...result } : current,
+      );
       setTagDraft("");
       setReloadCount((n) => n + 1);
-      setNotice(result.changed ? "Note tag changes saved to your database." : "Note tags already up to date.");
+      setNotice(
+        result.changed
+          ? "Note tag changes saved to your database."
+          : "Note tags already up to date.",
+      );
     } catch (error) {
       if (epoch !== editEpoch.current) return;
       if (error instanceof ApiRequestError && error.status === 409) {
-        setTagEditError("Tags changed in another tab. Reloaded current tags; retry your action.");
+        setTagEditError(
+          "Tags changed in another tab. Reloaded current tags; retry your action.",
+        );
         setDetailAttempt((n) => n + 1);
       } else if (error instanceof ApiRequestError && error.status === 401) {
         signOut(describeNotesError(error));
@@ -1480,12 +1498,16 @@ export function App({
                     )}
                     {detail.tagEditing && (
                       <div className="note-tag-editor">
-                        <label htmlFor="new-note-tag">Add a tag to this note</label>
+                        <label htmlFor="new-note-tag">
+                          Add a tag to this note
+                        </label>
                         <div className="tag-chips">
                           <input
                             id="new-note-tag"
                             value={tagDraft}
-                            onChange={(event) => setTagDraft(event.target.value)}
+                            onChange={(event) =>
+                              setTagDraft(event.target.value)
+                            }
                             maxLength={64}
                             list="note-tag-options"
                             placeholder="lowercase-tag"
@@ -1493,7 +1515,13 @@ export function App({
                             aria-describedby="tag-edit-help"
                           />
                           <datalist id="note-tag-options">
-                            {[...new Set([...tags.tags.map((tag) => tag.slug), ...(registry?.approved.map((tag) => tag.slug) ?? [])])].map((slug) => (
+                            {[
+                              ...new Set([
+                                ...tags.tags.map((tag) => tag.slug),
+                                ...(registry?.approved.map((tag) => tag.slug) ??
+                                  []),
+                              ]),
+                            ].map((slug) => (
                               <option key={slug} value={slug} />
                             ))}
                           </datalist>
@@ -1501,15 +1529,23 @@ export function App({
                             type="button"
                             className="secondary"
                             disabled={tagEditBusy || !tagDraft.trim()}
-                            onClick={() => void editNoteTag("add", tagDraft.trim())}
+                            onClick={() =>
+                              void editNoteTag("add", tagDraft.trim())
+                            }
                           >
                             {tagEditBusy ? "Saving…" : "Add tag"}
                           </button>
                         </div>
                         <p className="subtitle" id="tag-edit-help">
-                          Attaching a tag affects only this note. Approve it separately to add it to your vocabulary; the original capture is unchanged.
+                          Attaching a tag affects only this note. Approve it
+                          separately to add it to your vocabulary; the original
+                          capture is unchanged.
                         </p>
-                        {tagEditError && <p className="error" role="alert">{tagEditError}</p>}
+                        {tagEditError && (
+                          <p className="error" role="alert">
+                            {tagEditError}
+                          </p>
+                        )}
                       </div>
                     )}
                     {detail.metadata && (

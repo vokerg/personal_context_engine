@@ -59,13 +59,20 @@ export function createSearchRepository(db: PrismaClient) {
     },
     async getByOwner(owner: string, id: string) {
       validOwner(owner);
-      const n = await db.note.findFirst({ where: { id, ownerSubject: owner }, include: { tagOverride: true } });
+      const n = await db.note.findFirst({
+        where: { id, ownerSubject: owner },
+        include: { tagOverride: true },
+      });
       if (!n) return null;
       return {
         id: n.id,
         title: n.title,
         summary: n.summary,
-        tags: effective(n.tags, n.tagOverride?.added ?? [], n.tagOverride?.removed ?? []),
+        tags: effective(
+          n.tags,
+          n.tagOverride?.added ?? [],
+          n.tagOverride?.removed ?? [],
+        ),
         tagEditing: {
           sourceTags: n.tags,
           manualAdded: n.tagOverride?.added ?? [],
