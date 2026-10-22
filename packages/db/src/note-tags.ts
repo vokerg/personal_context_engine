@@ -26,7 +26,7 @@ export class NoteTagConflictError extends Error {
   }
 }
 
-function effective(source: string[], added: string[], removed: string[]) {
+export function effective(source: string[], added: string[], removed: string[]) {
   const exclusions = new Set(removed);
   return [...new Set([...source, ...added])].filter((tag) => !exclusions.has(tag)).sort();
 }
