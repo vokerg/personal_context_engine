@@ -4,6 +4,7 @@ import { parseNoteMarkdown, verifyInboxNotePath } from "@pce/core";
 
 export { PrismaClient } from "@prisma/client";
 export { createTagFacetRepository, TAG_FACET_LIMIT } from "./tags.js";
+export { createNoteTagRepository, effectiveTagsSql, NoteTagConflictError } from "./note-tags.js";
 export {
   createTagRegistryRepository,
   APPROVED_TAG_LIMIT,
