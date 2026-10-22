@@ -12,7 +12,7 @@ CREATE TABLE "tag_snapshot_outbox" (
   "leaseUntil" TIMESTAMPTZ(3),
   "nextRetryAt" TIMESTAMPTZ(3),
   "lastErrorCode" VARCHAR(64),
-  "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMPTZ(3) NOT NULL,
   CONSTRAINT "tag_snapshot_revision_check" CHECK ("desiredRevision" >= 0 AND "publishedRevision" >= -1),
   CONSTRAINT "tag_snapshot_status_check" CHECK ("status" IN ('PENDING','LEASED','RETRY','PUBLISHED','FAILED'))
 );
