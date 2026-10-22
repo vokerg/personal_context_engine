@@ -28,6 +28,7 @@ export const ApiErrorResponseSchema = z
           "NOT_FOUND",
           "SERVICE_UNAVAILABLE",
           "INTERNAL_ERROR",
+          "CONFLICT",
         ]),
       })
       .strict(),
@@ -59,7 +60,27 @@ export const NotePreviewSchema = z
   .strict();
 export type NotePreview = z.infer<typeof NotePreviewSchema>;
 
+export const NoteTagEditingSchema = z.object({
+  sourceTags: z.array(TagSlugSchema).max(100),
+  manualAdded: z.array(TagSlugSchema).max(100),
+  manualRemoved: z.array(TagSlugSchema).max(100),
+  revision: z.number().int().nonnegative().safe(),
+}).strict();
+export const NoteTagEditRequestSchema = z.object({
+  operation: z.enum(["add", "remove"]),
+  slug: TagSlugSchema,
+  expectedRevision: z.number().int().nonnegative().safe(),
+}).strict();
+export const NoteTagEditResponseSchema = z.object({
+  tags: z.array(TagSlugSchema).max(100),
+  tagEditing: NoteTagEditingSchema,
+  changed: z.boolean(),
+}).strict();
+export type NoteTagEditRequest = z.infer<typeof NoteTagEditRequestSchema>;
+export type NoteTagEditResponse = z.infer<typeof NoteTagEditResponseSchema>;
+
 export const NoteDetailSchema = NotePreviewSchema.extend({
+  tagEditing: NoteTagEditingSchema.optional(),
   body: z.string(),
   originalInput: z.string().optional(),
   metadata: z
