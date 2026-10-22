@@ -84,6 +84,7 @@ describe("research interchange v1", () => {
         degradation: "timeout",
       },
       sources: [],
+      claims: [],
     };
     expect(ResearchArtifactSchema.safeParse(draft).success).toBe(true);
     expect(
