@@ -12,6 +12,7 @@ import {
   createApiCaptureRepository,
   createTagRegistryRepository,
   createNoteTagRepository,
+  createResearchRepository,
 } from "@pce/db";
 import { createApp } from "./app.js";
 import { loadApiConfig } from "./config.js";
@@ -63,6 +64,7 @@ async function start(): Promise<void> {
                 ? {
                     sessionAuth: createSessionAuth(connected, sessionOptions),
                     capture: createApiCaptureRepository(connected),
+                    research: createResearchRepository(connected),
                     tagRegistry: createTagRegistryRepository(connected),
                     ...(process.env.PCE_DB_SEARCH === "true"
                       ? {
