@@ -174,6 +174,50 @@ afterEach(async () => {
 });
 
 describe("interactive observed tag browser", () => {
+  it("does not fetch or restore an old owner's registry after signout during approval", async () => {
+    await connect();
+    const originalFetch = fetch;
+    let releaseWrite: ((response: Response) => void) | undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((target: URL | string, options?: RequestInit) => {
+        const url = new URL(String(target));
+        if (
+          url.pathname === "/api/v1/tag-registry/focus" &&
+          options?.method === "PUT"
+        ) {
+          return new Promise<Response>((resolve) => {
+            releaseWrite = resolve;
+          });
+        }
+        return originalFetch(target, options);
+      }),
+    );
+    await click("Approve tag focus");
+    expect(releaseWrite).toBeDefined();
+    const readsBeforeLogout = requests.filter(
+      (item) => item.pathname === "/api/v1/tag-registry",
+    ).length;
+    await click("Clear session");
+    await act(async () => {
+      releaseWrite?.(
+        new Response(
+          JSON.stringify({
+            slug: "focus",
+            approved: true,
+            changed: true,
+            revision: 1,
+          }),
+        ),
+      );
+    });
+    await flush();
+    expect(
+      requests.filter((item) => item.pathname === "/api/v1/tag-registry"),
+    ).toHaveLength(readsBeforeLogout);
+    expect(container.textContent).toContain("Sign-in required");
+    expect(container.textContent).not.toContain("Approved vocabulary");
+  });
   it("keeps filtering separate from explicit approval and reversible vocabulary changes", async () => {
     await connect();
     expect(
