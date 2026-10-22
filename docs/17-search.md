@@ -47,6 +47,8 @@ Queries with unknown dates need no date inference. Exact lexical matches remain
 available during missing index, provider failure, malformed vectors or budget
 exhaustion; failure never changes a capture original or implies GitHub coverage.
 
+Manual note-tag changes (#103) affect search **filters and returned tag labels**, not indexed original text. Owner-scoped hybrid ranking computes the effective tag set from source tags and DB-only additions/tombstones before filtering; lexical/semantic ranking and embedding budgets are unchanged. An edit does not trigger re-embedding, rewrite original Markdown or publish a GitHub copy. Repeating a search after a tag edit uses the current DB projection; cursors should be restarted when filtered membership changes.
+
 ## Cost, latency and checks
 
 Query embeddings have a five-second HTTPS deadline, no redirects and bounded
