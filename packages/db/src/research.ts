@@ -58,19 +58,6 @@ export function createResearchRepository(db: PrismaClient) {
           if (!parent || parent.captureId !== payload.captureId)
             throw new ResearchConflict();
 
-          // Related notes are evidence only if they belong to this owner and
-          // their stated revision is still current. No inferred associations.
-          const related = payload.sources.filter((s) => s.kind === "pce_note");
-          for (const citation of related) {
-            const note = await tx.note.findFirst({
-              where: { id: citation.noteId, ownerSubject: owner },
-              select: { sourceRevision: true },
-            });
-            if (!note || (citation.sourceRevision !== null &&
-              citation.sourceRevision !== note.sourceRevision))
-              throw new ResearchConflict();
-          }
-
           const existing = await tx.researchReport.findUnique({
             where: { id: payload.reportId },
           });
@@ -86,6 +73,19 @@ export function createResearchRepository(db: PrismaClient) {
               indexing: "NOT_INDEXED", replayed: true,
             } as const;
           }
+          // Related notes are evidence only if they belong to this owner and
+          // their stated revision is still current. No inferred associations.
+          const related = payload.sources.filter((s) => s.kind === "pce_note");
+          for (const citation of related) {
+            const note = await tx.note.findFirst({
+              where: { id: citation.noteId, ownerSubject: owner },
+              select: { sourceRevision: true },
+            });
+            if (!note || (citation.sourceRevision !== null &&
+              citation.sourceRevision !== note.sourceRevision))
+              throw new ResearchConflict();
+          }
+
           if (payload.revision > 1) {
             const predecessor = await tx.researchReport.findFirst({
               where: {
