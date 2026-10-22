@@ -66,10 +66,7 @@ async function fill(id: string, value: string) {
 async function connectAndOpen() {
   await act(async () => {
     root.render(
-      <App
-        baseUrl="https://api.example.test"
-        localDevelopment={false}
-      />,
+      <App baseUrl="https://api.example.test" localDevelopment={false} />,
     );
   });
   await fill("access-token", "synthetic-token");
@@ -173,7 +170,9 @@ describe("manual note tags", () => {
       expectedRevision: 0,
     });
     expect(
-      container.querySelector('[aria-label="Remove tag manual-tag from this note"]'),
+      container.querySelector(
+        '[aria-label="Remove tag manual-tag from this note"]',
+      ),
     ).not.toBeNull();
     expect(
       container.querySelector('[aria-label="Approve note tag manual-tag"]'),
