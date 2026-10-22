@@ -1,8 +1,12 @@
 import { registerMcp, type McpOptions } from "./mcp.js";
 import { SearchRequestSchema, SearchResponseSchema } from "@pce/contracts";
 import {
-  ResearchSaveRequestSchema, ResearchReceiptSchema, ResearchRecordSchema,
-  ResearchListSchema, type ResearchSaveRequest, type ResearchReceipt,
+  ResearchSaveRequestSchema,
+  ResearchReceiptSchema,
+  ResearchRecordSchema,
+  ResearchListSchema,
+  type ResearchSaveRequest,
+  type ResearchReceipt,
   type ResearchRecord,
 } from "@pce/contracts";
 import type { SearchService } from "./search.js";
@@ -88,7 +92,10 @@ export interface ApiDependencies {
     ): Promise<CaptureResponse>;
   };
   research?: {
-    persistByOwner(owner: string, input: ResearchSaveRequest): Promise<ResearchReceipt>;
+    persistByOwner(
+      owner: string,
+      input: ResearchSaveRequest,
+    ): Promise<ResearchReceipt>;
     getByOwner(owner: string, reportId: string): Promise<ResearchRecord | null>;
     listByNote(owner: string, noteId: string): Promise<ResearchRecord[] | null>;
   };
@@ -350,57 +357,79 @@ export function createApp(options: ApiOptions = {}) {
     );
   }
 
-
   if (options.dependencies?.research) {
     if (!sessionAuth)
       throw new Error("Research requires scoped session authentication");
     const research = options.dependencies.research;
-    app.post("/api/v1/research/reports", {
-      bodyLimit: 262144,
-      preHandler: (request, reply) =>
-        requireSessionScope(request, reply, sessionAuth, "capture:write"),
-    }, async (request, reply) => {
-      const input = ResearchSaveRequestSchema.safeParse(request.body);
-      if (!input.success || Object.keys(request.query as object).length)
-        return reply.code(400).send(errorResponse("BAD_REQUEST"));
-      try {
-        return ResearchReceiptSchema.parse(await research.persistByOwner(
-          request.authenticatedPrincipal!.subject, input.data,
-        ));
-      } catch (error) {
-        if (error instanceof Error && error.name === "ResearchConflict")
-          return reply.code(409).send(errorResponse("CONFLICT"));
-        if (error instanceof TypeError)
+    app.post(
+      "/api/v1/research/reports",
+      {
+        bodyLimit: 262144,
+        preHandler: (request, reply) =>
+          requireSessionScope(request, reply, sessionAuth, "capture:write"),
+      },
+      async (request, reply) => {
+        const input = ResearchSaveRequestSchema.safeParse(request.body);
+        if (!input.success || Object.keys(request.query as object).length)
           return reply.code(400).send(errorResponse("BAD_REQUEST"));
-        throw error;
-      }
-    });
-    app.get<{ Params: { id: string } }>("/api/v1/research/reports/:id", {
-      preHandler: (request, reply) =>
-        requireSessionScope(request, reply, sessionAuth, "notes:read"),
-    }, async (request, reply) => {
-      if (!NoteIdSchema.safeParse(request.params.id).success ||
-          Object.keys(request.query as object).length)
-        return reply.code(400).send(errorResponse("BAD_REQUEST"));
-      const report = await research.getByOwner(
-        request.authenticatedPrincipal!.subject, request.params.id,
-      );
-      return report ? ResearchRecordSchema.parse(report) :
-        reply.code(404).send(errorResponse("NOT_FOUND"));
-    });
-    app.get<{ Params: { id: string } }>("/api/v1/notes/:id/research", {
-      preHandler: (request, reply) =>
-        requireSessionScope(request, reply, sessionAuth, "notes:read"),
-    }, async (request, reply) => {
-      if (!NoteIdSchema.safeParse(request.params.id).success ||
-          Object.keys(request.query as object).length)
-        return reply.code(400).send(errorResponse("BAD_REQUEST"));
-      const reports = await research.listByNote(
-        request.authenticatedPrincipal!.subject, request.params.id,
-      );
-      return reports ? ResearchListSchema.parse({ reports }) :
-        reply.code(404).send(errorResponse("NOT_FOUND"));
-    });
+        try {
+          return ResearchReceiptSchema.parse(
+            await research.persistByOwner(
+              request.authenticatedPrincipal!.subject,
+              input.data,
+            ),
+          );
+        } catch (error) {
+          if (error instanceof Error && error.name === "ResearchConflict")
+            return reply.code(409).send(errorResponse("CONFLICT"));
+          if (error instanceof TypeError)
+            return reply.code(400).send(errorResponse("BAD_REQUEST"));
+          throw error;
+        }
+      },
+    );
+    app.get<{ Params: { id: string } }>(
+      "/api/v1/research/reports/:id",
+      {
+        preHandler: (request, reply) =>
+          requireSessionScope(request, reply, sessionAuth, "notes:read"),
+      },
+      async (request, reply) => {
+        if (
+          !NoteIdSchema.safeParse(request.params.id).success ||
+          Object.keys(request.query as object).length
+        )
+          return reply.code(400).send(errorResponse("BAD_REQUEST"));
+        const report = await research.getByOwner(
+          request.authenticatedPrincipal!.subject,
+          request.params.id,
+        );
+        return report
+          ? ResearchRecordSchema.parse(report)
+          : reply.code(404).send(errorResponse("NOT_FOUND"));
+      },
+    );
+    app.get<{ Params: { id: string } }>(
+      "/api/v1/notes/:id/research",
+      {
+        preHandler: (request, reply) =>
+          requireSessionScope(request, reply, sessionAuth, "notes:read"),
+      },
+      async (request, reply) => {
+        if (
+          !NoteIdSchema.safeParse(request.params.id).success ||
+          Object.keys(request.query as object).length
+        )
+          return reply.code(400).send(errorResponse("BAD_REQUEST"));
+        const reports = await research.listByNote(
+          request.authenticatedPrincipal!.subject,
+          request.params.id,
+        );
+        return reports
+          ? ResearchListSchema.parse({ reports })
+          : reply.code(404).send(errorResponse("NOT_FOUND"));
+      },
+    );
   }
 
   if (options.dependencies?.tagRegistry) {
