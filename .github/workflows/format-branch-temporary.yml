@@ -1,0 +1,30 @@
+name: Temporary feature-branch formatter
+on:
+  push:
+    branches:
+      - feat/approved-tag-snapshot-100
+permissions:
+  contents: write
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx prettier --write apps/worker/src/tag-snapshot-publisher.test.ts
+      - name: Commit formatter-only change
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if ! git diff --quiet; then
+            git add apps/worker/src/tag-snapshot-publisher.test.ts
+            git commit -m 'style(tags): normalize final snapshot tests'
+            git push origin HEAD:feat/approved-tag-snapshot-100
+          fi
