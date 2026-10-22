@@ -130,7 +130,7 @@ describe("approved-tag snapshot publisher (no network)", () => {
       server.calls.filter((c) => c.method === "PUT").map((c) => c.path),
     ).toEqual(["/repos/owner/private-content/contents/" + APPROVED_TAGS_PATH]);
   });
-  it("publishes a complete, Unicode-rich 200-tag catalog exceeding 64 KiB", async () => {
+  it("publishes 200 Unicode tags exceeding 64 KiB", async () => {
     const large: ApprovedTagSnapshot = {
       schema_version: 1,
       revision: 11,
@@ -140,9 +140,7 @@ describe("approved-tag snapshot publisher (no network)", () => {
         description: "日本語".repeat(150),
       })),
     };
-    expect(Buffer.byteLength(serializeApprovedTags(large))).toBeGreaterThan(
-      65536,
-    );
+    expect(Buffer.byteLength(serializeApprovedTags(large))).toBeGreaterThan(65536);
     const server = github();
     expect(await server.publisher.publish(large)).toMatchObject({
       changed: true,
@@ -178,10 +176,12 @@ describe("approved-tag snapshot publisher (no network)", () => {
     await expect(
       github({ initial: "garbage" }).publisher.publish(snapshot),
     ).rejects.toMatchObject({ code: "REMOTE_INVALID" });
+    const injected = JSON.stringify({ ...snapshot, x: true }) + "\n";
     await expect(
-      github({
-        initial: JSON.stringify({ ...snapshot, injected: "unexpected" }) + "\n",
-      }).publisher.publish({ ...snapshot, revision: 5 }),
+      github({ initial: injected }).publisher.publish({
+        ...snapshot,
+        revision: 5,
+      }),
     ).rejects.toMatchObject({ code: "REMOTE_INVALID" });
     await expect(
       github({ conflict: true }).publisher.publish(snapshot),
