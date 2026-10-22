@@ -288,3 +288,28 @@ model OAuthCode {
   @@index([expiresAt])
   @@map("oauth_codes")
 }
+
+// Owner-curated vocabulary. No foreign key to note tags: approval never rewrites
+// immutable source tags and approved entries may have zero note associations.
+model TagApproval {
+  ownerSubject String   @db.VarChar(128)
+  slug         String   @db.VarChar(64)
+  displayName  String?  @db.VarChar(120)
+  description  String?  @db.VarChar(500)
+  approvedBy   String   @default("owner") @db.VarChar(24)
+  approvedAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  @@id([ownerSubject, slug])
+  @@map("tag_approvals")
+}
+
+// A stable, monotonically increasing owner-scoped registry revision used by
+// future opt-in exporters; note imports and facet reads do not advance it.
+model TagRegistryRevision {
+  ownerSubject String   @id @db.VarChar(128)
+  revision     Int      @default(0)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  @@map("tag_registry_revisions")
+}
