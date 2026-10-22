@@ -1,11 +1,11 @@
-# 20 — Ordinary PCE-grounded research capture (proposed technical contract)
+# 20 — Ordinary PCE-grounded research capture
 
-**Product decision accepted 2026-10-21 (D-026); implementation not shipped.**
+**D-026 accepted 2026-10-21. Partial foundation implemented on feature branch for #104; end-to-end flow NOT shipped.**
 Owner issue [#104](https://github.com/vokerg/personal_context_engine/issues/104).
 [Tag governance](06-domain-and-taxonomy.md) and [Project integration](12-chatgpt-project.md)
-are separate dependencies. This document specifies boundaries and acceptance
-criteria; specific versioned wire schemas, DB migrations, API routes and private
-content-repo paths are still to be implemented and validated in #104.
+are separate dependencies. This document specifies boundaries, the first executable report schema/DB API,
+and the remaining rollout gates. No ChatGPT Project prompt or private capture
+permissions have been activated.
 
 ## Trigger and reasoning owner
 
@@ -113,3 +113,71 @@ visibly distinguish AI-authored report content from user-authored originals.
 
 This design preserves GitHub as an intentionally removable ChatGPT integration
 **workaround**, not a permanent source of truth.
+
+## First implementation slice: report v1 / DB API (not yet live)
+
+The strict ResearchReport v1 interchange is a **JSON object separate from
+Markdown v1**, validated by `packages/contracts/src/research.ts`. It has a
+stable UUID/ULID `reportId`, `seriesId`, ascending `revision` and
+`supersedesReportId` (null on revision 1), verified `parentNoteId` and
+`captureId`, question/findings/limitations, original research timestamp,
+`COMPLETE|DRAFT` status, source list, attributed claims and PCE retrieval
+metadata. The `provenance.agent` value is `chatgpt`; owner identity is
+**never selected from the artifact**, only the trusted authenticated request
+or verified importer configuration.
+
+PCE retrieval outcomes distinguish `searched`,
+`no_related_notes_found`, and `PCE_CONTEXT_UNAVAILABLE`. The unavailable
+outcome requires DRAFT status; successful searches must have a checked-at
+timestamp, and evidence-linked `searched` reports require actual PCE note
+source IDs. Each source has a local stable ID. External sources require an
+HTTP(S) URL and checked-at timestamp; PCE note sources require a note ID,
+source revision when known, and rationale. `sourced_fact` claims reference
+existing source IDs. The schema checks structure and evidence consistency,
+**not whether a website is true or whether ChatGPT actually performed MCP
+retrieval**. That is an interactive acceptance requirement in #105.
+
+PostgreSQL `research_reports` stores independent immutable revisions linked
+by an owner-scoped composite foreign key to `notes`; it retains JSON,
+content hash, origin/path/revision and research/save times. Writes verify the
+parent capture, owner, current referenced note revisions on initial save,
+and exact predecessor revision; historical report reads and idempotent replay
+do not require cited sources to remain current. Existing note original input,
+summary and content hash are never changed by a report save.
+
+| Authenticated endpoint | Scope | Semantics |
+| --- | --- | --- |
+| `POST /api/v1/research/reports` | `capture:write` | `{ "artifact": <ResearchArtifact v1> }`; immutable create or exact-ID replay |
+| `GET /api/v1/research/reports/:id` | `notes:read` | Owner-filtered report and immutable historical evidence |
+| `GET /api/v1/notes/:id/research` | `notes:read` | Owner-filtered list of up to 100 reports, or 404 for unknown/unowned note |
+
+POST returns `DB_PERSISTED`, report/note IDs, revision,
+`replayed`, and **`indexing: NOT_INDEXED`**. This explicitly indicates
+report persistence without claiming that a semantic/lexical research
+index exists yet. A document containing PCE context that was not retrieved
+must not be misrepresented as verified by the API. Conflict, bad input,
+unowned lookup and unauthorized access return fixed, redacted errors.
+
+A *trusted, not yet wired* importer method accepts only
+`research/inbox/<report-id>.json`, with exact ID/path matching, a supplied
+provider source revision, bounded UTF-8 JSON (250 KB maximum), and owner
+scope from operator-verified configuration. **It is not sufficient to enable
+private-repository research writes**: dedicated ContentStore scanning,
+retry/checkpoint/reconciliation, importer worker integration, per-report
+indexing jobs, search provenance and web presentation must be completed.
+API-only reports have no mandatory GitHub back-sync.
+
+Two-step ChatGPT GitHub note/report creation cannot be made atomic.
+The final capture workflow must explicitly handle note-only success, read-back
+and idempotent report retry instead of claiming both were saved. Real current
+ChatGPT Project prompts remain unchanged. The private content-repo
+`AGENTS.md` must not authorize report creates before worker support,
+synthetic recovery and exact path permissions are verified.
+
+**Remaining #104 work:** connect the private report ingress through the
+existing bounded worker (not a separate crawler), durable replay and recovery,
+index separately labelled research chunks with lexical degradation, expose
+report sources/history and research hits in the web UI, submit the distinct
+private-repo PR with minimum permissions, and validate synthetic two-file
+failure cases. **#105** owns the combined Project prompt and actual attached
+PCE MCP grounding smoke tests, after #104 and tag rollout.
