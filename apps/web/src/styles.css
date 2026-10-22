@@ -97,3 +97,9 @@ select:focus-visible { outline: 3px solid #417ec7; outline-offset: 2px; }
 .detail-body:focus-visible, summary:focus-visible { outline: 3px solid #417ec7; outline-offset: 2px; }
 summary { cursor: pointer; font-weight: 650; margin-top: 16px; }
 @media (max-width: 920px) { .has-selection .timeline-panel { display: none; } }
+
+/* Approval is an independent action; tag-chip itself always navigates. */
+.tag-pair { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 3px; max-width: 100%; }
+.tag-action { font-size: .76rem; padding: 4px 7px; }
+.tag-browser section[aria-label="Approved tag vocabulary"] { border-top: 1px solid #e7edf2; margin: 15px 0; padding-top: 15px; }
+.tag-browser #catalog-query { display: block; max-width: 340px; margin: 6px 0 12px; }
