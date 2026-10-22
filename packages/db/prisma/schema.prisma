@@ -65,6 +65,7 @@ model Note {
   attempts        ProcessingAttempt[]
   chunks          NoteChunk[]
   jobs            DbProcessingJob[]
+  tagOverride     NoteTagOverride?
 
   @@unique([id, ownerSubject])
   @@unique([sourcePath, sourceRevision])
@@ -312,4 +313,19 @@ model TagRegistryRevision {
   updatedAt    DateTime @updatedAt @db.Timestamptz(3)
 
   @@map("tag_registry_revisions")
+}
+
+// Mutable, owner-only note-local tag adjustments. Note.tags remains an
+// immutable projection of Markdown v1; reimports never erase these overrides.
+model NoteTagOverride {
+  noteId       String   @id @db.VarChar(36)
+  ownerSubject String   @db.VarChar(128)
+  note         Note     @relation(fields: [noteId, ownerSubject], references: [id, ownerSubject], onDelete: Cascade, onUpdate: Restrict)
+  added        String[] @default([])
+  removed      String[] @default([])
+  revision     Int      @default(0)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([ownerSubject])
+  @@map("note_tag_overrides")
 }
