@@ -11,6 +11,7 @@ import {
   createDatabaseClient,
   createApiCaptureRepository,
   createTagRegistryRepository,
+  createNoteTagRepository,
 } from "@pce/db";
 import { createApp } from "./app.js";
 import { loadApiConfig } from "./config.js";
@@ -65,6 +66,7 @@ async function start(): Promise<void> {
                     tagRegistry: createTagRegistryRepository(connected),
                     ...(process.env.PCE_DB_SEARCH === "true"
                       ? {
+                          noteTagEdits: createNoteTagRepository(connected),
                           notes: createDatabaseNoteReader(
                             connected,
                             randomBytes(32).toString("hex"),

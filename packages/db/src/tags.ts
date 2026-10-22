@@ -1,4 +1,5 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
+import { effectiveTagsSql } from "./note-tags.js";
 
 /** Explicit, public wire-contract limit for the observed tag catalog. */
 export const TAG_FACET_LIMIT = 200;
@@ -22,7 +23,9 @@ export function createTagFacetRepository(
       >(
         Prisma.sql`
           SELECT t.slug AS "slug", COUNT(DISTINCT n.id)::bigint AS "noteCount"
-          FROM notes AS n CROSS JOIN LATERAL unnest(n.tags) AS t(slug)
+          FROM notes AS n
+          LEFT JOIN note_tag_overrides o ON o."noteId"=n.id AND o."ownerSubject"=n."ownerSubject"
+          CROSS JOIN LATERAL unnest(${effectiveTagsSql}) AS t(slug)
           WHERE n."ownerSubject" = ${owner} ${snapshot}
           GROUP BY t.slug
           ORDER BY t.slug COLLATE "C" ASC

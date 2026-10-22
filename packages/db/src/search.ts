@@ -1,4 +1,5 @@
 import { createSearchDiagnosticsRepository } from "./search-diagnostics.js";
+import { effective } from "./note-tags.js";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import {
   searchRanking,
@@ -50,7 +51,7 @@ export function createSearchRepository(db: PrismaClient) {
      ${searchRanking(owner, input, literal)}
      SELECT f.id,f.title,left(f."originalInput",240) AS snippet,f."capturedAt",f."sourceRevision",
        CASE WHEN f."sourcePath" LIKE 'api/%' THEN 'api' WHEN f."sourcePath" LIKE 'inbox/%' OR f."sourcePath" LIKE 'notes/%' THEN 'github' ELSE 'other' END AS channel,
-       f.tags,f.projects,f.kind,r.lexical,r.semantic
+       f."effectiveTags" AS tags,f.projects,f.kind,r.lexical,r.semantic
      FROM ranked r JOIN filtered f ON f.id=r.id
      ORDER BY r.score DESC,f."capturedAt" DESC,f.id COLLATE "C" ASC LIMIT 201
     `);
@@ -58,13 +59,26 @@ export function createSearchRepository(db: PrismaClient) {
     },
     async getByOwner(owner: string, id: string) {
       validOwner(owner);
-      const n = await db.note.findFirst({ where: { id, ownerSubject: owner } });
+      const n = await db.note.findFirst({
+        where: { id, ownerSubject: owner },
+        include: { tagOverride: true },
+      });
       if (!n) return null;
       return {
         id: n.id,
         title: n.title,
         summary: n.summary,
-        tags: n.tags,
+        tags: effective(
+          n.tags,
+          n.tagOverride?.added ?? [],
+          n.tagOverride?.removed ?? [],
+        ),
+        tagEditing: {
+          sourceTags: n.tags,
+          manualAdded: n.tagOverride?.added ?? [],
+          manualRemoved: n.tagOverride?.removed ?? [],
+          revision: n.tagOverride?.revision ?? 0,
+        },
         capturedAt: n.capturedAt.toISOString(),
         body: n.body,
         originalInput: n.originalInput,

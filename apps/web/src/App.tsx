@@ -8,6 +8,7 @@ import {
   getTagRegistry,
   approveTag,
   unapproveTag,
+  changeNoteTag,
   type TagRegistryResponse,
   getBrowsePage,
   getBrowseFacets,
@@ -114,6 +115,10 @@ export function App({
   const [registryAttempt, setRegistryAttempt] = useState(0);
   const [registryBusy, setRegistryBusy] = useState<string | null>(null);
   const approvalEpoch = useRef(0);
+  const editEpoch = useRef(0);
+  const [tagDraft, setTagDraft] = useState("");
+  const [tagEditBusy, setTagEditBusy] = useState(false);
+  const [tagEditError, setTagEditError] = useState("");
   const [catalogQuery, setCatalogQuery] = useState("");
   const registrySlugs = useMemo(
     () => new Set(registry?.approved.map((tag) => tag.slug) ?? []),
@@ -248,6 +253,10 @@ export function App({
 
   function signOut(message = "") {
     approvalEpoch.current += 1;
+    editEpoch.current += 1;
+    setTagEditBusy(false);
+    setTagEditError("");
+    setTagDraft("");
     if (sessionAuthentication) {
       const csrf =
         document.cookie
@@ -665,6 +674,71 @@ export function App({
   }
 
   useEffect(() => {
+    editEpoch.current += 1;
+    setTagDraft("");
+    setTagEditError("");
+    setTagEditBusy(false);
+  }, [selectedId]);
+
+  async function editNoteTag(operation: "add" | "remove", slug: string) {
+    if (!token || !detail?.tagEditing || tagEditBusy) return;
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 64) {
+      setTagEditError(
+        "Use lowercase letters, digits and single hyphens (up to 64 characters).",
+      );
+      return;
+    }
+    const epoch = editEpoch.current;
+    const id = detail.id;
+    setTagEditBusy(true);
+    setTagEditError("");
+    try {
+      const result = await changeNoteTag(
+        {
+          baseUrl,
+          getAccessToken: () => token,
+          useSessionCookie: sessionAuthentication,
+          getCsrfToken: () =>
+            document.cookie
+              .split("; ")
+              .find((v) => v.startsWith("pce_csrf="))
+              ?.slice(9) ?? "",
+          timeoutMs: 12000,
+        },
+        id,
+        { operation, slug, expectedRevision: detail.tagEditing.revision },
+      );
+      if (epoch !== editEpoch.current) return;
+      setDetail((current) =>
+        current?.id === id ? { ...current, ...result } : current,
+      );
+      setTagDraft("");
+      setReloadCount((n) => n + 1);
+      setNotice(
+        result.changed
+          ? "Note tag changes saved to your database."
+          : "Note tags already up to date.",
+      );
+    } catch (error) {
+      if (epoch !== editEpoch.current) return;
+      if (error instanceof ApiRequestError && error.status === 409) {
+        setTagEditError(
+          "Tags changed in another tab. Reloaded current tags; retry your action.",
+        );
+        setDetailAttempt((n) => n + 1);
+      } else if (error instanceof ApiRequestError && error.status === 401) {
+        signOut(describeNotesError(error));
+      } else if (error instanceof ApiRequestError && error.status === 403) {
+        setTagEditError("This session is missing tags:write access.");
+      } else {
+        setTagEditError(describeNotesError(error));
+      }
+    } finally {
+      if (epoch === editEpoch.current) setTagEditBusy(false);
+    }
+  }
+
+  useEffect(() => {
     if (!token || !selectedId) {
       setDetail(null);
       return;
@@ -1046,6 +1120,11 @@ export function App({
                         >
                           {tag.slug} <span aria-hidden="true">{tag.count}</span>
                         </button>
+                        {registry && (
+                          <span className="tag-status">
+                            {statusOf(tag.slug)}
+                          </span>
+                        )}
                         {registry && !registrySlugs.has(tag.slug) && (
                           <button
                             className="ghost tag-action"
@@ -1398,6 +1477,14 @@ export function App({
                             >
                               {tag}
                             </button>
+                            <span className="tag-status">
+                              {detail.tagEditing?.sourceTags.includes(tag)
+                                ? "source"
+                                : detail.tagEditing
+                                  ? "manual"
+                                  : "source"}
+                              {registry ? ` · ${statusOf(tag)}` : ""}
+                            </span>
                             {registry && !registrySlugs.has(tag) && (
                               <button
                                 className="ghost tag-action"
@@ -1409,8 +1496,71 @@ export function App({
                                 Approve
                               </button>
                             )}
+                            {detail.tagEditing && (
+                              <button
+                                className="ghost tag-action"
+                                type="button"
+                                aria-label={`Remove tag ${tag} from this note`}
+                                disabled={tagEditBusy}
+                                onClick={() => void editNoteTag("remove", tag)}
+                              >
+                                Remove
+                              </button>
+                            )}
                           </span>
                         ))}
+                      </div>
+                    )}
+                    {detail.tagEditing && (
+                      <div className="note-tag-editor">
+                        <label htmlFor="new-note-tag">
+                          Add a tag to this note
+                        </label>
+                        <div className="tag-chips">
+                          <input
+                            id="new-note-tag"
+                            value={tagDraft}
+                            onChange={(event) =>
+                              setTagDraft(event.target.value)
+                            }
+                            maxLength={64}
+                            list="note-tag-options"
+                            placeholder="lowercase-tag"
+                            disabled={tagEditBusy}
+                            aria-describedby="tag-edit-help"
+                          />
+                          <datalist id="note-tag-options">
+                            {[
+                              ...new Set([
+                                ...tags.tags.map((tag) => tag.slug),
+                                ...(registry?.approved.map((tag) => tag.slug) ??
+                                  []),
+                              ]),
+                            ].map((slug) => (
+                              <option key={slug} value={slug} />
+                            ))}
+                          </datalist>
+                          <button
+                            type="button"
+                            className="secondary"
+                            disabled={tagEditBusy || !tagDraft.trim()}
+                            onClick={() =>
+                              void editNoteTag("add", tagDraft.trim())
+                            }
+                          >
+                            {tagEditBusy ? "Saving…" : "Add tag"}
+                          </button>
+                        </div>
+                        <p className="subtitle" id="tag-edit-help">
+                          Attaching a tag affects only this note. Approve it
+                          separately to add it to your vocabulary; the original
+                          capture is unchanged.
+                        </p>
+                        {tagEditError && (
+                          <p className="error" role="alert">
+                            {tagEditError}
+                          </p>
+                        )}
                       </div>
                     )}
                     {detail.metadata && (

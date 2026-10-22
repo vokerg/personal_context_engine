@@ -101,6 +101,10 @@ allowlist; an empty allowlist still exposes nothing. Pages stay bounded at 24
 notes, and the legacy list route returns one bounded page. Facets and original
 source detail apply the same SQL owner predicate. No unowned rows are adopted.
 
+## DB-only manual tags (#103)
+
+With existing session authentication and `PCE_DB_SEARCH=true`, the API also enables owner-scoped per-note `PATCH /api/v1/notes/:id/tags`. Only `tags:write` grants or session cookies with the existing origin/CSRF checks may mutate tag overrides. Deployed PostgreSQL must be migrated to include `note_tag_overrides` before serving this version. Original GitHub and API capture tags, content hashes, revisions and embedding chunks remain unchanged; only the effective tag view changes. A 409 indicates the note tags changed in another tab and requires a detail reload. There is no content-repo write, new background worker, paid service, or live NOTES prompt activation.
+
 ## Verification and rollback
 
 Verify provider settings show the correct repository, branch `main`, no PR

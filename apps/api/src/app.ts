@@ -30,12 +30,16 @@ import {
   TagRegistryResponseSchema,
   TagApprovalInputSchema,
   TagApprovalMutationResponseSchema,
+  NoteTagEditRequestSchema,
+  NoteTagEditResponseSchema,
   TagSlugSchema,
   type NotesQuery,
   type TagFacetsResponse,
   type TagRegistryResponse,
   type TagApprovalInput,
   type TagApprovalMutationResponse,
+  type NoteTagEditRequest,
+  type NoteTagEditResponse,
   type NoteDetail,
   type NotePreview,
   HealthResponseSchema,
@@ -79,6 +83,13 @@ export interface ApiDependencies {
     ): Promise<CaptureResponse>;
   };
   /** Independent registry: no note source writes, and no GitHub dependency. */
+  noteTagEdits?: {
+    changeByOwner(
+      owner: string,
+      id: string,
+      edit: NoteTagEditRequest,
+    ): Promise<NoteTagEditResponse | null>;
+  };
   tagRegistry?: {
     listByOwner(owner: string): Promise<TagRegistryResponse>;
     approveByOwner(
@@ -166,15 +177,16 @@ export function createApp(options: ApiOptions = {}) {
     ) {
       if (
         !allowed ||
-        !["GET", ...(sessionAuth ? ["POST", "PUT", "DELETE"] : [])].includes(
-          String(request.headers["access-control-request-method"]),
-        )
+        ![
+          "GET",
+          ...(sessionAuth ? ["POST", "PUT", "PATCH", "DELETE"] : []),
+        ].includes(String(request.headers["access-control-request-method"]))
       ) {
         return reply.code(403).send(errorResponse("FORBIDDEN"));
       }
       reply.header(
         "Access-Control-Allow-Methods",
-        sessionAuth ? "GET, POST, PUT, DELETE" : "GET",
+        sessionAuth ? "GET, POST, PUT, PATCH, DELETE" : "GET",
       );
       reply.header(
         "Access-Control-Allow-Headers",
@@ -377,6 +389,47 @@ export function createApp(options: ApiOptions = {}) {
             slug.data,
           ),
         );
+      },
+    );
+  }
+
+  if (options.dependencies?.noteTagEdits) {
+    if (!sessionAuth || !notes)
+      throw new Error(
+        "Note tag editing requires session authentication and DB notes",
+      );
+    const editor = options.dependencies.noteTagEdits;
+    app.patch<{ Params: { id: string } }>(
+      "/api/v1/notes/:id/tags",
+      {
+        preHandler: (request, reply) =>
+          requireSessionScope(request, reply, sessionAuth, "tags:write"),
+      },
+      async (request, reply) => {
+        const id = NoteIdSchema.safeParse(request.params.id);
+        const edit = NoteTagEditRequestSchema.safeParse(request.body);
+        if (
+          !id.success ||
+          !edit.success ||
+          Object.keys(request.query as object).length
+        )
+          return reply.code(400).send(errorResponse("BAD_REQUEST"));
+        try {
+          const result = await editor.changeByOwner(
+            request.authenticatedPrincipal!.subject,
+            id.data,
+            edit.data,
+          );
+          return result
+            ? NoteTagEditResponseSchema.parse(result)
+            : reply.code(404).send(errorResponse("NOT_FOUND"));
+        } catch (error) {
+          if (error instanceof Error && error.name === "NoteTagConflictError")
+            return reply.code(409).send(errorResponse("CONFLICT"));
+          if (error instanceof TypeError)
+            return reply.code(400).send(errorResponse("BAD_REQUEST"));
+          throw error;
+        }
       },
     );
   }

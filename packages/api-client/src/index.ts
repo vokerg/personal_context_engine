@@ -23,6 +23,10 @@ import {
   TagApprovalInputSchema,
   TagApprovalMutationResponseSchema,
   TagSlugSchema,
+  NoteTagEditRequestSchema,
+  NoteTagEditResponseSchema,
+  type NoteTagEditRequest,
+  type NoteTagEditResponse,
   type TagApprovalInput,
   type TagRegistryResponse,
   type TagApprovalMutationResponse,
@@ -113,7 +117,7 @@ async function authenticatedGet<T>(
   path: string,
   parse: (data: unknown) => T,
   body?: unknown,
-  method?: "PUT" | "DELETE",
+  method?: "PUT" | "DELETE" | "PATCH",
 ): Promise<T> {
   const url = new URL(path, options.baseUrl);
   if (
@@ -332,6 +336,22 @@ export type {
   TagApprovalInput,
   TagApprovalMutationResponse,
 };
+
+/** Separate from approving a slug in the owner vocabulary. */
+export function changeNoteTag(
+  options: AuthenticatedRequestOptions,
+  noteId: string,
+  change: NoteTagEditRequest,
+): Promise<NoteTagEditResponse> {
+  return authenticatedGet(
+    options,
+    "/api/v1/notes/" + encodeURIComponent(NoteIdSchema.parse(noteId)) + "/tags",
+    NoteTagEditResponseSchema.parse,
+    NoteTagEditRequestSchema.parse(change),
+    "PATCH",
+  );
+}
+export type { NoteTagEditRequest, NoteTagEditResponse };
 
 export async function getNote(
   options: AuthenticatedRequestOptions,

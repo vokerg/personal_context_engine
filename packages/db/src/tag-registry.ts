@@ -1,4 +1,5 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
+import { effectiveTagsSql } from "./note-tags.js";
 
 export const APPROVED_TAG_LIMIT = 200;
 const OWNER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:|@-]{0,127}$/;
@@ -141,7 +142,9 @@ export function createTagRegistryRepository(db: PrismaClient) {
         ? await db.$queryRaw<Array<{ slug: string; count: bigint }>>(
             Prisma.sql`
               SELECT t.slug AS slug, count(DISTINCT n.id)::bigint AS count
-              FROM notes n CROSS JOIN LATERAL unnest(n.tags) AS t(slug)
+              FROM notes n
+              LEFT JOIN note_tag_overrides o ON o."noteId"=n.id AND o."ownerSubject"=n."ownerSubject"
+              CROSS JOIN LATERAL unnest(${effectiveTagsSql}) AS t(slug)
               WHERE n."ownerSubject" = ${owner}
                 AND t.slug IN (${Prisma.join(slugs)})
               GROUP BY t.slug

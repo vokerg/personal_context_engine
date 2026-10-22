@@ -1,5 +1,6 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
+import { effectiveTagsSql } from "./note-tags.js";
 
 const PAGE_SIZE = 24;
 export interface BrowseQuery {
@@ -99,9 +100,10 @@ export function createBrowseRepository(
           capturedAt: Date;
         }>
       >(Prisma.sql`
-        SELECT n.id, n.title, left(n.summary, 320) AS summary, n.tags, n."capturedAt"
-        FROM notes n WHERE ${scope(owner, ids)}
-        ${filters.tag ? Prisma.sql`AND ${filters.tag} = ANY(n.tags)` : Prisma.empty}
+        SELECT n.id, n.title, left(n.summary, 320) AS summary, ${effectiveTagsSql} AS tags, n."capturedAt"
+        FROM notes n LEFT JOIN note_tag_overrides o ON o."noteId"=n.id AND o."ownerSubject"=n."ownerSubject"
+        WHERE ${scope(owner, ids)}
+        ${filters.tag ? Prisma.sql`AND ${filters.tag} = ANY(${effectiveTagsSql})` : Prisma.empty}
         ${filters.project ? Prisma.sql`AND ${filters.project} = ANY(n.projects)` : Prisma.empty}
         ${filters.kind ? Prisma.sql`AND n.kind = ${filters.kind}` : Prisma.empty}
         ${filters.start ? Prisma.sql`AND n."capturedAt" >= ${new Date(filters.start)}` : Prisma.empty}
