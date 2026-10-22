@@ -26,6 +26,9 @@ export class SnapshotPublishError extends Error {
   }
 }
 
+// The full approved catalog can exceed 64 KiB with Unicode descriptions.
+const MAX_SNAPSHOT_BYTES = 768 * 1024;
+const MAX_API_RESPONSE_CHARS = 1_200_000;
 const SHA = /^[0-9a-f]{40}$/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const REPO = /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/;
@@ -52,7 +55,10 @@ export function serializeApprovedTags(snapshot: ApprovedTagSnapshot): string {
       throw new SnapshotPublishError("REMOTE_INVALID");
     last = tag.slug;
   }
-  return JSON.stringify(snapshot, null, 2) + "\n";
+  const serialized = JSON.stringify(snapshot, null, 2) + "\n";
+  if (Buffer.byteLength(serialized, "utf8") > MAX_SNAPSHOT_BYTES)
+    throw new SnapshotPublishError("REMOTE_INVALID");
+  return serialized;
 }
 
 export interface SnapshotPublisherConfig {
@@ -136,7 +142,7 @@ export function createApprovedTagsPublisher(config: SnapshotPublisherConfig) {
     let raw: string;
     try {
       raw = await response.text();
-      if (raw.length > 90000) throw new Error("Too large");
+      if (raw.length > MAX_API_RESPONSE_CHARS) throw new Error("Too large");
       return {
         status: response.status,
         value: JSON.parse(raw) as Record<string, unknown>,
@@ -161,7 +167,7 @@ export function createApprovedTagsPublisher(config: SnapshotPublisherConfig) {
       encoding !== "base64" ||
       typeof content !== "string" ||
       typeof size !== "number" ||
-      size > 65536 ||
+      size > MAX_SNAPSHOT_BYTES ||
       size < 0
     )
       throw new SnapshotPublishError("REMOTE_INVALID");
@@ -175,7 +181,15 @@ export function createApprovedTagsPublisher(config: SnapshotPublisherConfig) {
         !Number.isSafeInteger(json.revision) ||
         typeof json.revision !== "number" ||
         json.revision < 0 ||
-        !Array.isArray(json.tags)
+        !Array.isArray(json.tags) ||
+        Object.keys(json).join(",") !== "schema_version,revision,tags" ||
+        json.tags.some(
+          (tag: unknown) =>
+            typeof tag !== "object" ||
+            tag === null ||
+            Object.keys(tag).join(",") !== "slug,display_name,description",
+        ) ||
+        serializeApprovedTags(json as ApprovedTagSnapshot) !== decoded
       )
         throw new Error("Invalid remote contract");
       return { content: decoded, sha };
