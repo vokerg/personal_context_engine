@@ -50,3 +50,5 @@ Where a contract remains proposed, implement a test-backed specification before 
 - [19 — Vercel web and Render API](19-hosted-deployment.md) — main-only hosted setup, same-origin proxy, secrets and verification.
 
 - [20 — Ordinary contextual research capture](20-research-capture.md) — planned MCP-grounded interactive research, linked versioned reports and private GitHub compatibility contract (#104).
+
+- [21 — Optional approved-tag snapshot publisher](21-tag-snapshot.md) — #100 DB outbox, private GitHub read-only hint, scheduling, recovery and release gate.
