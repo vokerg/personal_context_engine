@@ -1,5 +1,10 @@
 import { runEmbeddingLoop } from "./embedding-loop.js";
 import { runDbJobPass } from "./db-jobs.js";
+import { runTagSnapshotPass } from "./tag-snapshot-jobs.js";
+import {
+  snapshotPublisherConfig,
+  createApprovedTagsPublisher,
+} from "./tag-snapshot-publisher.js";
 import { embeddingConfig } from "./embedding-config.js";
 import { createHash } from "node:crypto";
 import { isAbsolute } from "node:path";
@@ -41,17 +46,42 @@ if (!mode) {
 }
 
 async function start(mode: string): Promise<void> {
-  if (mode === "db-jobs-once") {
+  if (mode === "db-jobs-once" || mode === "db-jobs-loop") {
     const owner = process.env.PCE_OWNER_SUBJECT;
     if (!owner || !process.env.DATABASE_URL)
       throw new Error("DB jobs require trusted owner and DB");
+    const publisherOptions = snapshotPublisherConfig(process.env);
+    const publisher = publisherOptions
+      ? createApprovedTagsPublisher(publisherOptions)
+      : null;
     const db = createDatabaseClient();
+    const controller = new AbortController();
+    const stop = () => controller.abort();
+    if (mode === "db-jobs-loop") {
+      process.once("SIGTERM", stop);
+      process.once("SIGINT", stop);
+    }
     try {
-      console.log(
-        "DB preparation complete " +
-          JSON.stringify(await runDbJobPass(db, owner)),
-      );
+      await db.$connect();
+      await checkDatabase(db);
+      const pass = async () => {
+        console.log(
+          "DB preparation complete " +
+            JSON.stringify(await runDbJobPass(db, owner)),
+        );
+        if (publisher) {
+          console.log(
+            "Tag snapshot pass complete " +
+              JSON.stringify(await runTagSnapshotPass(db, owner, publisher)),
+          );
+        }
+      };
+      if (mode === "db-jobs-loop")
+        await runEmbeddingLoop(pass, controller.signal);
+      else await pass();
     } finally {
+      process.removeListener("SIGTERM", stop);
+      process.removeListener("SIGINT", stop);
       await db.$disconnect();
     }
     return;
