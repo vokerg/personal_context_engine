@@ -1121,7 +1121,9 @@ export function App({
                           {tag.slug} <span aria-hidden="true">{tag.count}</span>
                         </button>
                         {registry && (
-                          <span className="tag-status">{statusOf(tag.slug)}</span>
+                          <span className="tag-status">
+                            {statusOf(tag.slug)}
+                          </span>
                         )}
                         {registry && !registrySlugs.has(tag.slug) && (
                           <button

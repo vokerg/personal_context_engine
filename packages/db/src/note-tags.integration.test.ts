@@ -245,10 +245,7 @@ describe.skipIf(!url)(
       // A new GitHub source revision may add tags. Manual removals still
       // take precedence, while genuinely new source tags become visible.
       const revised = await createNoteRepository(db).importMarkdown({
-        markdown: markdown(ownId, captureIds[0]!, [
-          "source-tag",
-          "new-source",
-        ]),
+        markdown: markdown(ownId, captureIds[0]!, ["source-tag", "new-source"]),
         ownerSubject: owner,
         sourcePath: paths[0]!,
         sourceRevision: "revision-2",
@@ -275,9 +272,15 @@ describe.skipIf(!url)(
           expectedRevision: 6,
         }),
       ]);
-      expect(concurrent.filter((result) => result.status === "fulfilled")).toHaveLength(1);
-      expect(concurrent.filter((result) => result.status === "rejected")).toHaveLength(1);
-      expect(concurrent.find((result) => result.status === "rejected")).toMatchObject({
+      expect(
+        concurrent.filter((result) => result.status === "fulfilled"),
+      ).toHaveLength(1);
+      expect(
+        concurrent.filter((result) => result.status === "rejected"),
+      ).toHaveLength(1);
+      expect(
+        concurrent.find((result) => result.status === "rejected"),
+      ).toMatchObject({
         reason: { name: "NoteTagConflictError" },
       });
     });
