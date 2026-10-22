@@ -100,6 +100,23 @@ export function createTagRegistryRepository(db: PrismaClient) {
                     select: { revision: true },
                   })
                 )?.revision ?? 0);
+            if (changed) {
+              // Same serializable transaction as vocabulary mutation; one
+              // owner row coalesces changes, including while a job is leased.
+              await tx.tagSnapshotOutbox.upsert({
+                where: { ownerSubject: owner },
+                create: { ownerSubject: owner, desiredRevision: revision },
+                update: {
+                  desiredRevision: revision,
+                  status: "PENDING",
+                  attemptCount: 0,
+                  leaseOwner: null,
+                  leaseUntil: null,
+                  nextRetryAt: null,
+                  lastErrorCode: null,
+                },
+              });
+            }
             return {
               slug,
               approved: operation === "approve",
@@ -164,6 +181,29 @@ export function createTagRegistryRepository(db: PrismaClient) {
           noteCount: bySlug.get(row.slug) ?? 0,
           approvedAt: row.approvedAt.toISOString(),
         })),
+      };
+    },
+    async getSnapshotStatus(owner: string) {
+      validate(owner);
+      const [state, job] = await Promise.all([
+        db.tagRegistryRevision.findUnique({
+          where: { ownerSubject: owner },
+          select: { revision: true },
+        }),
+        db.tagSnapshotOutbox.findUnique({
+          where: { ownerSubject: owner },
+        }),
+      ]);
+      const revision = state?.revision ?? 0;
+      const publishedRevision =
+        job && job.publishedRevision >= 0 ? job.publishedRevision : null;
+      return {
+        desiredRevision: revision,
+        publishedRevision,
+        publishedAt: job?.publishedAt?.toISOString() ?? null,
+        stale: publishedRevision === null || publishedRevision < revision,
+        state: job?.status ?? "NOT_QUEUED",
+        lastErrorCode: job?.lastErrorCode ?? null,
       };
     },
     approveByOwner: (owner: string, slug: string, input: TagApprovalInput) =>

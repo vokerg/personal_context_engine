@@ -1160,6 +1160,22 @@ export function App({
                         Approval is global to your vocabulary; it does not
                         change original note tags.
                       </p>
+                      {registry.snapshot && (
+                        <p className="subtitle" role="status">
+                          GitHub tag snapshot:{" "}
+                          {registry.snapshot.stale
+                            ? `not current (published revision ${registry.snapshot.publishedRevision ?? "none"}; database revision ${registry.snapshot.desiredRevision})`
+                            : `current at revision ${registry.snapshot.publishedRevision}`}
+                          {registry.snapshot.state === "FAILED" &&
+                            " · publication failed"}
+                          {registry.snapshot.state === "RETRY" &&
+                            " · retry queued"}
+                          {registry.snapshot.lastErrorCode &&
+                            ` · ${registry.snapshot.lastErrorCode}`}
+                          . Publication is optional and requires an enabled
+                          worker.
+                        </p>
+                      )}
                       <label htmlFor="catalog-query">Find approved tags</label>
                       <input
                         id="catalog-query"
