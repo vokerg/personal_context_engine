@@ -14,4 +14,5 @@ CREATE TABLE "note_tag_overrides" (
   CONSTRAINT "note_tag_overrides_disjoint_check"
     CHECK (NOT ("added" && "removed"))
 );
+CREATE UNIQUE INDEX "note_tag_overrides_noteId_ownerSubject_key" ON "note_tag_overrides"("noteId", "ownerSubject");
 CREATE INDEX "note_tag_overrides_ownerSubject_idx" ON "note_tag_overrides"("ownerSubject");
