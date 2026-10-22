@@ -339,7 +339,8 @@ export function createApp(options: ApiOptions = {}) {
       async (request, reply) => {
         const slug = TagSlugSchema.safeParse(request.params.slug);
         const input = TagApprovalInputSchema.safeParse(request.body);
-        if (!slug.success || !input.success)
+        if (!slug.success || !input.success ||
+            Object.keys(request.query as object).length)
           return reply.code(400).send(errorResponse("BAD_REQUEST"));
         return TagApprovalMutationResponseSchema.parse(
           await registry.approveByOwner(
