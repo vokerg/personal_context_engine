@@ -117,7 +117,7 @@ export const ResearchReceiptSchema = z.object({
 }).strict();
 export type ResearchReceipt = z.infer<typeof ResearchReceiptSchema>;
 
-export const ResearchRecordSchema = ResearchArtifactSchema.extend({
+export const ResearchRecordSchema = ResearchArtifactSchema.safeExtend({
   contentHash: z.string().regex(/^[a-f0-9]{64}$/),
   origin: z.enum(["api", "github"]),
   savedAt: Timestamp,
