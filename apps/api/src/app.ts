@@ -101,6 +101,14 @@ export interface ApiDependencies {
       owner: string,
       slug: string,
     ): Promise<TagApprovalMutationResponse>;
+    getSnapshotStatus?(owner: string): Promise<{
+      desiredRevision: number;
+      publishedRevision: number | null;
+      publishedAt: string | null;
+      stale: boolean;
+      state: string;
+      lastErrorCode: string | null;
+    }>;
   };
   /** A trusted adapter supplied by the DB integration; never a user request. */
   checkDatabase?: () => Promise<boolean>;
@@ -346,9 +354,13 @@ export function createApp(options: ApiOptions = {}) {
       async (request, reply) => {
         if (Object.keys(request.query as object).length)
           return reply.code(400).send(errorResponse("BAD_REQUEST"));
-        return TagRegistryResponseSchema.parse(
-          await registry.listByOwner(request.authenticatedPrincipal!.subject),
-        );
+        const owner = request.authenticatedPrincipal!.subject;
+        return TagRegistryResponseSchema.parse({
+          ...(await registry.listByOwner(owner)),
+          ...(registry.getSnapshotStatus
+            ? { snapshot: await registry.getSnapshotStatus(owner) }
+            : {}),
+        });
       },
     );
     app.put<{ Params: { slug: string } }>(
