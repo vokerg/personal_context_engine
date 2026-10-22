@@ -728,6 +728,8 @@ export function App({
         setDetailAttempt((n) => n + 1);
       } else if (error instanceof ApiRequestError && error.status === 401) {
         signOut(describeNotesError(error));
+      } else if (error instanceof ApiRequestError && error.status === 403) {
+        setTagEditError("This session is missing tags:write access.");
       } else {
         setTagEditError(describeNotesError(error));
       }
@@ -1118,6 +1120,9 @@ export function App({
                         >
                           {tag.slug} <span aria-hidden="true">{tag.count}</span>
                         </button>
+                        {registry && (
+                          <span className="tag-status">{statusOf(tag.slug)}</span>
+                        )}
                         {registry && !registrySlugs.has(tag.slug) && (
                           <button
                             className="ghost tag-action"
@@ -1470,6 +1475,14 @@ export function App({
                             >
                               {tag}
                             </button>
+                            <span className="tag-status">
+                              {detail.tagEditing?.sourceTags.includes(tag)
+                                ? "source"
+                                : detail.tagEditing
+                                  ? "manual"
+                                  : "source"}
+                              {registry ? ` · ${statusOf(tag)}` : ""}
+                            </span>
                             {registry && !registrySlugs.has(tag) && (
                               <button
                                 className="ghost tag-action"
