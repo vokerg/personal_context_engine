@@ -23,6 +23,8 @@ let container: HTMLDivElement;
 let tagFailure: boolean;
 let emptyTags: boolean;
 let truncated: boolean;
+let approvedSlugs: string[] = [];
+let registryRevision = 0;
 const requests: URL[] = [];
 
 async function flush() {
@@ -78,14 +80,52 @@ beforeEach(() => {
   tagFailure = false;
   emptyTags = false;
   truncated = false;
+  approvedSlugs = [];
+  registryRevision = 0;
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (target: URL | string) => {
+    vi.fn(async (target: URL | string, options?: RequestInit) => {
       const url = new URL(String(target));
       requests.push(url);
+      if (url.pathname === "/api/v1/tag-registry") {
+        return new Response(
+          JSON.stringify({
+            revision: registryRevision,
+            truncated: false,
+            approved: approvedSlugs.map((slug) => ({
+              slug,
+              displayName: null,
+              description: null,
+              noteCount: slug === "focus" || slug === "other" ? 1 : 0,
+              approvedAt: "2026-10-22T08:00:00Z",
+            })),
+          }),
+        );
+      }
+      if (url.pathname.startsWith("/api/v1/tag-registry/")) {
+        const slug = decodeURIComponent(url.pathname.split("/").pop()!);
+        const approved = options?.method === "PUT";
+        const changed = approved
+          ? !approvedSlugs.includes(slug)
+          : approvedSlugs.includes(slug);
+        if (changed) {
+          approvedSlugs = approved
+            ? [...approvedSlugs, slug].sort()
+            : approvedSlugs.filter((item) => item !== slug);
+          registryRevision++;
+        }
+        return new Response(
+          JSON.stringify({
+            slug,
+            approved,
+            changed,
+            revision: registryRevision,
+          }),
+        );
+      }
       if (url.pathname === "/api/v1/tags") {
         return new Response(
           JSON.stringify(
@@ -134,6 +174,77 @@ afterEach(async () => {
 });
 
 describe("interactive observed tag browser", () => {
+  it("does not fetch or restore an old owner's registry after signout during approval", async () => {
+    await connect();
+    const originalFetch = fetch;
+    let releaseWrite: ((response: Response) => void) | undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((target: URL | string, options?: RequestInit) => {
+        const url = new URL(String(target));
+        if (
+          url.pathname === "/api/v1/tag-registry/focus" &&
+          options?.method === "PUT"
+        ) {
+          return new Promise<Response>((resolve) => {
+            releaseWrite = resolve;
+          });
+        }
+        return originalFetch(target, options);
+      }),
+    );
+    await click("Approve tag focus");
+    expect(releaseWrite).toBeDefined();
+    const readsBeforeLogout = requests.filter(
+      (item) => item.pathname === "/api/v1/tag-registry",
+    ).length;
+    await click("Clear session");
+    await act(async () => {
+      releaseWrite?.(
+        new Response(
+          JSON.stringify({
+            slug: "focus",
+            approved: true,
+            changed: true,
+            revision: 1,
+          }),
+        ),
+      );
+    });
+    await flush();
+    expect(
+      requests.filter((item) => item.pathname === "/api/v1/tag-registry"),
+    ).toHaveLength(readsBeforeLogout);
+    expect(container.textContent).toContain("Sign-in required");
+    expect(container.textContent).not.toContain("Approved vocabulary");
+  });
+  it("keeps filtering separate from explicit approval and reversible vocabulary changes", async () => {
+    await connect();
+    expect(
+      container.querySelector('[aria-label="Approve tag focus"]'),
+    ).not.toBeNull();
+    await click("Approve tag focus");
+    expect(
+      container.querySelector('[aria-label="Approve tag focus"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('[aria-label="Unapprove tag focus"]'),
+    ).not.toBeNull();
+    expect(container.textContent).toContain("Approved vocabulary · revision 1");
+    await click("Filter by tag focus, 1 notes");
+    expect(
+      container.querySelector('[aria-label="Open note: Synthetic beta"]'),
+    ).toBeNull();
+    await click("Unapprove tag focus");
+    expect(
+      container.querySelector('[aria-label="Approve tag focus"]'),
+    ).not.toBeNull();
+    expect(container.textContent).toContain("Approved vocabulary · revision 2");
+    expect(
+      requests.filter((r) => r.pathname.startsWith("/api/v1/tag-registry/"))
+        .length,
+    ).toBe(2);
+  });
   it("combines API facets with local search/date filters, preserves detail/back, shares only on request and resets", async () => {
     await connect();
     expect(container.textContent).toContain("Your tags");

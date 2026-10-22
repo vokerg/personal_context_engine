@@ -19,6 +19,13 @@ import {
   NotesListResponseSchema,
   NotesQuerySchema,
   TagFacetsResponseSchema,
+  TagRegistryResponseSchema,
+  TagApprovalInputSchema,
+  TagApprovalMutationResponseSchema,
+  TagSlugSchema,
+  type TagApprovalInput,
+  type TagRegistryResponse,
+  type TagApprovalMutationResponse,
   type NotesQuery,
   type TagFacetsResponse,
   type ApiErrorResponse,
@@ -106,6 +113,7 @@ async function authenticatedGet<T>(
   path: string,
   parse: (data: unknown) => T,
   body?: unknown,
+  method?: "PUT" | "DELETE",
 ): Promise<T> {
   const url = new URL(path, options.baseUrl);
   if (
@@ -148,6 +156,7 @@ async function authenticatedGet<T>(
         }, options.timeoutMs)
       : undefined;
 
+  const verb = method ?? (body === undefined ? "GET" : "POST");
   try {
     if (signal?.aborted) throw new ApiTransportError("CANCELLED");
     const token = signal
@@ -188,16 +197,18 @@ async function authenticatedGet<T>(
       throw new TypeError("Invalid access token format");
     }
     const response = await (options.request ?? fetch)(url, {
-      method: body === undefined ? "GET" : "POST",
+      method: verb,
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       ...(options.useSessionCookie
         ? {
             credentials: "include" as const,
             headers:
-              body === undefined
+              verb === "GET"
                 ? {}
                 : {
-                    "Content-Type": "application/json",
+                    ...(body === undefined
+                      ? {}
+                      : { "Content-Type": "application/json" }),
                     "X-PCE-CSRF": options.getCsrfToken?.() ?? "",
                   },
           }
@@ -279,6 +290,48 @@ export function getTags(
     TagFacetsResponseSchema.parse(data),
   );
 }
+
+export function getTagRegistry(
+  options: AuthenticatedRequestOptions,
+): Promise<TagRegistryResponse> {
+  return authenticatedGet(options, "/api/v1/tag-registry", (data) =>
+    TagRegistryResponseSchema.parse(data),
+  );
+}
+
+/** Explicit owner action; attaching a tag to a note is a different operation. */
+export function approveTag(
+  options: AuthenticatedRequestOptions,
+  slug: string,
+  details: TagApprovalInput = {},
+): Promise<TagApprovalMutationResponse> {
+  const safe = TagSlugSchema.parse(slug);
+  return authenticatedGet(
+    options,
+    "/api/v1/tag-registry/" + encodeURIComponent(safe),
+    TagApprovalMutationResponseSchema.parse,
+    TagApprovalInputSchema.parse(details),
+    "PUT",
+  );
+}
+export function unapproveTag(
+  options: AuthenticatedRequestOptions,
+  slug: string,
+): Promise<TagApprovalMutationResponse> {
+  const safe = TagSlugSchema.parse(slug);
+  return authenticatedGet(
+    options,
+    "/api/v1/tag-registry/" + encodeURIComponent(safe),
+    TagApprovalMutationResponseSchema.parse,
+    undefined,
+    "DELETE",
+  );
+}
+export type {
+  TagRegistryResponse,
+  TagApprovalInput,
+  TagApprovalMutationResponse,
+};
 
 export async function getNote(
   options: AuthenticatedRequestOptions,

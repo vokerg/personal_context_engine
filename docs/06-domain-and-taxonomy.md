@@ -204,3 +204,35 @@ capturing, tag editing, indexing or searching. Final ChatGPT Project prompt
 integration belongs solely to #105 after the features are delivered. Earlier
 #54 discussions of canonical/global taxonomies are superseded for the
 candidate/approved workflow but remain relevant to optional aliases.
+
+### Approved-tag registry foundation (#99, draft PR #106)
+
+The owner-curated vocabulary is an **independent PostgreSQL projection**, not a
+change to Markdown v1, existing note tags, or ingestion provenance. An imported
+tag absent from the approved registry is a candidate. Approval is an explicit
+user action; attaching a tag to a note is a separate operation (#103).
+
+- Owner-scoped `tag_approvals` stores approved slugs with optional display
+  name, description, owner approval provenance and timestamps. Entries with no
+  associated notes remain valid. No mandatory built-in tag set or global
+  registry exists.
+- `tag_registry_revisions` advances only on effective registry mutations and
+  provides a stable revision for consumers. The capped response indicates
+  `truncated` if there are more than 200 approvals, rather than claiming
+  omitted slugs are known candidates.
+- `GET /api/v1/tag-registry` requires `notes:read` and returns
+  `{ revision, approved: [{ slug, displayName, description, noteCount,
+  approvedAt }], truncated }`; counts use distinct notes scoped to the
+  verified owner. `PUT /api/v1/tag-registry/:slug` requires `tags:write`
+  and accepts optional `displayName` and `description`.
+  `DELETE /api/v1/tag-registry/:slug` with `tags:write` unapproves; it never
+  removes tag associations from any note. Both mutations return
+  `{ slug, approved, changed, revision }` and are idempotent.
+- Cookie-session writes additionally require matching Origin, CSRF cookie and
+  `X-PCE-CSRF` header. Delegated `tags:write` is a separate optional
+  OAuth scope. API routing requires an authenticated DB-backed adapter; the
+  public/default unauthenticated API cannot mutate the registry.
+
+Approved metadata must not be exported to GitHub implicitly; the removable,
+feature-gated snapshot exporter is #100. Per-note effective tag overrides are
+#103. The combined ChatGPT Project prompt remains blocked under #105.

@@ -142,6 +142,45 @@ export const TagFacetsResponseSchema = z
   .strict();
 export type TagFacetsResponse = z.infer<typeof TagFacetsResponseSchema>;
 
+// Owner-scoped approved vocabulary, separate from Markdown v1 note tags.
+// Missing from this registry means "candidate", not an invalid tag.
+export const ApprovedTagSchema = z
+  .object({
+    slug: TagSlugSchema,
+    displayName: z.string().min(1).max(120).nullable(),
+    description: z.string().max(500).nullable(),
+    noteCount: z.number().int().nonnegative().safe(),
+    approvedAt: z.string().datetime({ offset: true }),
+  })
+  .strict();
+export const TagRegistryResponseSchema = z
+  .object({
+    revision: z.number().int().nonnegative().safe(),
+    approved: z.array(ApprovedTagSchema).max(200),
+    truncated: z.boolean(),
+  })
+  .strict();
+export type TagRegistryResponse = z.infer<typeof TagRegistryResponseSchema>;
+
+export const TagApprovalInputSchema = z
+  .object({
+    displayName: z.string().trim().min(1).max(120).nullable().optional(),
+    description: z.string().max(500).nullable().optional(),
+  })
+  .strict();
+export type TagApprovalInput = z.infer<typeof TagApprovalInputSchema>;
+export const TagApprovalMutationResponseSchema = z
+  .object({
+    slug: TagSlugSchema,
+    approved: z.boolean(),
+    changed: z.boolean(),
+    revision: z.number().int().nonnegative().safe(),
+  })
+  .strict();
+export type TagApprovalMutationResponse = z.infer<
+  typeof TagApprovalMutationResponseSchema
+>;
+
 export const NotesListResponseSchema = z
   .object({
     notes: z.array(NotePreviewSchema),

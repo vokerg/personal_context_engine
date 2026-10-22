@@ -3,12 +3,12 @@ import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import type { PrismaClient } from "@pce/db";
 import { cookies, secretHash, type SessionAuth } from "./session-auth.js";
-const scopeSchema = z.enum(["notes:read", "capture:write"]);
+const scopeSchema = z.enum(["notes:read", "capture:write", "tags:write"]);
 const clientSchema = z
   .object({
     clientId: z.string().regex(/^[A-Za-z0-9._:-]{1,128}$/),
     redirectUris: z.array(z.string().url().max(2048)).min(1).max(8),
-    scopes: z.array(scopeSchema).min(1).max(2),
+    scopes: z.array(scopeSchema).min(1).max(3),
   })
   .strict();
 export type OAuthClient = z.infer<typeof clientSchema>;
@@ -131,7 +131,7 @@ export function registerOAuth(
     grant_types_supported: ["authorization_code", "refresh_token"],
     code_challenge_methods_supported: ["S256"],
     token_endpoint_auth_methods_supported: ["none"],
-    scopes_supported: ["notes:read", "capture:write"],
+    scopes_supported: ["notes:read", "capture:write", "tags:write"],
     client_id_metadata_document_supported: false,
   }));
   for (const path of [
@@ -141,7 +141,7 @@ export function registerOAuth(
     app.get(path, async () => ({
       resource: audience,
       authorization_servers: [issuer],
-      scopes_supported: ["notes:read", "capture:write"],
+      scopes_supported: ["notes:read", "capture:write", "tags:write"],
       bearer_methods_supported: ["header"],
     }));
   app.get("/oauth/authorize", async (request, reply) => {
