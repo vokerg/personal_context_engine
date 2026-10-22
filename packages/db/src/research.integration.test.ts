@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { createApp } from "../../../apps/api/src/app.js";
+import { createSessionAuth } from "../../../apps/api/src/session-auth.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaClient, createApiCaptureRepository, createResearchRepository } from "./index.js";
 import { captureFixture } from "./api-capture.integration.test.js";
@@ -79,6 +81,42 @@ describe.skipIf(!url)("versioned research report persistence", () => {
     expect((await repo.persistByOwner(owner, { artifact: {
       ...badCitation, sources: [{ ...badCitation.sources[0], sourceRevision: current.sourceRevision }],
     } })).status).toBe("DB_PERSISTED");
+  });
+  it("authenticates and owner-scopes write, read and per-note history endpoints", async () => {
+    const parent = await note(), v = artifact(parent);
+    const origin = "http://127.0.0.1:4319";
+    const auth = createSessionAuth(db, {
+      mode: "dev-single-user", ownerSubject: owner, origin,
+      issuer: "http://127.0.0.1:3119", audience: "http://127.0.0.1:3119/mcp", secure: false,
+    });
+    const app = createApp({
+      config: { host: "127.0.0.1", port: 3119, environment: "test", corsOrigin: origin, requiresDatabase: false, auth: null },
+      dependencies: { sessionAuth: auth, research: createResearchRepository(db) },
+    });
+    try {
+      expect((await app.inject({ method: "POST", url: "/api/v1/research/reports", payload: { artifact: v } })).statusCode).toBe(401);
+      expect((await app.inject({ url: `/api/v1/notes/${parent.id}/research` })).statusCode).toBe(401);
+      const login = await app.inject({ method: "POST", url: "/auth/dev-session", headers: { origin }, payload: {} });
+      const cookie = login.cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+      const csrf = login.cookies.find((c) => c.name === "pce_csrf")!.value;
+      const headers = { origin, cookie, "x-pce-csrf": csrf };
+      const token = await app.inject({ method: "POST", url: "/auth/token", headers, payload: { scope: "notes:read" } });
+      const readOnly = { authorization: "Bearer " + token.json().access_token };
+      expect((await app.inject({ method: "POST", url: "/api/v1/research/reports", headers: readOnly, payload: { artifact: v } })).statusCode).toBe(403);
+      expect((await app.inject({ method: "POST", url: "/api/v1/research/reports", headers, payload: { artifact: v, ownerSubject: "forged" } })).statusCode).toBe(400);
+      const posted = await app.inject({ method: "POST", url: "/api/v1/research/reports", headers, payload: { artifact: v } });
+      expect(posted.statusCode).toBe(200);
+      expect(posted.json()).toMatchObject({ status: "DB_PERSISTED", indexing: "NOT_INDEXED", reportId: v.reportId });
+      const record = await app.inject({ url: `/api/v1/research/reports/${v.reportId}`, headers: readOnly });
+      expect(record.statusCode).toBe(200);
+      expect(record.json().sources[0].url).toBe("https://example.org/synthetic");
+      const history = await app.inject({ url: `/api/v1/notes/${parent.id}/research`, headers: readOnly });
+      expect(history.json().reports).toHaveLength(1);
+      expect((await app.inject({ url: `/api/v1/notes/${randomUUID()}/research`, headers: readOnly })).statusCode).toBe(404);
+    } finally {
+      await app.close();
+      await db.authSession.deleteMany({ where: { ownerSubject: owner } });
+    }
   });
   it("enforces exact allowlisted import path and idempotent replay", async () => {
     const parent = await note(), repo = createResearchRepository(db), v = artifact(parent);
