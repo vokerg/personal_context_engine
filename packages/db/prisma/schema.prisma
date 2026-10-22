@@ -326,6 +326,7 @@ model NoteTagOverride {
   revision     Int      @default(0)
   updatedAt    DateTime @updatedAt @db.Timestamptz(3)
 
+  @@unique([noteId, ownerSubject])
   @@index([ownerSubject])
   @@map("note_tag_overrides")
 }
