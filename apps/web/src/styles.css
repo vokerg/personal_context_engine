@@ -101,5 +101,6 @@ summary { cursor: pointer; font-weight: 650; margin-top: 16px; }
 /* Approval is an independent action; tag-chip itself always navigates. */
 .tag-pair { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 3px; max-width: 100%; }
 .tag-action { font-size: .76rem; padding: 4px 7px; }
+.tag-status { font-size: .72rem; color: #516675; white-space: nowrap; }
 .tag-browser section[aria-label="Approved tag vocabulary"] { border-top: 1px solid #e7edf2; margin: 15px 0; padding-top: 15px; }
 .tag-browser #catalog-query { display: block; max-width: 340px; margin: 6px 0 12px; }
