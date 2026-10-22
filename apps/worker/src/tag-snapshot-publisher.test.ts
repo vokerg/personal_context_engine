@@ -140,7 +140,9 @@ describe("approved-tag snapshot publisher (no network)", () => {
         description: "日本語".repeat(150),
       })),
     };
-    expect(Buffer.byteLength(serializeApprovedTags(large))).toBeGreaterThan(65536);
+    expect(Buffer.byteLength(serializeApprovedTags(large))).toBeGreaterThan(
+      65536,
+    );
     const server = github();
     expect(await server.publisher.publish(large)).toMatchObject({
       changed: true,
