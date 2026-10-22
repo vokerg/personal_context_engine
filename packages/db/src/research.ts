@@ -174,7 +174,7 @@ export function createResearchRepository(db: PrismaClient) {
       );
     },
     /** Trusted importer entrypoint only. Never expose client-selected paths. */
-    importByOwner(
+    async importByOwner(
       owner: string,
       json: string,
       sourcePath: string,
