@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { NoteIdSchema } from "./index.js";
+/** Same canonical UUID/ULID syntax as the public note ID contract. */
+const NoteIdSchema = z.string().regex(/^(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/);
 
 /** Research v1 is a separate JSON document. Never append it to Markdown v1. */
 const Timestamp = z.string().datetime({ offset: true });
