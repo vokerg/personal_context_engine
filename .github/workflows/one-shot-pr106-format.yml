@@ -1,0 +1,51 @@
+# Temporary branch-only formatting worker. Delete after its first successful push.
+name: One-shot PR 106 formatting
+on:
+  push:
+    branches: ["feat/99-approved-tags-registry"]
+permissions:
+  contents: write
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Format only the PR's touched TypeScript
+        run: |
+          npx prettier --write \
+            apps/api/src/app.ts \
+            apps/api/src/session-auth.ts \
+            apps/api/src/tag-registry.integration.test.ts \
+            apps/web/src/App.tsx \
+            apps/web/src/tag-browser.test.tsx \
+            packages/api-client/src/index.ts \
+            packages/contracts/src/index.ts \
+            packages/db/src/index.ts \
+            packages/db/src/tag-registry.ts \
+            packages/db/src/tag-registry.integration.test.ts
+          if git diff --quiet -- \
+            apps/api/src/app.ts apps/api/src/session-auth.ts apps/api/src/tag-registry.integration.test.ts \
+            apps/web/src/App.tsx apps/web/src/tag-browser.test.tsx \
+            packages/api-client/src/index.ts packages/contracts/src/index.ts \
+            packages/db/src/index.ts packages/db/src/tag-registry.ts packages/db/src/tag-registry.integration.test.ts
+          then
+            echo "Already formatted"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- apps/api/src/app.ts apps/api/src/session-auth.ts apps/api/src/tag-registry.integration.test.ts \
+            apps/web/src/App.tsx apps/web/src/tag-browser.test.tsx \
+            packages/api-client/src/index.ts packages/contracts/src/index.ts \
+            packages/db/src/index.ts packages/db/src/tag-registry.ts packages/db/src/tag-registry.integration.test.ts
+          git commit -m "style(tags): apply Prettier remotely (#99)"
+          git push origin HEAD:refs/heads/feat/99-approved-tags-registry
