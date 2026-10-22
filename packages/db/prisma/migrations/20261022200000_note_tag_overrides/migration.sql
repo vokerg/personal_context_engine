@@ -8,7 +8,7 @@ CREATE TABLE "note_tag_overrides" (
   "revision" INTEGER NOT NULL DEFAULT 0,
   "updatedAt" TIMESTAMPTZ(3) NOT NULL,
   CONSTRAINT "note_tag_overrides_pkey" PRIMARY KEY ("noteId"),
-  CONSTRAINT "note_tag_overrides_note_owner_fkey"
+  CONSTRAINT "note_tag_overrides_noteId_ownerSubject_fkey"
     FOREIGN KEY ("noteId", "ownerSubject") REFERENCES "notes"("id","ownerSubject")
     ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT "note_tag_overrides_disjoint_check"
