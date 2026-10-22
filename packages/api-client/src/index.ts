@@ -206,7 +206,9 @@ async function authenticatedGet<T>(
               verb === "GET"
                 ? {}
                 : {
-                    ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+                    ...(body === undefined
+                      ? {}
+                      : { "Content-Type": "application/json" }),
                     "X-PCE-CSRF": options.getCsrfToken?.() ?? "",
                   },
           }
@@ -289,7 +291,6 @@ export function getTags(
   );
 }
 
-
 export function getTagRegistry(
   options: AuthenticatedRequestOptions,
 ): Promise<TagRegistryResponse> {
@@ -306,8 +307,10 @@ export function approveTag(
 ): Promise<TagApprovalMutationResponse> {
   const safe = TagSlugSchema.parse(slug);
   return authenticatedGet(
-    options, "/api/v1/tag-registry/" + encodeURIComponent(safe),
-    TagApprovalMutationResponseSchema.parse, TagApprovalInputSchema.parse(details),
+    options,
+    "/api/v1/tag-registry/" + encodeURIComponent(safe),
+    TagApprovalMutationResponseSchema.parse,
+    TagApprovalInputSchema.parse(details),
     "PUT",
   );
 }
@@ -317,11 +320,18 @@ export function unapproveTag(
 ): Promise<TagApprovalMutationResponse> {
   const safe = TagSlugSchema.parse(slug);
   return authenticatedGet(
-    options, "/api/v1/tag-registry/" + encodeURIComponent(safe),
-    TagApprovalMutationResponseSchema.parse, undefined, "DELETE",
+    options,
+    "/api/v1/tag-registry/" + encodeURIComponent(safe),
+    TagApprovalMutationResponseSchema.parse,
+    undefined,
+    "DELETE",
   );
 }
-export type { TagRegistryResponse, TagApprovalInput, TagApprovalMutationResponse };
+export type {
+  TagRegistryResponse,
+  TagApprovalInput,
+  TagApprovalMutationResponse,
+};
 
 export async function getNote(
   options: AuthenticatedRequestOptions,

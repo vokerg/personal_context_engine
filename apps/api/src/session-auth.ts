@@ -251,7 +251,9 @@ export function createSessionAuth(
     ) {
       if (
         !scopes.length ||
-        scopes.some((x) => !["notes:read", "capture:write", "tags:write"].includes(x))
+        scopes.some(
+          (x) => !["notes:read", "capture:write", "tags:write"].includes(x),
+        )
       )
         throw Object.assign(new Error("Invalid scope"), { statusCode: 400 });
       const session = await db.authSession.findFirst({

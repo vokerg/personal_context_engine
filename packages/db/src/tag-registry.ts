@@ -93,10 +93,12 @@ export function createTagRegistryRepository(db: PrismaClient) {
             }
             const revision = changed
               ? await revisionOf(tx, owner)
-              : (await tx.tagRegistryRevision.findUnique({
-                  where: { ownerSubject: owner },
-                  select: { revision: true },
-                }))?.revision ?? 0;
+              : ((
+                  await tx.tagRegistryRevision.findUnique({
+                    where: { ownerSubject: owner },
+                    select: { revision: true },
+                  })
+                )?.revision ?? 0);
             return {
               slug,
               approved: operation === "approve",
@@ -146,7 +148,9 @@ export function createTagRegistryRepository(db: PrismaClient) {
             `,
           )
         : [];
-      const bySlug = new Map(counts.map((row) => [row.slug, Number(row.count)]));
+      const bySlug = new Map(
+        counts.map((row) => [row.slug, Number(row.count)]),
+      );
       return {
         revision: state?.revision ?? 0,
         truncated: all.length > APPROVED_TAG_LIMIT,

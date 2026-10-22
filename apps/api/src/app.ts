@@ -81,8 +81,15 @@ export interface ApiDependencies {
   /** Independent registry: no note source writes, and no GitHub dependency. */
   tagRegistry?: {
     listByOwner(owner: string): Promise<TagRegistryResponse>;
-    approveByOwner(owner: string, slug: string, input: TagApprovalInput): Promise<TagApprovalMutationResponse>;
-    unapproveByOwner(owner: string, slug: string): Promise<TagApprovalMutationResponse>;
+    approveByOwner(
+      owner: string,
+      slug: string,
+      input: TagApprovalInput,
+    ): Promise<TagApprovalMutationResponse>;
+    unapproveByOwner(
+      owner: string,
+      slug: string,
+    ): Promise<TagApprovalMutationResponse>;
   };
   /** A trusted adapter supplied by the DB integration; never a user request. */
   checkDatabase?: () => Promise<boolean>;
@@ -313,7 +320,6 @@ export function createApp(options: ApiOptions = {}) {
     );
   }
 
-
   if (options.dependencies?.tagRegistry) {
     if (!sessionAuth)
       throw new Error("Tag approval writes require scoped sessions");
@@ -339,12 +345,17 @@ export function createApp(options: ApiOptions = {}) {
       async (request, reply) => {
         const slug = TagSlugSchema.safeParse(request.params.slug);
         const input = TagApprovalInputSchema.safeParse(request.body);
-        if (!slug.success || !input.success ||
-            Object.keys(request.query as object).length)
+        if (
+          !slug.success ||
+          !input.success ||
+          Object.keys(request.query as object).length
+        )
           return reply.code(400).send(errorResponse("BAD_REQUEST"));
         return TagApprovalMutationResponseSchema.parse(
           await registry.approveByOwner(
-            request.authenticatedPrincipal!.subject, slug.data, input.data,
+            request.authenticatedPrincipal!.subject,
+            slug.data,
+            input.data,
           ),
         );
       },
@@ -354,12 +365,16 @@ export function createApp(options: ApiOptions = {}) {
       { preHandler: write },
       async (request, reply) => {
         const slug = TagSlugSchema.safeParse(request.params.slug);
-        if (!slug.success || Object.keys(request.query as object).length ||
-            request.body !== undefined)
+        if (
+          !slug.success ||
+          Object.keys(request.query as object).length ||
+          request.body !== undefined
+        )
           return reply.code(400).send(errorResponse("BAD_REQUEST"));
         return TagApprovalMutationResponseSchema.parse(
           await registry.unapproveByOwner(
-            request.authenticatedPrincipal!.subject, slug.data,
+            request.authenticatedPrincipal!.subject,
+            slug.data,
           ),
         );
       },

@@ -592,7 +592,6 @@ export function App({
     };
   }, [baseUrl, token, tagAttempt, reloadCount, ingestion?.lastRun]);
 
-
   useEffect(() => {
     if (!token) return;
     let active = true;
@@ -603,21 +602,26 @@ export function App({
       useSessionCookie: sessionAuthentication,
       signal: controller.signal,
       timeoutMs: 12000,
-    }).then((result) => {
-      if (active) {
-        setRegistry(result);
-        setRegistryError("");
-      }
-    }).catch((error: unknown) => {
-      if (!active) return;
-      setRegistry(null);
-      if (error instanceof ApiRequestError && error.status === 404) {
-        setRegistryError("");
-      } else {
-        setRegistryError(describeNotesError(error));
-      }
-    });
-    return () => { active = false; controller.abort(); };
+    })
+      .then((result) => {
+        if (active) {
+          setRegistry(result);
+          setRegistryError("");
+        }
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setRegistry(null);
+        if (error instanceof ApiRequestError && error.status === 404) {
+          setRegistryError("");
+        } else {
+          setRegistryError(describeNotesError(error));
+        }
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [baseUrl, token, registryAttempt, reloadCount]);
 
   async function changeApproval(slug: string, approved: boolean) {
@@ -629,14 +633,21 @@ export function App({
       getAccessToken: () => token,
       useSessionCookie: sessionAuthentication,
       getCsrfToken: () =>
-        document.cookie.split("; ").find((v) => v.startsWith("pce_csrf="))?.slice(9) ?? "",
+        document.cookie
+          .split("; ")
+          .find((v) => v.startsWith("pce_csrf="))
+          ?.slice(9) ?? "",
       timeoutMs: 12000,
     };
     try {
       if (approved) await approveTag(options, slug);
       else await unapproveTag(options, slug);
       setRegistry(await getTagRegistry(options));
-      setNotice(approved ? "Tag approved for future use." : "Tag unapproved; existing note tags preserved.");
+      setNotice(
+        approved
+          ? "Tag approved for future use."
+          : "Tag unapproved; existing note tags preserved.",
+      );
     } catch (error) {
       setRegistryError(describeNotesError(error));
     } finally {
@@ -1015,16 +1026,27 @@ export function App({
                           type="button"
                           aria-pressed={filters.tag === tag.slug}
                           aria-label={`Filter by tag ${tag.slug}, ${tag.count} notes`}
-                          title={registry ? `Tag status: ${statusOf(tag.slug)}` : undefined}
-                          onClick={() => selectTag(filters.tag === tag.slug ? "" : tag.slug)}
+                          title={
+                            registry
+                              ? `Tag status: ${statusOf(tag.slug)}`
+                              : undefined
+                          }
+                          onClick={() =>
+                            selectTag(filters.tag === tag.slug ? "" : tag.slug)
+                          }
                         >
                           {tag.slug} <span aria-hidden="true">{tag.count}</span>
                         </button>
                         {registry && !registrySlugs.has(tag.slug) && (
-                          <button className="ghost tag-action" type="button"
+                          <button
+                            className="ghost tag-action"
+                            type="button"
                             aria-label={`Approve tag ${tag.slug}`}
                             disabled={registryBusy !== null}
-                            onClick={() => void changeApproval(tag.slug, true)}>Approve</button>
+                            onClick={() => void changeApproval(tag.slug, true)}
+                          >
+                            Approve
+                          </button>
                         )}
                       </span>
                     ))}
@@ -1032,37 +1054,81 @@ export function App({
                   {registryError && (
                     <div role="alert">
                       <p>Tag approval unavailable: {registryError}</p>
-                      <button className="secondary" type="button"
-                        onClick={() => setRegistryAttempt((n) => n + 1)}>Retry approvals</button>
+                      <button
+                        className="secondary"
+                        type="button"
+                        onClick={() => setRegistryAttempt((n) => n + 1)}
+                      >
+                        Retry approvals
+                      </button>
                     </div>
                   )}
                   {registry && (
                     <section aria-label="Approved tag vocabulary">
-                      <h4>Approved vocabulary · revision {registry.revision}</h4>
-                      <p className="subtitle">Approval is global to your vocabulary; it does not change original note tags.</p>
+                      <h4>
+                        Approved vocabulary · revision {registry.revision}
+                      </h4>
+                      <p className="subtitle">
+                        Approval is global to your vocabulary; it does not
+                        change original note tags.
+                      </p>
                       <label htmlFor="catalog-query">Find approved tags</label>
-                      <input id="catalog-query" value={catalogQuery}
-                        onChange={(event) => setCatalogQuery(event.target.value)}
-                        placeholder="Search approved tags" />
-                      <div className="tag-chips" role="group" aria-label="Approved tags">
-                        {registry.approved.filter((tag) =>
-                          (tag.slug + " " + (tag.displayName ?? "")).toLowerCase().includes(catalogQuery.toLowerCase())
-                        ).map((tag) => (
-                          <span className="tag-pair" key={tag.slug}>
-                            <button className="tag-chip" type="button"
-                              aria-label={`Filter by approved tag ${tag.slug}, ${tag.noteCount} notes`}
-                              onClick={() => selectTag(tag.slug)}>
-                              {tag.displayName || tag.slug} <span aria-hidden="true">{tag.noteCount}</span>
-                            </button>
-                            <button type="button" className="ghost tag-action"
-                              disabled={registryBusy !== null}
-                              aria-label={`Unapprove tag ${tag.slug}`}
-                              onClick={() => void changeApproval(tag.slug, false)}>Unapprove</button>
-                          </span>
-                        ))}
+                      <input
+                        id="catalog-query"
+                        value={catalogQuery}
+                        onChange={(event) =>
+                          setCatalogQuery(event.target.value)
+                        }
+                        placeholder="Search approved tags"
+                      />
+                      <div
+                        className="tag-chips"
+                        role="group"
+                        aria-label="Approved tags"
+                      >
+                        {registry.approved
+                          .filter((tag) =>
+                            (tag.slug + " " + (tag.displayName ?? ""))
+                              .toLowerCase()
+                              .includes(catalogQuery.toLowerCase()),
+                          )
+                          .map((tag) => (
+                            <span className="tag-pair" key={tag.slug}>
+                              <button
+                                className="tag-chip"
+                                type="button"
+                                aria-label={`Filter by approved tag ${tag.slug}, ${tag.noteCount} notes`}
+                                onClick={() => selectTag(tag.slug)}
+                              >
+                                {tag.displayName || tag.slug}{" "}
+                                <span aria-hidden="true">{tag.noteCount}</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="ghost tag-action"
+                                disabled={registryBusy !== null}
+                                aria-label={`Unapprove tag ${tag.slug}`}
+                                onClick={() =>
+                                  void changeApproval(tag.slug, false)
+                                }
+                              >
+                                Unapprove
+                              </button>
+                            </span>
+                          ))}
                       </div>
-                      {!registry.approved.length && <p>No approved tags yet. Approve an observed tag to build your vocabulary.</p>}
-                      {registry.truncated && <p role="status">Showing first 200 approved tags; status of other tags may be unverified.</p>}
+                      {!registry.approved.length && (
+                        <p>
+                          No approved tags yet. Approve an observed tag to build
+                          your vocabulary.
+                        </p>
+                      )}
+                      {registry.truncated && (
+                        <p role="status">
+                          Showing first 200 approved tags; status of other tags
+                          may be unverified.
+                        </p>
+                      )}
                     </section>
                   )}
                   {tags.truncated && (
@@ -1313,17 +1379,24 @@ export function App({
                             <button
                               className="tag-chip"
                               type="button"
-                              title={registry ? `Tag status: ${statusOf(tag)}` : undefined}
+                              title={
+                                registry
+                                  ? `Tag status: ${statusOf(tag)}`
+                                  : undefined
+                              }
                               aria-pressed={filters.tag === tag}
                               onClick={() => selectTag(tag)}
                             >
                               {tag}
                             </button>
                             {registry && !registrySlugs.has(tag) && (
-                              <button className="ghost tag-action" type="button"
+                              <button
+                                className="ghost tag-action"
+                                type="button"
                                 aria-label={`Approve note tag ${tag}`}
                                 disabled={registryBusy !== null}
-                                onClick={() => void changeApproval(tag, true)}>
+                                onClick={() => void changeApproval(tag, true)}
+                              >
                                 Approve
                               </button>
                             )}
