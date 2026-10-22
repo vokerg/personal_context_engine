@@ -374,3 +374,13 @@ export const DiagnoseSearchRequestSchema = z
   })
   .strict();
 export type DiagnoseSearchRequest = z.infer<typeof DiagnoseSearchRequestSchema>;
+
+export {
+  ResearchArtifactSchema,
+  ResearchSourceSchema,
+  ResearchSaveRequestSchema,
+  ResearchReceiptSchema,
+  ResearchRecordSchema,
+  ResearchListSchema,
+} from "./research.js";
+export type { ResearchArtifact, ResearchSaveRequest, ResearchReceipt, ResearchRecord } from "./research.js";
