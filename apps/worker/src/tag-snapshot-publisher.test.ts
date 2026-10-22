@@ -180,7 +180,7 @@ describe("approved-tag snapshot publisher (no network)", () => {
     ).rejects.toMatchObject({ code: "REMOTE_INVALID" });
     await expect(
       github({
-        initial: JSON.stringify({ ...snapshot, injected: "unexpected" }) + "\\n",
+        initial: JSON.stringify({ ...snapshot, injected: "unexpected" }) + "\n",
       }).publisher.publish({ ...snapshot, revision: 5 }),
     ).rejects.toMatchObject({ code: "REMOTE_INVALID" });
     await expect(
