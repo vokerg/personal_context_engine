@@ -19,13 +19,13 @@ CREATE TABLE "research_reports" (
   "origin" VARCHAR(12) NOT NULL,
   "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "research_reports_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "research_reports_note_owner_fkey"
+  CONSTRAINT "research_reports_parentNoteId_ownerSubject_fkey"
     FOREIGN KEY ("parentNoteId", "ownerSubject") REFERENCES "notes"("id", "ownerSubject")
     ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT "research_reports_revision_check" CHECK ("revision" >= 1),
   CONSTRAINT "research_reports_status_check" CHECK ("status" IN ('DRAFT','COMPLETE')),
   CONSTRAINT "research_reports_origin_check" CHECK ("origin" IN ('api','github'))
 );
-CREATE UNIQUE INDEX "research_reports_series_revision_key" ON "research_reports"("seriesId", "revision");
+CREATE UNIQUE INDEX "research_reports_seriesId_revision_key" ON "research_reports"("seriesId", "revision");
 CREATE UNIQUE INDEX "research_reports_sourcePath_sourceRevision_key" ON "research_reports"("sourcePath", "sourceRevision");
-CREATE INDEX "research_reports_owner_note_researchedAt_idx" ON "research_reports"("ownerSubject", "parentNoteId", "researchedAt");
+CREATE INDEX "research_reports_ownerSubject_parentNoteId_researchedAt_idx" ON "research_reports"("ownerSubject", "parentNoteId", "researchedAt");
