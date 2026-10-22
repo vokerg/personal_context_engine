@@ -66,6 +66,7 @@ model Note {
   chunks          NoteChunk[]
   jobs            DbProcessingJob[]
   tagOverride     NoteTagOverride?
+  researchReports ResearchReport[]
 
   @@unique([id, ownerSubject])
   @@unique([sourcePath, sourceRevision])
@@ -350,4 +351,32 @@ model TagSnapshotOutbox {
 
   @@index([status, nextRetryAt])
   @@map("tag_snapshot_outbox")
+}
+
+// Immutable owner-scoped research revisions, never part of Markdown v1. A
+// report uses its parent note's composite owner FK and never rewrites the note.
+model ResearchReport {
+  id                 String   @id @db.VarChar(36)
+  ownerSubject       String   @db.VarChar(128)
+  parentNoteId       String   @db.VarChar(36)
+  note               Note     @relation(fields: [parentNoteId, ownerSubject], references: [id, ownerSubject], onDelete: Restrict, onUpdate: Restrict)
+  captureId          String   @db.VarChar(36)
+  seriesId           String   @db.VarChar(36)
+  revision           Int
+  supersedesReportId String?  @db.VarChar(36)
+  title              String   @db.VarChar(200)
+  researchedAt       DateTime @db.Timestamptz(3)
+  status             String   @db.VarChar(16)
+  contextOutcome     String   @db.VarChar(40)
+  artifact           Json
+  contentHash        String   @db.Char(64)
+  sourcePath         String   @db.Text
+  sourceRevision     String   @db.VarChar(128)
+  origin             String   @db.VarChar(12)
+  createdAt          DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([seriesId, revision])
+  @@unique([sourcePath, sourceRevision])
+  @@index([ownerSubject, parentNoteId, researchedAt])
+  @@map("research_reports")
 }
