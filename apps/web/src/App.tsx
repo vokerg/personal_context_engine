@@ -113,6 +113,7 @@ export function App({
   const [registryError, setRegistryError] = useState("");
   const [registryAttempt, setRegistryAttempt] = useState(0);
   const [registryBusy, setRegistryBusy] = useState<string | null>(null);
+  const approvalEpoch = useRef(0);
   const [catalogQuery, setCatalogQuery] = useState("");
   const registrySlugs = useMemo(
     () => new Set(registry?.approved.map((tag) => tag.slug) ?? []),
@@ -246,6 +247,7 @@ export function App({
   }
 
   function signOut(message = "") {
+    approvalEpoch.current += 1;
     if (sessionAuthentication) {
       const csrf =
         document.cookie
@@ -626,6 +628,7 @@ export function App({
 
   async function changeApproval(slug: string, approved: boolean) {
     if (!token || registryBusy) return;
+    const epoch = approvalEpoch.current;
     setRegistryBusy(slug);
     setRegistryError("");
     const options = {
@@ -642,16 +645,22 @@ export function App({
     try {
       if (approved) await approveTag(options, slug);
       else await unapproveTag(options, slug);
-      setRegistry(await getTagRegistry(options));
+      // A successful write may outlive signout. Never restore another session's
+      // owner-scoped registry or status after credentials have been cleared.
+      if (epoch !== approvalEpoch.current) return;
+      const refreshed = await getTagRegistry(options);
+      if (epoch !== approvalEpoch.current) return;
+      setRegistry(refreshed);
       setNotice(
         approved
           ? "Tag approved for future use."
           : "Tag unapproved; existing note tags preserved.",
       );
     } catch (error) {
-      setRegistryError(describeNotesError(error));
+      if (epoch === approvalEpoch.current)
+        setRegistryError(describeNotesError(error));
     } finally {
-      setRegistryBusy(null);
+      if (epoch === approvalEpoch.current) setRegistryBusy(null);
     }
   }
 
