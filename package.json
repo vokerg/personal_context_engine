@@ -39,7 +39,9 @@
     "openai:check": "node scripts/check-openai-setup.mjs",
     "capture:validate": "npm run build -w @pce/core && node scripts/validate-capture.mjs",
     "capture:verify": "npm run build -w @pce/core && node scripts/verify-chatgpt-capture.mjs",
-    "embeddings:watch": "WORKER_MODE=embeddings-loop node --env-file=.env apps/worker/dist/main.js"
+    "embeddings:watch": "WORKER_MODE=embeddings-loop node --env-file=.env apps/worker/dist/main.js",
+    "db-jobs:watch": "WORKER_MODE=db-jobs-loop node --env-file=.env apps/worker/dist/main.js",
+    "db-jobs:once": "WORKER_MODE=db-jobs-once node --env-file=.env apps/worker/dist/main.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",
