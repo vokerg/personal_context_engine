@@ -1172,7 +1172,8 @@ export function App({
                             " · retry queued"}
                           {registry.snapshot.lastErrorCode &&
                             ` · ${registry.snapshot.lastErrorCode}`}
-                          . Publication is optional and requires an enabled worker.
+                          . Publication is optional and requires an enabled
+                          worker.
                         </p>
                       )}
                       <label htmlFor="catalog-query">Find approved tags</label>

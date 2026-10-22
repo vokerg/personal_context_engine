@@ -195,9 +195,8 @@ export function createTagRegistryRepository(db: PrismaClient) {
         }),
       ]);
       const revision = state?.revision ?? 0;
-      const publishedRevision = job && job.publishedRevision >= 0
-        ? job.publishedRevision
-        : null;
+      const publishedRevision =
+        job && job.publishedRevision >= 0 ? job.publishedRevision : null;
       return {
         desiredRevision: revision,
         publishedRevision,

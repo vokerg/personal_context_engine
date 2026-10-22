@@ -12,17 +12,23 @@ const snapshot: ApprovedTagSnapshot = {
   schema_version: 1,
   revision: 4,
   tags: [
-    { slug: "bakery", display_name: "Bäckerei 日本語", description: "Bread \"and\" baking" },
+    {
+      slug: "bakery",
+      display_name: "Bäckerei 日本語",
+      description: 'Bread "and" baking',
+    },
     { slug: "future", display_name: null, description: null },
   ],
 };
 
-function github(options: {
-  private?: boolean;
-  initial?: string;
-  failure?: number;
-  conflict?: boolean;
-} = {}) {
+function github(
+  options: {
+    private?: boolean;
+    initial?: string;
+    failure?: number;
+    conflict?: boolean;
+  } = {},
+) {
   let contents = options.initial ?? null;
   let sha = "a".repeat(40);
   let writes = 0;
@@ -39,7 +45,10 @@ function github(options: {
         archived: false,
       });
     }
-    if (url.pathname !== "/repos/owner/private-content/contents/" + APPROVED_TAGS_PATH)
+    if (
+      url.pathname !==
+      "/repos/owner/private-content/contents/" + APPROVED_TAGS_PATH
+    )
       throw new Error("Unexpected path");
     if (method === "GET") {
       if (contents === null)
@@ -55,7 +64,9 @@ function github(options: {
     if (method !== "PUT") throw new Error("Unexpected method");
     if (options.conflict) return Response.json({}, { status: 409 });
     const body = JSON.parse(String(init?.body)) as {
-      sha?: string; branch: string; content: string;
+      sha?: string;
+      branch: string;
+      content: string;
     };
     expect(body.branch).toBe("main");
     expect(body.sha).toBe(contents === null ? undefined : sha);
@@ -72,8 +83,12 @@ function github(options: {
       http,
     }),
     calls,
-    get writes() { return writes; },
-    get contents() { return contents; },
+    get writes() {
+      return writes;
+    },
+    get contents() {
+      return contents;
+    },
   };
 }
 
@@ -83,12 +98,21 @@ describe("approved-tag snapshot publisher (no network)", () => {
     expect(JSON.parse(out)).toEqual(snapshot);
     expect(out.endsWith("\n")).toBe(true);
     expect(serializeApprovedTags(snapshot)).toBe(out);
-    expect(() => serializeApprovedTags({ ...snapshot, tags: [...snapshot.tags].reverse() }))
-      .toThrow(SnapshotPublishError);
-    expect(() => serializeApprovedTags({ ...snapshot, tags: [snapshot.tags[0], snapshot.tags[0]] }))
-      .toThrow(SnapshotPublishError);
-    expect(serializeApprovedTags({ schema_version: 1, revision: 0, tags: [] }))
-      .toContain('"tags": []');
+    expect(() =>
+      serializeApprovedTags({
+        ...snapshot,
+        tags: [...snapshot.tags].reverse(),
+      }),
+    ).toThrow(SnapshotPublishError);
+    expect(() =>
+      serializeApprovedTags({
+        ...snapshot,
+        tags: [snapshot.tags[0], snapshot.tags[0]],
+      }),
+    ).toThrow(SnapshotPublishError);
+    expect(
+      serializeApprovedTags({ schema_version: 1, revision: 0, tags: [] }),
+    ).toContain('"tags": []');
   });
   it("verifies privacy, writes the sole path, reads back, and avoids duplicate commits", async () => {
     const server = github();
@@ -97,54 +121,79 @@ describe("approved-tag snapshot publisher (no network)", () => {
     expect(first.hash).toMatch(/^[0-9a-f]{64}$/);
     expect(server.writes).toBe(1);
     expect(server.contents).toBe(serializeApprovedTags(snapshot));
-    expect(await server.publisher.publish(snapshot)).toEqual({ ...first, changed: false });
+    expect(await server.publisher.publish(snapshot)).toEqual({
+      ...first,
+      changed: false,
+    });
     expect(server.writes).toBe(1);
-    expect(server.calls.filter((c) => c.method === "PUT").map((c) => c.path))
-      .toEqual(["/repos/owner/private-content/contents/" + APPROVED_TAGS_PATH]);
+    expect(
+      server.calls.filter((c) => c.method === "PUT").map((c) => c.path),
+    ).toEqual(["/repos/owner/private-content/contents/" + APPROVED_TAGS_PATH]);
   });
   it("refuses a public repository even if contents are missing", async () => {
     const server = github({ private: false });
-    await expect(server.publisher.publish(snapshot)).rejects.toMatchObject({ code: "NOT_PRIVATE" });
+    await expect(server.publisher.publish(snapshot)).rejects.toMatchObject({
+      code: "NOT_PRIVATE",
+    });
     expect(server.writes).toBe(0);
   });
   it("does not overwrite newer or conflicting same-revision remote content", async () => {
-    const newer = github({ initial: serializeApprovedTags({ ...snapshot, revision: 5 }) });
-    await expect(newer.publisher.publish(snapshot)).rejects.toMatchObject({ code: "REMOTE_CONFLICT" });
-    const conflicting = github({ initial: serializeApprovedTags({ ...snapshot, tags: [] }) });
-    await expect(conflicting.publisher.publish(snapshot)).rejects.toMatchObject({ code: "REMOTE_CONFLICT" });
+    const newer = github({
+      initial: serializeApprovedTags({ ...snapshot, revision: 5 }),
+    });
+    await expect(newer.publisher.publish(snapshot)).rejects.toMatchObject({
+      code: "REMOTE_CONFLICT",
+    });
+    const conflicting = github({
+      initial: serializeApprovedTags({ ...snapshot, tags: [] }),
+    });
+    await expect(conflicting.publisher.publish(snapshot)).rejects.toMatchObject(
+      { code: "REMOTE_CONFLICT" },
+    );
     expect(newer.writes + conflicting.writes).toBe(0);
   });
   it("rejects corrupted remotes and compare-and-swap conflicts", async () => {
-    await expect(github({ initial: "garbage" }).publisher.publish(snapshot))
-      .rejects.toMatchObject({ code: "REMOTE_INVALID" });
-    await expect(github({ conflict: true }).publisher.publish(snapshot))
-      .rejects.toMatchObject({ code: "REMOTE_CONFLICT" });
+    await expect(
+      github({ initial: "garbage" }).publisher.publish(snapshot),
+    ).rejects.toMatchObject({ code: "REMOTE_INVALID" });
+    await expect(
+      github({ conflict: true }).publisher.publish(snapshot),
+    ).rejects.toMatchObject({ code: "REMOTE_CONFLICT" });
   });
   it("fails closed on authentication/permission errors", async () => {
     for (const failure of [401, 403]) {
-      await expect(github({ failure }).publisher.publish(snapshot))
-        .rejects.toMatchObject({ code: "PERMISSION_DENIED" });
+      await expect(
+        github({ failure }).publisher.publish(snapshot),
+      ).rejects.toMatchObject({ code: "PERMISSION_DENIED" });
     }
   });
   it("defaults off and requires a distinct explicit publisher opt-in", () => {
     expect(snapshotPublisherConfig({})).toBeNull();
-    expect(snapshotPublisherConfig({ PCE_TAG_SNAPSHOT_ENABLED: "false" })).toBeNull();
-    expect(() => snapshotPublisherConfig({
-      PCE_TAG_SNAPSHOT_ENABLED: "true",
-      PCE_TAG_SNAPSHOT_REPOSITORY: "owner/private-content",
-      PCE_TAG_SNAPSHOT_TOKEN: "synthetic",
-    })).toThrow(SnapshotPublishError);
-    expect(snapshotPublisherConfig({
-      PCE_TAG_SNAPSHOT_ENABLED: "true",
-      PCE_TAG_SNAPSHOT_ALLOW_WRITES: "I_VERIFIED_PRIVATE_REPOSITORY",
-      PCE_TAG_SNAPSHOT_REPOSITORY: "owner/private-content",
-      PCE_TAG_SNAPSHOT_TOKEN: "synthetic",
-    })).toMatchObject({ repository: "owner/private-content", branch: "main" });
-    expect(() => snapshotPublisherConfig({
-      PCE_TAG_SNAPSHOT_ENABLED: "true",
-      PCE_TAG_SNAPSHOT_ALLOW_WRITES: "I_VERIFIED_PRIVATE_REPOSITORY",
-      PCE_TAG_SNAPSHOT_REPOSITORY: "owner/public/other",
-      PCE_TAG_SNAPSHOT_TOKEN: "synthetic",
-    })).toThrow(SnapshotPublishError);
+    expect(
+      snapshotPublisherConfig({ PCE_TAG_SNAPSHOT_ENABLED: "false" }),
+    ).toBeNull();
+    expect(() =>
+      snapshotPublisherConfig({
+        PCE_TAG_SNAPSHOT_ENABLED: "true",
+        PCE_TAG_SNAPSHOT_REPOSITORY: "owner/private-content",
+        PCE_TAG_SNAPSHOT_TOKEN: "synthetic",
+      }),
+    ).toThrow(SnapshotPublishError);
+    expect(
+      snapshotPublisherConfig({
+        PCE_TAG_SNAPSHOT_ENABLED: "true",
+        PCE_TAG_SNAPSHOT_ALLOW_WRITES: "I_VERIFIED_PRIVATE_REPOSITORY",
+        PCE_TAG_SNAPSHOT_REPOSITORY: "owner/private-content",
+        PCE_TAG_SNAPSHOT_TOKEN: "synthetic",
+      }),
+    ).toMatchObject({ repository: "owner/private-content", branch: "main" });
+    expect(() =>
+      snapshotPublisherConfig({
+        PCE_TAG_SNAPSHOT_ENABLED: "true",
+        PCE_TAG_SNAPSHOT_ALLOW_WRITES: "I_VERIFIED_PRIVATE_REPOSITORY",
+        PCE_TAG_SNAPSHOT_REPOSITORY: "owner/public/other",
+        PCE_TAG_SNAPSHOT_TOKEN: "synthetic",
+      }),
+    ).toThrow(SnapshotPublishError);
   });
 });

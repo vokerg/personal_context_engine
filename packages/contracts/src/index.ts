@@ -180,14 +180,23 @@ export const ApprovedTagSchema = z
     approvedAt: z.string().datetime({ offset: true }),
   })
   .strict();
-export const TagSnapshotStatusSchema = z.object({
-  desiredRevision: z.number().int().nonnegative().safe(),
-  publishedRevision: z.number().int().nonnegative().safe().nullable(),
-  publishedAt: z.string().datetime({ offset: true }).nullable(),
-  stale: z.boolean(),
-  state: z.enum(["NOT_QUEUED", "PENDING", "LEASED", "RETRY", "PUBLISHED", "FAILED"]),
-  lastErrorCode: z.string().max(64).nullable(),
-}).strict();
+export const TagSnapshotStatusSchema = z
+  .object({
+    desiredRevision: z.number().int().nonnegative().safe(),
+    publishedRevision: z.number().int().nonnegative().safe().nullable(),
+    publishedAt: z.string().datetime({ offset: true }).nullable(),
+    stale: z.boolean(),
+    state: z.enum([
+      "NOT_QUEUED",
+      "PENDING",
+      "LEASED",
+      "RETRY",
+      "PUBLISHED",
+      "FAILED",
+    ]),
+    lastErrorCode: z.string().max(64).nullable(),
+  })
+  .strict();
 
 export const TagRegistryResponseSchema = z
   .object({

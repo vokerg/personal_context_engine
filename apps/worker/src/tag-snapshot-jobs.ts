@@ -1,8 +1,19 @@
 import { randomUUID } from "node:crypto";
-import { createTagSnapshotRepository, TagSnapshotTooLargeError, type PrismaClient } from "@pce/db";
-import { SnapshotPublishError, type ApprovedTagSnapshot } from "./tag-snapshot-publisher.js";
+import {
+  createTagSnapshotRepository,
+  TagSnapshotTooLargeError,
+  type PrismaClient,
+} from "@pce/db";
+import {
+  SnapshotPublishError,
+  type ApprovedTagSnapshot,
+} from "./tag-snapshot-publisher.js";
 
-type Publisher = { publish(snapshot: ApprovedTagSnapshot): Promise<{ hash: string; changed: boolean }> };
+type Publisher = {
+  publish(
+    snapshot: ApprovedTagSnapshot,
+  ): Promise<{ hash: string; changed: boolean }>;
+};
 
 /** One bounded taxonomy job on the existing DB worker, independent of note jobs. */
 export async function runTagSnapshotPass(
@@ -36,11 +47,13 @@ export async function runTagSnapshotPass(
         lastErrorCode: "LEASE_EXHAUSTED",
       },
     });
-    const [row] = await tx.$queryRaw<Array<{
-      ownerSubject: string;
-      desiredRevision: number;
-      attemptCount: number;
-    }>>`SELECT "ownerSubject","desiredRevision","attemptCount"
+    const [row] = await tx.$queryRaw<
+      Array<{
+        ownerSubject: string;
+        desiredRevision: number;
+        attemptCount: number;
+      }>
+    >`SELECT "ownerSubject","desiredRevision","attemptCount"
       FROM "tag_snapshot_outbox"
       WHERE "ownerSubject"=${ownerSubject} AND "attemptCount"<6
         AND ("status"='PENDING'
@@ -61,7 +74,8 @@ export async function runTagSnapshotPass(
   });
   if (!job) return result;
   try {
-    const snapshot = await createTagSnapshotRepository(db).readApproved(ownerSubject);
+    const snapshot =
+      await createTagSnapshotRepository(db).readApproved(ownerSubject);
     const written = await publisher.publish(snapshot);
     const finished = await db.tagSnapshotOutbox.updateMany({
       where: {
@@ -88,11 +102,12 @@ export async function runTagSnapshotPass(
     }
   } catch (error) {
     // Fixed codes only; never log original exception text or GitHub payload.
-    const code = error instanceof TagSnapshotTooLargeError
-      ? "REGISTRY_TOO_LARGE"
-      : error instanceof SnapshotPublishError
-        ? error.code
-        : "PUBLISH_UNAVAILABLE";
+    const code =
+      error instanceof TagSnapshotTooLargeError
+        ? "REGISTRY_TOO_LARGE"
+        : error instanceof SnapshotPublishError
+          ? error.code
+          : "PUBLISH_UNAVAILABLE";
     const terminal = code === "REGISTRY_TOO_LARGE" || job.attemptCount >= 6;
     const changed = await db.tagSnapshotOutbox.updateMany({
       where: {
@@ -107,9 +122,11 @@ export async function runTagSnapshotPass(
         attemptCount: terminal ? 6 : job.attemptCount,
         leaseOwner: null,
         leaseUntil: null,
-        nextRetryAt: terminal ? null : new Date(
-          now.getTime() + Math.min(3_600_000, 5000 * 2 ** job.attemptCount),
-        ),
+        nextRetryAt: terminal
+          ? null
+          : new Date(
+              now.getTime() + Math.min(3_600_000, 5000 * 2 ** job.attemptCount),
+            ),
         lastErrorCode: code,
       },
     });
