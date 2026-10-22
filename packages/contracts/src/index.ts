@@ -383,4 +383,9 @@ export {
   ResearchRecordSchema,
   ResearchListSchema,
 } from "./research.js";
-export type { ResearchArtifact, ResearchSaveRequest, ResearchReceipt, ResearchRecord } from "./research.js";
+export type {
+  ResearchArtifact,
+  ResearchSaveRequest,
+  ResearchReceipt,
+  ResearchRecord,
+} from "./research.js";
