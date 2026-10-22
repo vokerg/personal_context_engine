@@ -27,8 +27,15 @@ import {
   NotesListResponseSchema,
   NotesQuerySchema,
   TagFacetsResponseSchema,
+  TagRegistryResponseSchema,
+  TagApprovalInputSchema,
+  TagApprovalMutationResponseSchema,
+  TagSlugSchema,
   type NotesQuery,
   type TagFacetsResponse,
+  type TagRegistryResponse,
+  type TagApprovalInput,
+  type TagApprovalMutationResponse,
   type NoteDetail,
   type NotePreview,
   HealthResponseSchema,
@@ -70,6 +77,12 @@ export interface ApiDependencies {
       owner: string,
       input: CaptureRequest,
     ): Promise<CaptureResponse>;
+  };
+  /** Independent registry: no note source writes, and no GitHub dependency. */
+  tagRegistry?: {
+    listByOwner(owner: string): Promise<TagRegistryResponse>;
+    approveByOwner(owner: string, slug: string, input: TagApprovalInput): Promise<TagApprovalMutationResponse>;
+    unapproveByOwner(owner: string, slug: string): Promise<TagApprovalMutationResponse>;
   };
   /** A trusted adapter supplied by the DB integration; never a user request. */
   checkDatabase?: () => Promise<boolean>;
@@ -146,7 +159,7 @@ export function createApp(options: ApiOptions = {}) {
     ) {
       if (
         !allowed ||
-        !["GET", ...(sessionAuth ? ["POST"] : [])].includes(
+        !["GET", ...(sessionAuth ? ["POST", "PUT", "DELETE"] : [])].includes(
           String(request.headers["access-control-request-method"]),
         )
       ) {
@@ -154,7 +167,7 @@ export function createApp(options: ApiOptions = {}) {
       }
       reply.header(
         "Access-Control-Allow-Methods",
-        sessionAuth ? "GET, POST" : "GET",
+        sessionAuth ? "GET, POST, PUT, DELETE" : "GET",
       );
       reply.header(
         "Access-Control-Allow-Headers",
@@ -296,6 +309,58 @@ export function createApp(options: ApiOptions = {}) {
             return reply.code(400).send(errorResponse("BAD_REQUEST"));
           throw error;
         }
+      },
+    );
+  }
+
+
+  if (options.dependencies?.tagRegistry) {
+    if (!sessionAuth)
+      throw new Error("Tag approval writes require scoped sessions");
+    const registry = options.dependencies.tagRegistry;
+    const read = (request: FastifyRequest, reply: FastifyReply) =>
+      requireSessionScope(request, reply, sessionAuth, "notes:read");
+    const write = (request: FastifyRequest, reply: FastifyReply) =>
+      requireSessionScope(request, reply, sessionAuth, "tags:write");
+    app.get(
+      "/api/v1/tag-registry",
+      { preHandler: read },
+      async (request, reply) => {
+        if (Object.keys(request.query as object).length)
+          return reply.code(400).send(errorResponse("BAD_REQUEST"));
+        return TagRegistryResponseSchema.parse(
+          await registry.listByOwner(request.authenticatedPrincipal!.subject),
+        );
+      },
+    );
+    app.put<{ Params: { slug: string } }>(
+      "/api/v1/tag-registry/:slug",
+      { preHandler: write },
+      async (request, reply) => {
+        const slug = TagSlugSchema.safeParse(request.params.slug);
+        const input = TagApprovalInputSchema.safeParse(request.body);
+        if (!slug.success || !input.success)
+          return reply.code(400).send(errorResponse("BAD_REQUEST"));
+        return TagApprovalMutationResponseSchema.parse(
+          await registry.approveByOwner(
+            request.authenticatedPrincipal!.subject, slug.data, input.data,
+          ),
+        );
+      },
+    );
+    app.delete<{ Params: { slug: string } }>(
+      "/api/v1/tag-registry/:slug",
+      { preHandler: write },
+      async (request, reply) => {
+        const slug = TagSlugSchema.safeParse(request.params.slug);
+        if (!slug.success || Object.keys(request.query as object).length ||
+            request.body !== undefined)
+          return reply.code(400).send(errorResponse("BAD_REQUEST"));
+        return TagApprovalMutationResponseSchema.parse(
+          await registry.unapproveByOwner(
+            request.authenticatedPrincipal!.subject, slug.data,
+          ),
+        );
       },
     );
   }
