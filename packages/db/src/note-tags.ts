@@ -10,7 +10,7 @@ export const effectiveTagsSql = Prisma.sql`
   ARRAY(SELECT DISTINCT t.slug
     FROM unnest(n.tags || COALESCE(o.added, ARRAY[]::text[])) t(slug)
     WHERE NOT (t.slug = ANY(COALESCE(o.removed, ARRAY[]::text[])))
-    ORDER BY t.slug COLLATE "C")
+    ORDER BY t.slug)
 `;
 
 export interface NoteTagEdit {
