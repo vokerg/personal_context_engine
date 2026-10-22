@@ -5,6 +5,10 @@ import {
   getNote,
   getNotes,
   getTags,
+  getTagRegistry,
+  approveTag,
+  unapproveTag,
+  type TagRegistryResponse,
   getBrowsePage,
   getBrowseFacets,
   searchContext,
@@ -105,6 +109,21 @@ export function App({
   const [tagsState, setTagsState] = useState<LoadState>("loading");
   const [tagsError, setTagsError] = useState("");
   const [tagAttempt, setTagAttempt] = useState(0);
+  const [registry, setRegistry] = useState<TagRegistryResponse | null>(null);
+  const [registryError, setRegistryError] = useState("");
+  const [registryAttempt, setRegistryAttempt] = useState(0);
+  const [registryBusy, setRegistryBusy] = useState<string | null>(null);
+  const [catalogQuery, setCatalogQuery] = useState("");
+  const registrySlugs = useMemo(
+    () => new Set(registry?.approved.map((tag) => tag.slug) ?? []),
+    [registry],
+  );
+  const statusOf = (slug: string) =>
+    registrySlugs.has(slug)
+      ? "approved"
+      : registry?.truncated
+        ? "unverified"
+        : "candidate";
   const [browseCursor, setBrowseCursor] = useState<string | undefined>();
   const [previousCursors, setPreviousCursors] = useState<
     Array<string | undefined>
@@ -244,6 +263,10 @@ export function App({
     setNotice(message);
     setNotes([]);
     setTags({ tags: [], truncated: false });
+    setRegistry(null);
+    setRegistryError("");
+    setRegistryBusy(null);
+    setCatalogQuery("");
     setFacets({ projects: [], kinds: [], truncated: false });
     setBrowseCursor(undefined);
     setPreviousCursors([]);
@@ -569,6 +592,58 @@ export function App({
     };
   }, [baseUrl, token, tagAttempt, reloadCount, ingestion?.lastRun]);
 
+
+  useEffect(() => {
+    if (!token) return;
+    let active = true;
+    const controller = new AbortController();
+    getTagRegistry({
+      baseUrl,
+      getAccessToken: () => token,
+      useSessionCookie: sessionAuthentication,
+      signal: controller.signal,
+      timeoutMs: 12000,
+    }).then((result) => {
+      if (active) {
+        setRegistry(result);
+        setRegistryError("");
+      }
+    }).catch((error: unknown) => {
+      if (!active) return;
+      setRegistry(null);
+      if (error instanceof ApiRequestError && error.status === 404) {
+        setRegistryError("");
+      } else {
+        setRegistryError(describeNotesError(error));
+      }
+    });
+    return () => { active = false; controller.abort(); };
+  }, [baseUrl, token, registryAttempt, reloadCount]);
+
+  async function changeApproval(slug: string, approved: boolean) {
+    if (!token || registryBusy) return;
+    setRegistryBusy(slug);
+    setRegistryError("");
+    const options = {
+      baseUrl,
+      getAccessToken: () => token,
+      useSessionCookie: sessionAuthentication,
+      getCsrfToken: () =>
+        document.cookie.split("; ").find((v) => v.startsWith("pce_csrf="))?.slice(9) ?? "",
+      timeoutMs: 12000,
+    };
+    try {
+      if (approved) await approveTag(options, slug);
+      else await unapproveTag(options, slug);
+      setRegistry(await getTagRegistry(options));
+      setNotice(approved ? "Tag approved for future use." : "Tag unapproved; existing note tags preserved.");
+    } catch (error) {
+      setRegistryError(describeNotesError(error));
+    } finally {
+      setRegistryBusy(null);
+    }
+  }
+
   useEffect(() => {
     if (!token || !selectedId) {
       setDetail(null);
@@ -658,7 +733,7 @@ export function App({
         })()}
       <header className="topbar">
         <div>
-          <p className="eyebrow">Read-only workspace</p>
+          <p className="eyebrow">Personal workspace</p>
           <h1>Personal Context Engine</h1>
           <p className="subtitle">
             {localDevelopment
