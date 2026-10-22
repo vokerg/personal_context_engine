@@ -79,14 +79,18 @@ export function createNoteTagRepository(db: PrismaClient) {
                   added = [...added, edit.slug];
               } else if (before.includes(edit.slug)) {
                 added = added.filter((tag) => tag !== edit.slug);
-                removed = [
-                  ...removed.filter((tag) => tag !== edit.slug),
-                  edit.slug,
-                ];
+                // A manual-only addition can simply be undone. Only source
+                // tags need persistent tombstones across GitHub re-imports.
+                if (note.tags.includes(edit.slug))
+                  removed = [...removed, edit.slug];
               }
               const after = effective(note.tags, added, removed);
-              if (after.length > MAX_TAGS)
-                throw new TypeError("Too many effective tags");
+              if (
+                after.length > MAX_TAGS ||
+                added.length > MAX_TAGS ||
+                removed.length > MAX_TAGS
+              )
+                throw new TypeError("Too many tag overrides");
               const changed =
                 added.join("\u0000") !== (state?.added ?? []).join("\u0000") ||
                 removed.join("\u0000") !==
