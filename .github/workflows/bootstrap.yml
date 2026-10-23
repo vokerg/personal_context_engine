@@ -21,17 +21,6 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - name: Temporary PR 109 formatter output
-        run: |
-          npx prettier --write apps/api/src/config.ts apps/api/src/config.test.ts
-          python3 - <<'PY'
-          import base64
-          from pathlib import Path
-          for name in ('apps/api/src/config.ts', 'apps/api/src/config.test.ts'):
-              encoded = base64.b64encode(Path(name).read_bytes()).decode("ascii")
-              for offset in range(0, len(encoded), 2400):
-                  print('PCE_FORMAT|' + name + '|' + str(offset // 2400) + '|' + encoded[offset:offset+2400])
-          PY
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
