@@ -158,14 +158,56 @@ index exists yet. A document containing PCE context that was not retrieved
 must not be misrepresented as verified by the API. Conflict, bad input,
 unowned lookup and unauthorized access return fixed, redacted errors.
 
-A *trusted, not yet wired* importer method accepts only
-`research/inbox/<report-id>.json`, with exact ID/path matching, a supplied
-provider source revision, bounded UTF-8 JSON (250 KB maximum), and owner
-scope from operator-verified configuration. **It is not sufficient to enable
-private-repository research writes**: dedicated ContentStore scanning,
-retry/checkpoint/reconciliation, importer worker integration, per-report
-indexing jobs, search provenance and web presentation must be completed.
-API-only reports have no mandatory GitHub back-sync.
+A trusted importer accepts only `research/inbox/<report-id>.json`,
+with exact report ID/path matching, an observed source Git blob revision,
+strict versioned JSON (max 250,000 UTF-8 bytes), and an owner from the
+trusted worker configuration. **It is not a public arbitrary-file API.**
+
+### Optional GitHub research import worker (second slice of #104)
+
+The existing `WORKER_MODE=db-jobs-once|db-jobs-loop` can additionally run
+`runResearchImportPass`. No new process, LLM, search engine, crawler or
+write to the private repository is introduced. Set only after review:
+
+```text
+PCE_OWNER_SUBJECT=<trusted-existing-owner>
+PCE_RESEARCH_INGRESS_ENABLED=true
+PCE_RESEARCH_INGRESS_REPOSITORY=owner/verified-private-content-repo
+PCE_RESEARCH_INGRESS_BRANCH=main
+PCE_RESEARCH_INGRESS_TOKEN=<dedicated-read-only-secret>
+```
+
+The reader verifies the remote repository is **private** before any work,
+uses a strict JSON-file allowlist at `research/inbox/<id>.json`, rejects
+symlinks/nonregular Git objects, enforces UTF-8 and size bounds, and has no
+research file update/delete/finalization capability. Its auth token must have
+only **Contents: read** for this private repository, and must never be
+committed or shared with capture/publisher credentials. Any repo-write token
+would exceed the reader's required privilege and must not be used.
+
+Each pass scans up to 50 lexicographically ordered entries, persists a
+separate owner/repo/branch-scoped cursor in `ingestion_checkpoints`,
+checks the listing revision against the read revision, and commits only
+validated parent-linked immutable reports into PostgreSQL. A report whose
+parent note has not yet arrived is left untouched in GitHub. Failures do not
+block later files, and the cursor **wraps back to the beginning** at the end
+of the scan; later passes retry missing parents and transient errors.
+Idempotent repeat imports are reported as replays. Counters expose only
+aggregate outcomes, not note IDs, source paths, URLs or raw error messages.
+Each bounded pass works even if no inbox files exist; a disabled feature does
+not affect capture, tags or indexing. There is no writer-side receipt from
+this reader; verified report persistence must be checked through the
+owner-scoped DB API before claiming it was imported.
+
+**Current safety boundaries:** replay/checkpoint recovery is implemented,
+but failures are revisited on scan wrap rather than held in a distinct durable
+per-report retry queue; large backlogs may delay later retries. The importer
+neither indexes research nor shows it in the web UI yet, and does not prove
+that an interactive ChatGPT session performed PCE MCP retrieval. Public
+worker code being present does not mean a live worker, token, migrations or
+ChatGPT Project settings are installed. A separate private-repository PR
+must document narrowly permitted report creates; it must not activate the
+prompt until the integrated roll-out under #105.
 
 Two-step ChatGPT GitHub note/report creation cannot be made atomic.
 The final capture workflow must explicitly handle note-only success, read-back
