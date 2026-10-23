@@ -367,11 +367,14 @@ owner-scoped PostgreSQL registry; other observed/LLM-suggested slugs are
 slugs over inventing many single-use labels. Approved status is an owner
 decision, never an LLM self-promotion and never authorization to execute tasks.
 
-The UI must support (a) clicking tag text to filter notes, (b) a distinct
-one-click action to promote a candidate into the registry, and (c) attaching
-and detaching tags on a specific note, including free-form newly added tags,
-without implicitly approving them globally. Removing a tag from one note does
-not delete it from the registry or other notes.
+The global tag browser contains approved observed tags only, and its chips
+remain clickable filters. A candidate stays on the activity/note that carries
+it; clicking that activity chip promotes it into the registry and displays a
+check mark and pressed state. Clicking the same picked chip unpicks it through
+the same owner-scoped API without removing the note tag. Attaching a tag to a
+specific note, including a free-form newly added tag, does not implicitly
+approve it globally. Removing a tag from one note does not delete it from the
+registry or other notes.
 
 Preserve GitHub-sourced original text, file hash, historical slugs and
 provenance: manual attach/detach is a database-side **effective-tag override**

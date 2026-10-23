@@ -12,7 +12,6 @@ const tags = Array.from({ length: 205 }, (_, i) => ({
   approvedAt: "2026-10-23T10:00:00Z",
 }));
 const urls: URL[] = [];
-const unapprove = vi.fn();
 let changed = false;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -21,7 +20,6 @@ beforeEach(() => {
   root = createRoot(container);
   urls.length = 0;
   changed = false;
-  unapprove.mockClear();
   vi.stubGlobal(
     "fetch",
     vi.fn(async (target: URL | string) => {
@@ -63,9 +61,7 @@ async function render() {
         token="synthetic"
         useSessionCookie={false}
         registry={{ revision: 1, approved: [], truncated: true }}
-        busy={false}
         selectTag={() => {}}
-        unapprove={unapprove}
       />,
     );
   });
@@ -84,15 +80,17 @@ async function click(label: string) {
   await act(async () => button.click());
   await flush();
 }
-it("pages through more than 200 approvals and searches the full server catalog, retaining unapproval access", async () => {
+it("pages through more than 200 approvals and searches the full server catalog", async () => {
   await render();
-  expect(container.textContent).toContain("50 approved tags");
+  expect(container.textContent).toContain("Page 1 · 50 tags");
   for (let i = 0; i < 4; i++) await click("Next tags");
   expect(container.textContent).toContain("Hidden comet");
   expect(container.textContent).toContain("Page 5");
   expect(document.activeElement?.textContent).toBe("Browse approved tags");
-  await click("Unapprove tag synthetic-204");
-  expect(unapprove).toHaveBeenCalledWith("synthetic-204");
+  expect(
+    container.querySelector('[aria-label="Unapprove tag synthetic-204"]'),
+  ).toBeNull();
+  expect(container.querySelectorAll(".tag-check")).toHaveLength(5);
   const input = container.querySelector("input")!;
   await act(async () => {
     Object.getOwnPropertyDescriptor(
@@ -108,9 +106,7 @@ it("pages through more than 200 approvals and searches the full server catalog, 
   expect(urls.at(-1)?.searchParams.get("q")).toBe("comet");
   expect(urls.at(-1)?.searchParams.has("after")).toBe(false);
   expect(container.textContent).toContain("Hidden comet");
-  expect(container.querySelector(".tag-status-approved")?.textContent).toBe(
-    "approved",
-  );
+  expect(container.querySelector(".tag-status-approved")).toBeNull();
 });
 it("restarts at the first page if a concurrent mutation invalidates the catalog revision", async () => {
   await render();

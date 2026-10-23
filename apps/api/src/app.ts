@@ -200,7 +200,9 @@ export function createApp(options: ApiOptions = {}) {
     reply.header("Cross-Origin-Resource-Policy", "same-origin");
 
     const origin = request.headers.origin;
-    const allowed = !!origin && origin === config.corsOrigin;
+    const allowedOrigins =
+      config.corsOrigins ?? (config.corsOrigin ? [config.corsOrigin] : []);
+    const allowed = !!origin && allowedOrigins.includes(origin);
     if (allowed) {
       reply.header("Access-Control-Allow-Origin", origin);
       reply.header("Vary", "Origin");

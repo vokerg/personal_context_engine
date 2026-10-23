@@ -7,6 +7,8 @@ export interface SessionConfig {
   mode: "single-user" | "dev-single-user";
   ownerSubject: string;
   origin: string;
+  /** Additional equivalent loopback web origins for local development. */
+  allowedOrigins?: readonly string[];
   issuer: string;
   audience: string;
   secure: boolean;
@@ -116,7 +118,8 @@ export function createSessionAuth(
     ];
   };
   const originAllowed = (request: FastifyRequest) =>
-    request.headers.origin === config.origin;
+    typeof request.headers.origin === "string" &&
+    (config.allowedOrigins ?? [config.origin]).includes(request.headers.origin);
   return {
     config,
     repo,

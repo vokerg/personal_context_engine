@@ -21,6 +21,8 @@ export interface ApiConfig {
   port: number;
   environment: "development" | "test" | "production";
   corsOrigin: string | null;
+  /** Optional additional exact origins, used by local loopback aliases. */
+  corsOrigins?: readonly string[];
   requiresDatabase: boolean;
   auth: ApiAuthConfig | null;
   rs256Auth?: ApiRs256AuthConfig;

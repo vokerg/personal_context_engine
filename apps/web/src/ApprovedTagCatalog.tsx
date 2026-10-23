@@ -10,18 +10,14 @@ type Props = {
   token: string | null;
   useSessionCookie: boolean;
   registry: TagRegistryResponse;
-  busy: boolean;
   selectTag: (slug: string) => void;
-  unapprove: (slug: string) => void;
 };
 export function ApprovedTagCatalog({
   baseUrl,
   token,
   useSessionCookie,
   registry,
-  busy,
   selectTag,
-  unapprove,
 }: Props) {
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
@@ -127,30 +123,22 @@ export function ApprovedTagCatalog({
       ) : (
         <>
           <p className="subtitle">
-            Page {previous.length + 1} · {page?.approved.length ?? 0} approved
-            tags
+            Page {previous.length + 1} · {page?.approved.length ?? 0} tags
           </p>
           <div className="tag-chips" role="group" aria-label="Approved tags">
             {page?.approved.map((tag) => (
               <span className="tag-pair" key={tag.slug}>
                 <button
-                  className="tag-chip"
+                  className="tag-chip tag-chip-picked"
                   type="button"
                   aria-label={`Filter by approved tag ${tag.slug}, ${tag.noteCount} notes`}
                   onClick={() => selectTag(tag.slug)}
                 >
+                  <span aria-hidden="true" className="tag-check">
+                    ✓
+                  </span>
                   {tag.displayName || tag.slug}{" "}
                   <span aria-hidden="true">{tag.noteCount}</span>
-                </button>
-                <span className="tag-status tag-status-approved">approved</span>
-                <button
-                  type="button"
-                  className="ghost tag-action"
-                  disabled={busy}
-                  aria-label={`Unapprove tag ${tag.slug}`}
-                  onClick={() => unapprove(tag.slug)}
-                >
-                  Unapprove
                 </button>
               </span>
             ))}
@@ -159,7 +147,7 @@ export function ApprovedTagCatalog({
             <p>
               {query
                 ? "No approved tags match this search."
-                : "No approved tags yet. Approve an observed tag to build your vocabulary."}
+                : "No approved tags yet. Pick a tag from a note activity to build your vocabulary."}
             </p>
           )}
           {(previous.length > 0 || page?.nextCursor) && (

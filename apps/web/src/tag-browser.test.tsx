@@ -193,7 +193,8 @@ describe("interactive observed tag browser", () => {
         return originalFetch(target, options);
       }),
     );
-    await click("Approve tag focus");
+    await click("Open note: Synthetic alpha");
+    await click("Pick tag focus to approve");
     expect(releaseWrite).toBeDefined();
     const readsBeforeLogout = requests.filter(
       (item) => item.pathname === "/api/v1/tag-registry",
@@ -218,27 +219,39 @@ describe("interactive observed tag browser", () => {
     expect(container.textContent).toContain("Sign-in required");
     expect(container.textContent).not.toContain("Approved vocabulary");
   });
-  it("keeps filtering separate from explicit approval and reversible vocabulary changes", async () => {
+  it("uses activity chips to pick approved vocabulary while global chips filter", async () => {
     await connect();
     expect(
-      container.querySelector('[aria-label="Approve tag focus"]'),
-    ).not.toBeNull();
-    await click("Approve tag focus");
-    expect(
-      container.querySelector('[aria-label="Approve tag focus"]'),
+      container.querySelector(
+        '[aria-label="Filter by approved tag focus, 1 notes"]',
+      ),
     ).toBeNull();
+    await click("Pick tag focus to approve");
     expect(
-      container.querySelector('[aria-label="Unapprove tag focus"]'),
+      container.querySelector('[aria-label="Unpick approved tag focus"]'),
+    ).not.toBeNull();
+    await click("Open note: Synthetic alpha");
+    expect(
+      container.querySelector('[aria-label="Unpick approved tag focus"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector(
+        '[aria-label="Filter by approved tag focus, 1 notes"]',
+      ),
     ).not.toBeNull();
     expect(container.textContent).toContain("Approved vocabulary · revision 1");
-    await click("Filter by tag focus, 1 notes");
+    await click("← Back to timeline");
+    await click("Filter by approved tag focus, 1 notes");
     expect(
       container.querySelector('[aria-label="Open note: Synthetic beta"]'),
     ).toBeNull();
-    await click("Unapprove tag focus");
+    await click("Open note: Synthetic alpha");
+    await click("Unpick approved tag focus");
     expect(
-      container.querySelector('[aria-label="Approve tag focus"]'),
-    ).not.toBeNull();
+      container.querySelector(
+        '[aria-label="Filter by approved tag focus, 1 notes"]',
+      ),
+    ).toBeNull();
     expect(container.textContent).toContain("Approved vocabulary · revision 2");
     expect(
       requests.filter((r) => r.pathname.startsWith("/api/v1/tag-registry/"))
@@ -246,12 +259,15 @@ describe("interactive observed tag browser", () => {
     ).toBe(2);
   });
   it("combines API facets with local search/date filters, preserves detail/back, shares only on request and resets", async () => {
+    approvedSlugs = ["focus"];
     await connect();
     expect(container.textContent).toContain("Your tags");
     expect(
-      container.querySelector('[aria-label="Filter by tag focus, 1 notes"]'),
+      container.querySelector(
+        '[aria-label="Filter by approved tag focus, 1 notes"]',
+      ),
     ).not.toBeNull();
-    await click("Filter by tag focus, 1 notes");
+    await click("Filter by approved tag focus, 1 notes");
     expect(requests.at(-1)?.searchParams.get("tag")).toBe("focus");
     expect(window.location.search).toBe("");
     expect(
@@ -273,7 +289,10 @@ describe("interactive observed tag browser", () => {
     expect(container.textContent).toContain("Synthetic original");
     expect(
       container.querySelector('[aria-label="Note tags"] button')?.textContent,
-    ).toBe("focus");
+    ).toContain("focus");
+    expect(
+      container.querySelector('[aria-label="Note tags"] .tag-check'),
+    ).not.toBeNull();
     await click("← Back to timeline");
     expect(document.activeElement?.id).toBe("timeline-title");
     expect(
@@ -295,15 +314,10 @@ describe("interactive observed tag browser", () => {
     expect(container.textContent).not.toContain("focus");
     expect(window.location.search).toBe("");
   });
-  it("restores tag context on browser back and forward, and note chips select actual metadata", async () => {
+  it("restores approved tag context on browser back and forward", async () => {
+    approvedSlugs = ["focus"];
     await connect();
-    const chip = container.querySelector(
-      '[aria-label="Tags on Synthetic alpha"] button',
-    ) as HTMLButtonElement;
-    await act(async () => {
-      chip.click();
-    });
-    await flush();
+    await click("Filter by approved tag focus, 1 notes");
     await click("Open note: Synthetic alpha");
     await act(async () => {
       window.history.back();
@@ -312,7 +326,7 @@ describe("interactive observed tag browser", () => {
     await flush();
     expect(
       container
-        .querySelector('[aria-label="Filter by tag focus, 1 notes"]')
+        .querySelector('[aria-label="Filter by approved tag focus, 1 notes"]')
         ?.getAttribute("aria-pressed"),
     ).toBe("true");
     expect(container.textContent).not.toContain("Synthetic original");
@@ -338,13 +352,16 @@ describe("interactive observed tag browser", () => {
     emptyTags = false;
     truncated = true;
     await click("Refresh notes");
-    expect(container.textContent).toContain("Showing the first 200 tags");
+    expect(container.textContent).toContain(
+      "Showing the first 200 observed tags",
+    );
     await input("note-query", "no-matching-synthetic-text");
     expect(container.textContent).toContain("No matching notes");
   });
 });
 
 it("cancels an older tag request and ignores its late result", async () => {
+  approvedSlugs = ["focus", "other"];
   await connect();
   const standardFetch = fetch;
   let release: ((response: Response) => void) | undefined;
@@ -365,8 +382,8 @@ it("cancels an older tag request and ignores its late result", async () => {
       return standardFetch(target, options);
     }),
   );
-  await click("Filter by tag focus, 1 notes");
-  await click("Filter by tag other, 1 notes");
+  await click("Filter by approved tag focus, 1 notes");
+  await click("Filter by approved tag other, 1 notes");
   expect(oldSignal?.aborted).toBe(true);
   expect(openNote()).toBeNull();
   await act(async () => {
@@ -380,6 +397,7 @@ it("cancels an older tag request and ignores its late result", async () => {
 });
 
 it("loads a validated shared filter, supports an old untagged DTO and clears metadata on session expiry", async () => {
+  approvedSlugs = ["focus"];
   window.history.replaceState(null, "", "/?tag=focus&kind=memo");
   const normalFetch = fetch;
   let expired = false;
@@ -403,7 +421,7 @@ it("loads a validated shared filter, supports an old untagged DTO and clears met
   await connect();
   expect(
     container
-      .querySelector('[aria-label="Filter by tag focus, 1 notes"]')
+      .querySelector('[aria-label="Filter by approved tag focus, 1 notes"]')
       ?.getAttribute("aria-pressed"),
   ).toBe("true");
   expect(openNote()).not.toBeNull();
