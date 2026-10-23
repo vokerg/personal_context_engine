@@ -184,10 +184,13 @@ PCE_RESEARCH_INGRESS_TOKEN=<dedicated-read-only-secret>
 The reader verifies the remote repository is **private** before any work,
 uses a strict JSON-file allowlist at `research/inbox/<id>.json`, rejects
 symlinks/nonregular Git objects, enforces UTF-8 and size bounds, and has no
-research file update/delete/finalization capability. Its auth token must have
-only **Contents: read** for this private repository, and must never be
-committed or shared with capture/publisher credentials. Any repo-write token
-would exceed the reader's required privilege and must not be used.
+research file update/delete/finalization capability. For hosted operation,
+provision a dedicated **Contents: read** token scoped to this private repository.
+Never commit credentials. In the explicitly owner-directed trusted local setup,
+the existing GitHub CLI credential may be provisioned in the protected ignored
+`.env` for both this reader and the tag publisher. That credential retains its
+broader write permissions; read-only adapter behavior is not token-level least
+privilege. The tag publisher independently writes only its approved taxonomy path.
 
 Each pass scans up to 50 lexicographically ordered entries, persists a
 separate owner/repo/branch-scoped cursor in `ingestion_checkpoints`,
@@ -285,9 +288,11 @@ The companion private content-repository PR updates only `AGENTS.md` and README
 with conditional create-only `research/inbox/<report-id>.json` permissions,
 PCE retrieval requirements and two-file recovery. Verify that diff independently;
 no private notes or report bodies belong in the public repository or CI.
-The dedicated GitHub reader requires a **separate Contents: read credential**;
-do not substitute an existing capture/publisher write token. A missing credential
-means the live GitHub importer is not operational, even when synthetic tests pass.
+Hosted deployments should use a separate private-repository Contents: read
+credential for research ingestion and a Contents: write publisher credential.
+The owner-directed trusted local setup can reuse the existing CLI credential as
+described above. A missing usable credential means live GitHub ingestion is not
+operational, even when synthetic tests pass.
 
 Neither this feature nor a private contract merge installs Project settings.
 **#105 exclusively owns** consolidation with tag instructions, manual owner

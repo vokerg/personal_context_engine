@@ -75,7 +75,7 @@ try {
   const {researchReportsEnabled}=await import("../apps/api/dist/config.js");
   const researchEnabled=researchReportsEnabled(process.env);
   if(researchEnabled&&!sessionAuth)throw new Error("Research requires explicit local sessions");
-  const {createResearchRepository}=await import("@pce/db");
+  const {createResearchRepository,createTagRegistryRepository,createNoteTagRepository}=await import("@pce/db");
   const search=config.searchEnabled?createSearchService(createSearchRepository(db,researchEnabled),randomBytes(32).toString("hex"),queryEmbeddingProvider(process.env),undefined,process.env.PCE_SEARCH_DIAGNOSTICS === "true"):undefined;
   const {oauthClients}=await import("../apps/api/dist/oauth.js");
   const clients=oauthClients(process.env);
@@ -101,7 +101,8 @@ try {
     },
     dependencies: {
       ...(sessionAuth ? {sessionAuth,capture:createApiCaptureRepository(db)} : {}),
-      ...(search?{search}:{}),
+      ...(search?{search,noteTagEdits:createNoteTagRepository(db)}:{}),
+      ...(sessionAuth?{tagRegistry:createTagRegistryRepository(db)}:{}),
       ...(researchEnabled?{research:createResearchRepository(db)}:{}),
       ...(clients.length?{mcp:{db,clients}}:{}),
       checkDatabase: () => checkDatabase(db),

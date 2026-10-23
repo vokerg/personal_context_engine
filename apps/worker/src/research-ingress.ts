@@ -17,7 +17,7 @@ export interface ResearchIngressConfig {
   token: string;
 }
 
-/** Opt-in reader credentials are distinct from the capture/publisher writers. */
+/** Opt-in research reader; prefer separately scoped credentials for hosted operation. */
 export function researchIngressConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): ResearchIngressConfig | null {
