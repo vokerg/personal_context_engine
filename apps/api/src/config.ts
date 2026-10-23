@@ -60,7 +60,9 @@ function parseOrigin(
  * Keep the new routes absent unless an operator deliberately enables them.
  * Invalid values fail closed instead of silently changing feature availability.
  */
-export function researchReportsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+export function researchReportsEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
   const value = env.PCE_RESEARCH_REPORTS;
   if (value !== undefined && value !== "true" && value !== "false")
     throw new Error("PCE_RESEARCH_REPORTS must be true or false");
