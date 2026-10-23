@@ -183,4 +183,86 @@ describe.skipIf(!url)("tag registry owner and session HTTP boundary", () => {
       await app.close();
     }
   });
+  it("validates catalog pagination/search, rejects owner overrides and detects changed revisions", async () => {
+    const app = createApp({
+      config: {
+        host: "127.0.0.1",
+        port: 3110,
+        environment: "test",
+        corsOrigin: config.origin,
+        requiresDatabase: false,
+        auth: null,
+      },
+      dependencies: {
+        sessionAuth: createSessionAuth(db, config),
+        tagRegistry: createTagRegistryRepository(db),
+      },
+    });
+    try {
+      const login = await app.inject({
+        method: "POST",
+        url: "/auth/dev-session",
+        headers: { origin: config.origin },
+        payload: {},
+      });
+      const cookie = login.cookies
+        .map((c) => c.name + "=" + c.value)
+        .join("; ");
+      await db.tagApproval.createMany({
+        data: Array.from({ length: 205 }, (_, i) => ({
+          ownerSubject: owner,
+          slug: "catalog-" + String(i).padStart(3, "0"),
+        })),
+        skipDuplicates: true,
+      });
+      const first = await app.inject({
+        url: "/api/v1/tag-registry?limit=50&q=catalog",
+        headers: { cookie },
+      });
+      expect(first.statusCode).toBe(200);
+      expect(first.json().approved).toHaveLength(50);
+      const second = await app.inject({
+        url:
+          "/api/v1/tag-registry?limit=50&q=catalog&after=" +
+          first.json().nextCursor +
+          "&revision=" +
+          first.json().revision,
+        headers: { cookie },
+      });
+      expect(second.statusCode).toBe(200);
+      expect(second.json().approved[0].slug).toBe("catalog-050");
+      for (const query of [
+        "owner=someone",
+        "after=catalog-049",
+        "limit=201",
+        "q=" + "x".repeat(101),
+      ])
+        expect(
+          (
+            await app.inject({
+              url: "/api/v1/tag-registry?" + query,
+              headers: { cookie },
+            })
+          ).statusCode,
+        ).toBe(400);
+      expect(
+        (
+          await app.inject({
+            url: "/api/v1/tag-registry?after=catalog-049&revision=999999",
+            headers: { cookie },
+          })
+        ).statusCode,
+      ).toBe(409);
+      expect(
+        (
+          await app.inject({
+            url: "/api/v1/tag-registry?q=catalog-204",
+            headers: { cookie },
+          })
+        ).json().approved,
+      ).toMatchObject([{ slug: "catalog-204" }]);
+    } finally {
+      await app.close();
+    }
+  });
 });

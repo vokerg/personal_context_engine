@@ -1,3 +1,4 @@
+import { TagRegistryQuerySchema, type TagRegistryQuery } from "@pce/contracts";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { effectiveTagsSql } from "./note-tags.js";
 
@@ -182,6 +183,101 @@ export function createTagRegistryRepository(db: PrismaClient) {
           approvedAt: row.approvedAt.toISOString(),
         })),
       };
+    },
+    async listObservedStatusesByOwner(owner: string) {
+      validate(owner);
+      const rows = await db.$queryRaw<
+        Array<{ slug: string; approved: boolean; revision: number }>
+      >(Prisma.sql`
+        WITH observed AS (SELECT t.slug FROM notes n
+         LEFT JOIN note_tag_overrides o ON o."noteId"=n.id AND o."ownerSubject"=n."ownerSubject"
+         CROSS JOIN LATERAL unnest(${effectiveTagsSql}) AS t(slug)
+         WHERE n."ownerSubject"=${owner} GROUP BY t.slug ORDER BY t.slug COLLATE "C" LIMIT 200)
+        SELECT o.slug,EXISTS(SELECT 1 FROM tag_approvals a WHERE a."ownerSubject"=${owner} AND a.slug=o.slug) AS approved,
+         coalesce((SELECT revision FROM tag_registry_revisions WHERE "ownerSubject"=${owner}),0) AS revision FROM observed o ORDER BY o.slug`);
+      return {
+        revision: rows[0]?.revision ?? 0,
+        statuses: rows.map((r) => ({
+          slug: r.slug,
+          status: r.approved ? ("approved" as const) : ("candidate" as const),
+        })),
+      };
+    },
+    async pageByOwner(owner: string, query: TagRegistryQuery) {
+      validate(owner);
+      const input = TagRegistryQuerySchema.parse(query),
+        limit = input.limit ?? 50;
+      return db.$transaction(
+        async (tx) => {
+          const state = await tx.tagRegistryRevision.findUnique({
+            where: { ownerSubject: owner },
+            select: { revision: true },
+          });
+          const revision = state?.revision ?? 0;
+          if (input.revision !== undefined && input.revision !== revision) {
+            const error = new Error("Tag catalog changed");
+            error.name = "TagCatalogChanged";
+            throw error;
+          }
+          const rows = await tx.tagApproval.findMany({
+            where: {
+              ownerSubject: owner,
+              ...(input.after ? { slug: { gt: input.after } } : {}),
+              ...(input.q
+                ? {
+                    OR: [
+                      {
+                        slug: {
+                          contains: input.q,
+                          mode: "insensitive" as const,
+                        },
+                      },
+                      {
+                        displayName: {
+                          contains: input.q,
+                          mode: "insensitive" as const,
+                        },
+                      },
+                      {
+                        description: {
+                          contains: input.q,
+                          mode: "insensitive" as const,
+                        },
+                      },
+                    ],
+                  }
+                : {}),
+            },
+            orderBy: { slug: "asc" },
+            take: limit + 1,
+          });
+          const page = rows.slice(0, limit),
+            slugs = page.map((r) => r.slug);
+          const counts = slugs.length
+            ? await tx.$queryRaw<
+                Array<{ slug: string; count: bigint }>
+              >(Prisma.sql`
+          SELECT t.slug,count(DISTINCT n.id)::bigint AS count FROM notes n
+          LEFT JOIN note_tag_overrides o ON o."noteId"=n.id AND o."ownerSubject"=n."ownerSubject"
+          CROSS JOIN LATERAL unnest(${effectiveTagsSql}) AS t(slug)
+          WHERE n."ownerSubject"=${owner} AND t.slug IN (${Prisma.join(slugs)}) GROUP BY t.slug`)
+            : [];
+          const bySlug = new Map(counts.map((r) => [r.slug, Number(r.count)]));
+          return {
+            revision,
+            truncated: rows.length > limit,
+            nextCursor: rows.length > limit ? page.at(-1)!.slug : null,
+            approved: page.map((row) => ({
+              slug: row.slug,
+              displayName: row.displayName,
+              description: row.description,
+              noteCount: bySlug.get(row.slug) ?? 0,
+              approvedAt: row.approvedAt.toISOString(),
+            })),
+          };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+      );
     },
     async getSnapshotStatus(owner: string) {
       validate(owner);

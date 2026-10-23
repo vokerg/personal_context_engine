@@ -425,3 +425,12 @@ projection; #104 report contract, public/private repo implementation and
 synthetic tests; **only then #105** reviews/combines the installed ChatGPT
 `NOTES` prompt and runs real Project acceptance. Prompt text does not
 automatically attach/authorize MCP tools.
+
+## Final NOTES integration checkpoint (#105, 2026-10-23)
+
+A private notes-v2.0 installation candidate consolidates ordinary capture,
+approved-tag hints and explicit MCP-grounded research, with a separate concise
+capture-only rollback. The public implementation adds owner-scoped searchable
+catalog pagination and a combined synthetic acceptance path. Existing installed
+Project settings remain unchanged. Live voice, candidate prompt installation and
+owner go/no-go remain manual gates; tests/self-review do not approve activation.

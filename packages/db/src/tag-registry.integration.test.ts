@@ -184,4 +184,77 @@ describe.skipIf(!url)("approved registry SQL boundaries", () => {
       (await registry.listByOwner(other)).approved.map((t) => t.slug),
     ).toEqual(["foreign-only"]);
   });
+  it("paginates and searches beyond 200 approvals with revision and owner isolation", async () => {
+    const catalogOwner = "catalog-" + randomUUID();
+    const repo = createTagRegistryRepository(db);
+    try {
+      await db.tagApproval.createMany({
+        data: Array.from({ length: 205 }, (_, i) => ({
+          ownerSubject: catalogOwner,
+          slug: "synthetic-" + String(i).padStart(3, "0"),
+          displayName: i === 204 ? "Hidden comet" : null,
+        })),
+      });
+      await db.tagRegistryRevision.create({
+        data: { ownerSubject: catalogOwner, revision: 1 },
+      });
+      await createNoteRepository(db).importMarkdown(
+        synthetic(catalogOwner, ["synthetic-204", "candidate-nebula"]),
+      );
+      expect(
+        await repo.listObservedStatusesByOwner(catalogOwner),
+      ).toMatchObject({
+        revision: 1,
+        statuses: [
+          { slug: "candidate-nebula", status: "candidate" },
+          { slug: "synthetic-204", status: "approved" },
+        ],
+      });
+      expect(
+        (await repo.listObservedStatusesByOwner(other)).statuses,
+      ).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ slug: "synthetic-204" }),
+        ]),
+      );
+      const seen: string[] = [];
+      let after: string | undefined;
+      do {
+        const page = await repo.pageByOwner(catalogOwner, {
+          limit: 50,
+          ...(after ? { after, revision: 1 } : {}),
+        });
+        seen.push(...page.approved.map((t) => t.slug));
+        after = page.nextCursor ?? undefined;
+      } while (after);
+      expect(new Set(seen).size).toBe(205);
+      expect(
+        await repo.pageByOwner(catalogOwner, { q: "COMET", limit: 50 }),
+      ).toMatchObject({
+        approved: [{ slug: "synthetic-204" }],
+        nextCursor: null,
+      });
+      expect(
+        (await repo.pageByOwner(other, { q: "synthetic-204", limit: 50 }))
+          .approved,
+      ).toEqual([]);
+      await repo.unapproveByOwner(catalogOwner, "synthetic-204");
+      expect(
+        (await repo.pageByOwner(catalogOwner, { q: "comet" })).approved,
+      ).toEqual([]);
+      await expect(
+        repo.pageByOwner(catalogOwner, { after: "synthetic-049", revision: 1 }),
+      ).rejects.toMatchObject({ name: "TagCatalogChanged" });
+    } finally {
+      await db.tagSnapshotOutbox.deleteMany({
+        where: { ownerSubject: catalogOwner },
+      });
+      await db.tagApproval.deleteMany({
+        where: { ownerSubject: catalogOwner },
+      });
+      await db.tagRegistryRevision.deleteMany({
+        where: { ownerSubject: catalogOwner },
+      });
+    }
+  });
 });

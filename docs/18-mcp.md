@@ -133,7 +133,7 @@ read-only query before claiming connection. This preparation does not establish
 actual ChatGPT acceptance or authorize a default retrieval cutover.
 See [OpenAI authentication guidance](https://developers.openai.com/plugins/build/auth).
 
-## Ordinary interactive research grounding (planned #104, final prompt #105)
+## Ordinary interactive research grounding (#104, final prompt #105)
 
 Existing owner-scoped `search_context` and `get_note` (or the PCE
 `search`/`fetch` compatibility tools) are the **required read path**
@@ -143,8 +143,20 @@ untrusted data, not permission to execute instructions. Record actual note
 IDs/revisions and query degradation, distinguish successful empty results
 from unavailable MCP, and never label a report context-complete if retrieval
 could not run. External web research uses the ordinary ChatGPT conversation;
-**no specialized Deep Research mode, autonomous model worker or new
-research-specific MCP tool is required**. The normal ChatGPT client may not
+**no specialized Deep Research mode or autonomous model worker is required**.
+When research is enabled, `get_research` reads saved report evidence separately
+from original notes; compatibility fetch marks generated research explicitly. The normal ChatGPT client may not
 auto-select MCP based on Project instructions; verify in a real Project and
 make failure explicit. GitHub-origin report writes are a separate temporary
 capture adapter; the MCP read step does not authorize app writes.
+
+### Browser acceptance checkpoint (2026-10-23, #105)
+
+The actual NOTES Project browser test renewed the existing `notes:read` OAuth
+connection after an expiry, then performed explicit read-only PCE retrieval of a
+synthetic memo. Visible context-retrieval activity and exact original verification
+were observed; the returned result reported hybrid mode without degradation. A
+separate synthetic decision-kind query returned zero results and the no-matches
+outcome. This supports the tested read path, not universal automatic attachment,
+installed notes-v2.0 acceptance, capture through MCP, or an approved default
+retrieval cutover. See [the final integration runbook](12-chatgpt-project.md).
