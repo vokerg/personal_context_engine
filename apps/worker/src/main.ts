@@ -2,6 +2,11 @@ import { runEmbeddingLoop } from "./embedding-loop.js";
 import { runDbJobPass } from "./db-jobs.js";
 import { runTagSnapshotPass } from "./tag-snapshot-jobs.js";
 import {
+  researchIngressCheckpointKey,
+  researchIngressConfig,
+  runResearchImportPass,
+} from "./research-ingress.js";
+import {
   snapshotPublisherConfig,
   createApprovedTagsPublisher,
 } from "./tag-snapshot-publisher.js";
@@ -11,6 +16,7 @@ import { isAbsolute } from "node:path";
 import {
   checkDatabase,
   createDatabaseClient,
+  createResearchEmbeddingRepository,
   createEmbeddingJobRepository,
 } from "@pce/db";
 import {
@@ -19,7 +25,10 @@ import {
 } from "./embeddings.js";
 import type { ContentStore } from "./content-store/port.js";
 import { FilesystemContentStore } from "./content-store/filesystem.js";
-import { githubContentStoreFromEnv } from "./content-store/github.js";
+import {
+  GitHubContentStore,
+  githubContentStoreFromEnv,
+} from "./content-store/github.js";
 import { runIngestionBatch, workerStatus } from "./worker.js";
 
 // Safe scaffold default. Real writes require an explicit worker mode,
@@ -50,6 +59,11 @@ async function start(mode: string): Promise<void> {
     const owner = process.env.PCE_OWNER_SUBJECT;
     if (!owner || !process.env.DATABASE_URL)
       throw new Error("DB jobs require trusted owner and DB");
+    const researchOptions = researchIngressConfig(process.env);
+    const ingress = researchOptions
+      ? new GitHubContentStore(researchOptions)
+      : null;
+    if (ingress) await ingress.verifyPrivateRepository();
     const publisherOptions = snapshotPublisherConfig(process.env);
     const publisher = publisherOptions
       ? createApprovedTagsPublisher(publisherOptions)
@@ -73,6 +87,22 @@ async function start(mode: string): Promise<void> {
           console.log(
             "Tag snapshot pass complete " +
               JSON.stringify(await runTagSnapshotPass(db, owner, publisher)),
+          );
+        }
+        if (ingress && researchOptions) {
+          const checkpointKey = researchIngressCheckpointKey(
+            owner,
+            researchOptions.repository,
+            researchOptions.branch,
+          );
+          const report = await runResearchImportPass({
+            db,
+            store: ingress,
+            ownerSubject: owner,
+            checkpointKey,
+          });
+          console.log(
+            "Research import pass complete " + JSON.stringify(report),
           );
         }
       };
@@ -164,6 +194,16 @@ async function startEmbeddings(recurring = false): Promise<void> {
         ownerSubject: owner,
         ...(afterNoteId ? { afterNoteId } : {}),
       });
+      if (process.env.PCE_RESEARCH_REPORTS === "true") {
+        const research = await runEmbeddingPass({
+          queue: createResearchEmbeddingRepository(db),
+          provider,
+          ownerSubject: owner,
+        });
+        console.log(
+          "Research embedding pass complete " + JSON.stringify(research),
+        );
+      }
       console.log(
         "Embedding pass complete " +
           JSON.stringify({ at: new Date().toISOString(), ...report }),

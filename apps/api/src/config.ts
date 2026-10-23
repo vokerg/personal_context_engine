@@ -56,7 +56,7 @@ function parseOrigin(
   return value;
 }
 
-/** This storage/API foundation is not a production research-capture release gate.
+/** Opt-in research routes; actual Project acceptance is a separate rollout gate.
  * Keep the new routes absent unless an operator deliberately enables them.
  * Invalid values fail closed instead of silently changing feature availability.
  */

@@ -182,7 +182,7 @@ export const ResearchReceiptSchema = z
     reportId: NoteIdSchema,
     parentNoteId: NoteIdSchema,
     revision: z.number().int().positive(),
-    indexing: z.literal("NOT_INDEXED"),
+    indexing: z.enum(["PENDING", "READY", "FAILED", "NOT_INDEXED"]),
     replayed: z.boolean(),
   })
   .strict();
@@ -192,11 +192,24 @@ export const ResearchRecordSchema = ResearchArtifactSchema.safeExtend({
   contentHash: z.string().regex(/^[a-f0-9]{64}$/),
   origin: z.enum(["api", "github"]),
   savedAt: Timestamp,
-  indexing: z.literal("NOT_INDEXED"),
+  indexing: z.enum(["PENDING", "READY", "FAILED", "NOT_INDEXED"]),
 });
 export type ResearchRecord = z.infer<typeof ResearchRecordSchema>;
 export const ResearchListSchema = z
   .object({
     reports: z.array(ResearchRecordSchema).max(100),
+    imports: z
+      .array(
+        z
+          .object({
+            status: z.enum(["RETRY", "INVALID", "IMPORTED"]),
+            attemptCount: z.number().int().nonnegative(),
+            lastErrorCode: z.string().nullable(),
+            updatedAt: Timestamp,
+          })
+          .strict(),
+      )
+      .max(100)
+      .optional(),
   })
   .strict();

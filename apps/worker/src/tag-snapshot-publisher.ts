@@ -68,7 +68,7 @@ export interface SnapshotPublisherConfig {
   http?: typeof fetch;
 }
 
-/** Dedicated token, explicit opt-in, no shared capture-agent credential. */
+/** Explicit write opt-in; prefer a dedicated hosted publisher credential. */
 export function snapshotPublisherConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): SnapshotPublisherConfig | null {

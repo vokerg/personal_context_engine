@@ -1,3 +1,5 @@
+import { CHUNKER_VERSION } from "@pce/core";
+import { EMBEDDING_MODEL, EMBEDDING_DIMENSIONS } from "./embedding-jobs.js";
 import { createHash } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import {
@@ -24,19 +26,44 @@ const validOwner = (owner: string) =>
 const validSourceRevision = (revision: string) =>
   /^[A-Za-z0-9_-]{1,128}$/.test(revision);
 
+const indexInclude = {
+  chunks: {
+    where: { chunkerVersion: CHUNKER_VERSION },
+    select: {
+      embeddings: {
+        where: {
+          provider: "openai",
+          modelId: EMBEDDING_MODEL,
+          dimensions: EMBEDDING_DIMENSIONS,
+        },
+        select: { status: true },
+      },
+    },
+  },
+} satisfies Prisma.ResearchReportInclude;
+
 export function createResearchRepository(db: PrismaClient) {
   const toRecord = (row: {
     artifact: Prisma.JsonValue;
     contentHash: string;
     origin: string;
     createdAt: Date;
+    chunks: Array<{ embeddings: Array<{ status: string }> }>;
   }): ResearchRecord =>
     ResearchRecordSchema.parse({
       ...ResearchArtifactSchema.parse(row.artifact),
       contentHash: row.contentHash,
       origin: row.origin,
       savedAt: row.createdAt.toISOString(),
-      indexing: "NOT_INDEXED",
+      indexing:
+        row.chunks.length &&
+        row.chunks.every((c) => c.embeddings.some((e) => e.status === "READY"))
+          ? "READY"
+          : row.chunks.some((c) =>
+                c.embeddings.some((e) => e.status === "FAILED"),
+              )
+            ? "FAILED"
+            : "PENDING",
     });
 
   async function persist(
@@ -63,6 +90,7 @@ export function createResearchRepository(db: PrismaClient) {
 
             const existing = await tx.researchReport.findUnique({
               where: { id: payload.reportId },
+              include: indexInclude,
             });
             if (existing) {
               if (
@@ -77,7 +105,7 @@ export function createResearchRepository(db: PrismaClient) {
                 reportId: existing.id,
                 parentNoteId: existing.parentNoteId,
                 revision: existing.revision,
-                indexing: "NOT_INDEXED",
+                indexing: toRecord(existing).indexing,
                 replayed: true,
               } as const;
             }
@@ -139,7 +167,7 @@ export function createResearchRepository(db: PrismaClient) {
               reportId: payload.reportId,
               parentNoteId: payload.parentNoteId,
               revision: payload.revision,
-              indexing: "NOT_INDEXED",
+              indexing: "PENDING",
               replayed: false,
             } as const;
           },
@@ -200,8 +228,29 @@ export function createResearchRepository(db: PrismaClient) {
       if (!validOwner(owner)) throw new TypeError("Invalid owner");
       const row = await db.researchReport.findFirst({
         where: { id, ownerSubject: owner },
+        include: indexInclude,
       });
       return row ? toRecord(row) : null;
+    },
+    async importsByNote(owner: string, parentNoteId: string) {
+      if (!validOwner(owner)) throw new TypeError("Invalid owner");
+      const note = await db.note.findFirst({
+        where: { id: parentNoteId, ownerSubject: owner },
+        select: { id: true },
+      });
+      if (!note) return [];
+      const rows = await db.researchIngressAttempt.findMany({
+        where: { ownerSubject: owner, parentNoteId },
+        select: {
+          status: true,
+          attemptCount: true,
+          lastErrorCode: true,
+          updatedAt: true,
+        },
+        take: 100,
+        orderBy: { updatedAt: "desc" },
+      });
+      return rows.map((r) => ({ ...r, updatedAt: r.updatedAt.toISOString() }));
     },
     async listByNote(
       owner: string,
@@ -220,6 +269,7 @@ export function createResearchRepository(db: PrismaClient) {
           { revision: "desc" },
           { id: "asc" },
         ],
+        include: indexInclude,
         take: 100,
       });
       return rows.map(toRecord);

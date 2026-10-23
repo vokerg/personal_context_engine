@@ -342,6 +342,8 @@ export const SearchResultSchema = z
     tags: z.array(TagSlugSchema),
     projects: z.array(TagSlugSchema),
     kind: NoteKindFilterSchema,
+    contentType: z.enum(["note", "research"]).optional(),
+    parentNoteId: NoteIdSchema.optional(),
     lexical: z.boolean(),
     semantic: z.boolean(),
   })

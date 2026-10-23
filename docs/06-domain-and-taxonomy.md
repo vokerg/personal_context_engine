@@ -246,3 +246,14 @@ user action; attaching a tag to a note is a separate operation (#103).
 Approved metadata must not be exported to GitHub implicitly; the removable,
 feature-gated snapshot exporter is #100. Per-note effective tag overrides are
 #103. The combined ChatGPT Project prompt remains blocked under #105.
+
+## Saved research (#104)
+
+A ResearchReport is an immutable generated interpretation linked to an existing,
+owner-verified note/capture. Each refresh adds a report ID and successive series
+revision; it never edits original input, summary or tags. Claims distinguish
+sourced facts, user assertions, analysis and inference. PCE note IDs/revisions
+and external URLs/dates are distinct sources. Search labels research explicitly;
+report/source/history views remain separate from the original. See the executable
+[research contract and operation](20-research-capture.md). Actual Project prompt
+installation/acceptance remains #105.

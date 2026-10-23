@@ -1,3 +1,4 @@
+import { ResearchPanel } from "./ResearchPanel.js";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   ApiRequestError,
@@ -64,11 +65,13 @@ export function App({
   baseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:3000",
   browseEnabled = import.meta.env.VITE_PCE_LOCAL_BROWSE === "true",
   searchEnabled = import.meta.env.VITE_PCE_DB_SEARCH === "true",
+  researchEnabled = import.meta.env.VITE_PCE_RESEARCH_REPORTS === "true",
 }: {
   baseUrl?: string;
   localDevelopment?: boolean;
   browseEnabled?: boolean;
   searchEnabled?: boolean;
+  researchEnabled?: boolean;
 }) {
   const sessionAuthentication =
     import.meta.env.VITE_PCE_SESSION_AUTH === "true";
@@ -78,6 +81,7 @@ export function App({
   const [draft, setDraft] = useState("");
   const [token, setToken] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const researchTargets = useRef(new Map<string, string>());
   const [searchStatus, setSearchStatus] = useState("");
   const [ingestion, setIngestion] = useState<IngestionStatus | null>(null);
   const [listState, setListState] = useState<LoadState>("loading");
@@ -204,6 +208,9 @@ export function App({
   ) {
     if (typeof window !== "undefined") {
       const url = writeBrowseUrl(new URL(window.location.href), next, shared);
+      url.searchParams.delete("report");
+      const reportId = id ? researchTargets.current.get(id) : null;
+      if (reportId) url.searchParams.set("report", reportId);
       if (id) url.searchParams.set("note", id);
       else url.searchParams.delete("note");
       const currentKey = window.history.state?.pce as number;
@@ -459,14 +466,31 @@ export function App({
                   ? "Semantic and keyword matches"
                   : "Keyword matches — semantic search is currently unavailable.",
               );
+            if (active) {
+              researchTargets.current.clear();
+              for (const hit of result.results)
+                if (
+                  hit.parentNoteId &&
+                  !researchTargets.current.has(hit.parentNoteId)
+                )
+                  researchTargets.current.set(hit.parentNoteId, hit.id);
+            }
             return {
-              notes: result.results.map((r) => ({
-                id: r.id,
-                title: r.title,
-                summary: r.snippet || r.title,
-                tags: r.tags,
-                capturedAt: r.capturedAt,
-              })),
+              notes: result.results
+                .map((r) => ({
+                  id: r.parentNoteId ?? r.id,
+                  title:
+                    r.contentType === "research"
+                      ? "Research: " + r.title
+                      : r.title,
+                  summary: r.snippet || r.title,
+                  tags: r.tags,
+                  capturedAt: r.capturedAt,
+                }))
+                .filter(
+                  (n, index, all) =>
+                    all.findIndex((other) => other.id === n.id) === index,
+                ),
               nextCursor: result.nextCursor,
             };
           })
@@ -1621,6 +1645,22 @@ export function App({
                           </>
                         )}
                       </dl>
+                    )}
+                    {researchEnabled && (
+                      <ResearchPanel
+                        key={detail.id}
+                        noteId={detail.id}
+                        initialReportId={
+                          researchTargets.current.get(detail.id) ??
+                          new URL(window.location.href).searchParams.get(
+                            "report",
+                          ) ??
+                          undefined
+                        }
+                        baseUrl={baseUrl}
+                        token={token}
+                        useSessionCookie={sessionAuthentication}
+                      />
                     )}
                     {detail.originalInput !== undefined ? (
                       <>

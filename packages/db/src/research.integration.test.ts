@@ -1,3 +1,13 @@
+import {
+  runResearchImportPass,
+  researchIngressCheckpointKey,
+} from "../../../apps/worker/src/research-ingress.js";
+import { runEmbeddingPass } from "../../../apps/worker/src/embeddings.js";
+import { createSearchService } from "../../../apps/api/src/search.js";
+import {
+  createResearchEmbeddingRepository,
+  createSearchRepository,
+} from "./index.js";
 import { randomUUID } from "node:crypto";
 import { createApp } from "../../../apps/api/src/app.js";
 import { createSessionAuth } from "../../../apps/api/src/session-auth.js";
@@ -112,6 +122,13 @@ describe.skipIf(!url)("versioned research report persistence", () => {
   });
   afterAll(async () => {
     if (!db) return;
+    await db.researchIngressAttempt.deleteMany({
+      where: { ownerSubject: owner },
+    });
+    await db.embeddingDailyBudget.deleteMany({
+      where: { ownerSubject: owner },
+    });
+    await db.embeddingScan.deleteMany({ where: { ownerSubject: owner } });
     await db.researchReport.deleteMany({ where: { ownerSubject: owner } });
     await db.apiCaptureReceipt.deleteMany({ where: { ownerSubject: owner } });
     await db.dbProcessingJob.deleteMany({ where: { ownerSubject: owner } });
@@ -132,7 +149,7 @@ describe.skipIf(!url)("versioned research report persistence", () => {
     ]);
     expect(replies.map((r) => r.replayed).sort()).toEqual([false, true]);
     expect(replies[0]).toMatchObject({
-      indexing: "NOT_INDEXED",
+      indexing: "PENDING",
       parentNoteId: parent.id,
     });
     const next = {
@@ -307,7 +324,7 @@ describe.skipIf(!url)("versioned research report persistence", () => {
       expect(posted.statusCode).toBe(200);
       expect(posted.json()).toMatchObject({
         status: "DB_PERSISTED",
-        indexing: "NOT_INDEXED",
+        indexing: "PENDING",
         reportId: v.reportId,
       });
       const record = await app.inject({
@@ -365,5 +382,162 @@ describe.skipIf(!url)("versioned research report persistence", () => {
       ).replayed,
     ).toBe(true);
     expect((await repo.getByOwner(owner, v.reportId))?.origin).toBe("github");
+  });
+  it("recovers partial note/report saves with durable retry, indexes and retrieves attributed research", async () => {
+    const parent = captureFixture();
+    notes.push(parent.id);
+    captures.push(parent.capture);
+    const v = artifact(parent);
+    v.title = "Synthetic quasar evidence";
+    v.findings = "Quasarbloom is a synthetic finding distinct from user input.";
+    const path = `research/inbox/${v.reportId}.json`;
+    const checkpointKey = researchIngressCheckpointKey(
+      owner,
+      "owner/synthetic",
+      "main",
+    );
+    let now = new Date();
+    const store = {
+      listResearch: async () => ({ files: [{ path, revision: "abc123" }] }),
+      readResearch: async () => ({
+        path,
+        revision: "abc123",
+        content: JSON.stringify(v),
+      }),
+    };
+    const pass = () =>
+      runResearchImportPass({
+        db,
+        store,
+        ownerSubject: owner,
+        checkpointKey,
+        now: () => now,
+      });
+    expect(await pass()).toMatchObject({ deferred: 1, imported: 0 });
+    expect(
+      await db.researchIngressAttempt.findFirst({ where: { checkpointKey } }),
+    ).toMatchObject({ status: "RETRY", attemptCount: 1 });
+    await createApiCaptureRepository(db).persistByOwner(owner, {
+      idempotencyKey: parent.id,
+      notes: [parent.markdown],
+    });
+    const original = await db.note.findUniqueOrThrow({
+      where: { id: parent.id },
+    });
+    const repo = createResearchRepository(db);
+    expect(await repo.importsByNote(owner, parent.id)).toMatchObject([
+      { status: "RETRY" },
+    ]);
+    expect(await pass()).toMatchObject({ deferred: 1, imported: 0 });
+    now = new Date(now.getTime() + 20000);
+    expect(await pass()).toMatchObject({ imported: 1 });
+    expect(await pass()).toMatchObject({ replayed: 1 });
+    expect(await repo.importsByNote(owner, parent.id)).toMatchObject([
+      { status: "IMPORTED", attemptCount: 2 },
+    ]);
+    expect(
+      (await db.note.findUniqueOrThrow({ where: { id: parent.id } })).body,
+    ).toBe(original.body);
+    const search = createSearchRepository(db, true);
+    const keyword = await search.searchByOwner(owner, { query: "Quasarbloom" });
+    expect(keyword).toMatchObject([
+      {
+        id: v.reportId,
+        parentNoteId: parent.id,
+        contentType: "research",
+        lexical: true,
+        semantic: false,
+      },
+    ]);
+    expect(
+      await createSearchRepository(db).searchByOwner(owner, {
+        query: "Quasarbloom",
+      }),
+    ).toEqual([]);
+    expect(
+      await search.searchByOwner("other-owner", { query: "Quasarbloom" }),
+    ).toEqual([]);
+    const queue = createResearchEmbeddingRepository(db);
+    await queue.prepareNote(v.reportId, owner);
+    const vector = new Array(1536).fill(0);
+    vector[0] = 1;
+    const leased = await queue.claim(owner, "test-worker", now);
+    expect(leased).not.toBeNull();
+    expect(
+      await queue.complete(
+        "other-owner",
+        "test-worker",
+        leased!.id,
+        vector,
+        10,
+        now,
+      ),
+    ).toBe(false);
+    expect(
+      await queue.complete(owner, "other-worker", leased!.id, vector, 10, now),
+    ).toBe(false);
+    expect(
+      await queue.complete(owner, "test-worker", leased!.id, vector, 10, now),
+    ).toBe(true);
+    expect((await repo.getByOwner(owner, v.reportId))?.indexing).toBe("READY");
+    const service = createSearchService(search, "s".repeat(32), {
+      embed: async () => ({ vector, usageTokens: 10 }),
+    });
+    const semantic = await service.searchByOwner(owner, {
+      query: "Unrelatedlexeme",
+      limit: 20,
+    });
+    expect(semantic.mode).toBe("hybrid");
+    expect(semantic.results.find((r) => r.id === v.reportId)).toMatchObject({
+      contentType: "research",
+      semantic: true,
+      lexical: false,
+      parentNoteId: parent.id,
+    });
+    const degraded = createSearchService(search, "s".repeat(32), {
+      embed: async () => {
+        throw new Error("Synthetic provider failure");
+      },
+    });
+    expect(
+      await degraded.searchByOwner(owner, { query: "Quasarbloom", limit: 20 }),
+    ).toMatchObject({
+      mode: "lexical",
+      degradation: "provider_unavailable",
+      results: [{ id: v.reportId }],
+    });
+    expect(
+      (await repo.importByOwner(owner, JSON.stringify(v), path, "abc123"))
+        .indexing,
+    ).toBe("READY");
+    await db.researchEmbedding.updateMany({
+      where: { chunk: { reportId: v.reportId } },
+      data: { modelId: "incompatible-model" },
+    });
+    expect((await repo.getByOwner(owner, v.reportId))?.indexing).toBe(
+      "PENDING",
+    );
+    await db.researchEmbedding.updateMany({
+      where: { chunk: { reportId: v.reportId } },
+      data: { modelId: "text-embedding-3-small" },
+    });
+    const oldReservation = await queue.reservedTokensToday(owner, now);
+    const second = artifact(parent);
+    await repo.persistByOwner(owner, { artifact: second });
+    const embedding = await runEmbeddingPass({
+      queue,
+      ownerSubject: owner,
+      provider: {
+        embed: async () => {
+          throw new Error("synthetic outage");
+        },
+      },
+      now: () => now,
+    });
+    expect(embedding.retry).toBeGreaterThan(0);
+    expect(await queue.reservedTokensToday(owner, now)).toBeGreaterThan(
+      oldReservation,
+    );
+    await db.ingestionCheckpoint.delete({ where: { key: checkpointKey } });
   });
 });

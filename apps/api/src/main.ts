@@ -79,7 +79,10 @@ async function start(): Promise<void> {
                             randomBytes(32).toString("hex"),
                           ),
                           search: createSearchService(
-                            createSearchRepository(connected),
+                            createSearchRepository(
+                              connected,
+                              enableResearchReports,
+                            ),
                             randomBytes(32).toString("hex"),
                             queryEmbeddingProvider(process.env),
                             undefined,

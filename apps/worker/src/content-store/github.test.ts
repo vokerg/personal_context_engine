@@ -88,9 +88,13 @@ class FakeGitHub {
     const headers = new Headers(init?.headers);
     const authorization = headers.get("authorization");
     this.calls.push({ path, method, authorization });
+    const contentsPrefix = "/repos/owner/synthetic-repo/contents/";
     if (
       url.origin !== "https://api.github.com" ||
-      !path.startsWith("/repos/owner/synthetic-repo/git/")
+      !(
+        path.startsWith("/repos/owner/synthetic-repo/git/") ||
+        path.startsWith(contentsPrefix)
+      )
     ) {
       return json({ error: "unrecognized endpoint" }, 404);
     }
@@ -101,6 +105,21 @@ class FakeGitHub {
       const { status, headers: retryHeaders } = this.failOnce;
       this.failOnce = undefined;
       return json({ error: "synthetic failure" }, status, retryHeaders);
+    }
+    if (method === "GET" && path.startsWith(contentsPrefix)) {
+      const sourcePath = decodeURIComponent(path.slice(contentsPrefix.length));
+      const current = this.commits.get(this.head)!;
+      const entry = this.trees.get(current.tree)!.get(sourcePath);
+      if (!entry) return json({}, 404);
+      const bytes = this.blobs.get(entry.sha)!;
+      return json({
+        type: entry.mode === "100644" ? "file" : "symlink",
+        sha: entry.sha,
+        encoding: "base64",
+        content:
+          (bytes.toString("base64").match(/.{1,60}/g) ?? []).join("\n") + "\n",
+        size: bytes.length,
+      });
     }
     if (method === "GET" && path.endsWith("/git/ref/heads/main")) {
       return json({ object: { sha: this.head } });
@@ -386,5 +405,66 @@ describe("runtime private repository verification", () => {
         "https://api.github.com/repos/owner/synthetic-repo",
       ]);
     }
+  });
+});
+
+describe("dedicated GitHub research ingress", () => {
+  const validPath = "research/inbox/33333333-3333-4333-8333-333333333333.json";
+
+  it("reads only allowlisted JSON research, without moving or deleting it", async () => {
+    const fake = new FakeGitHub();
+    fake.put(validPath, '{"schemaVersion":1}');
+    fake.put(
+      "research/history/33333333-3333-4333-8333-333333333333.json",
+      "old",
+    );
+    fake.put("inbox/note.md", "capture");
+    const store = fake.store();
+    const page = await store.listResearch();
+    expect(page.files).toHaveLength(1);
+    expect(page.files[0]!.path).toBe(validPath);
+    expect((await store.readResearch(validPath)).content).toBe(
+      '{"schemaVersion":1}',
+    );
+    await expect(store.readResearch("inbox/note.md")).rejects.toMatchObject({
+      code: "INVALID_PATH",
+    });
+    await expect(
+      store.readResearch("research/inbox/../README.md"),
+    ).rejects.toMatchObject({ code: "INVALID_PATH" });
+    await expect(
+      store.listResearch({ cursor: "inbox/note.md" }),
+    ).rejects.toMatchObject({ code: "INVALID_CURSOR" });
+    expect(fake.calls.every((call) => call.method === "GET")).toBe(true);
+    expect((await store.readResearch(validPath)).path).toBe(validPath);
+    expect(
+      fake.calls.filter((call) => call.path.includes("/contents/")).length,
+    ).toBe(2);
+  });
+
+  it("rejects oversized and unsafe research blobs without changing sources", async () => {
+    const fake = new FakeGitHub();
+    fake.put(validPath, "x".repeat(250001));
+    const store = fake.store();
+    await expect(store.readResearch(validPath)).rejects.toMatchObject({
+      code: "INVALID_CONTENT",
+    });
+    fake.put(validPath, "data", "120000");
+    await expect(store.readResearch(validPath)).rejects.toMatchObject({
+      code: "UNSAFE_ENTRY",
+    });
+  });
+  it("keeps scanning healthy research after an unsafe entry and pins reads to the observed commit", async () => {
+    const fake = new FakeGitHub();
+    const next = "research/inbox/44444444-4444-4444-8444-444444444444.json";
+    fake.put(validPath, "unsafe", "120000");
+    fake.put(next, "{}");
+    const store = fake.store();
+    const page = await store.listResearch();
+    expect(page.files).toHaveLength(2);
+    await expect(store.readResearch(validPath)).rejects.toMatchObject({
+      code: "UNSAFE_ENTRY",
+    });
+    expect((await store.readResearch(next)).content).toBe("{}");
   });
 });

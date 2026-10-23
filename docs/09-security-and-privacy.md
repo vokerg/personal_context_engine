@@ -336,3 +336,20 @@ through scan wrap. It logs fixed errors, UTC timestamps and aggregate counts;
 exceptions and source/provider payloads remain suppressed. Local supervisors
 reference an ignored protected environment file without copying secrets into a
 plist. A local supervisor is not a hosted uptime guarantee.
+
+### Opt-in research storage, import and retrieval (#104)
+
+Research reports are owner-scoped generated interpretations, separate from note
+originals. Composite owner FKs guard report chunks; SQL owner/hash/model predicates
+and unexpired leases guard vector writes. Research indexing shares the existing
+embedding egress approval, rate lock and durable daily reservations. A provider
+failure cannot block a committed original/report or owner-scoped keyword search.
+Read-only ingress records fixed per-file states without logging payloads, paths,
+URLs or credentials; status reads additionally verify the parent owner. External
+citation URLs are not fetched by the API/worker. Web renders research literally;
+retrieved text never grants execution permission. The dedicated GitHub reader
+credential should be private-repository Contents: read, separate from writers
+for hosted operation. The owner-directed trusted local setup may reuse the existing
+GitHub CLI credential in protected ignored environment configuration; that token
+retains broader repository permissions. The reader still makes only GET requests,
+while the taxonomy publisher can write only its exact allowlisted path. See [research operation and rollout](20-research-capture.md).
