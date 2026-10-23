@@ -158,5 +158,8 @@ synthetic memo. Visible context-retrieval activity and exact original verificati
 were observed; the returned result reported hybrid mode without degradation. A
 separate synthetic decision-kind query returned zero results and the no-matches
 outcome. This supports the tested read path, not universal automatic attachment,
-installed notes-v2.0 acceptance, capture through MCP, or an approved default
-retrieval cutover. See [the final integration runbook](12-chatgpt-project.md).
+full notes-v2.0 research acceptance, capture through MCP, or an approved default
+retrieval cutover. The owner subsequently explicitly authorized notes-v2.0
+installation; reloading settings verified its exact reviewed text. A fresh-chat
+GitHub memo was independently validated and finalized in PostgreSQL. See
+[the final integration runbook](12-chatgpt-project.md) for remaining acceptance.

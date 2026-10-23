@@ -431,6 +431,8 @@ automatically attach/authorize MCP tools.
 A private notes-v2.0 installation candidate consolidates ordinary capture,
 approved-tag hints and explicit MCP-grounded research, with a separate concise
 capture-only rollback. The public implementation adds owner-scoped searchable
-catalog pagination and a combined synthetic acceptance path. Existing installed
-Project settings remain unchanged. Live voice, candidate prompt installation and
-owner go/no-go remain manual gates; tests/self-review do not approve activation.
+catalog pagination and a combined synthetic acceptance path. The actual installed
+Project settings were updated only after explicit owner authorization; a reload
+verified the exact reviewed 6,851-character prompt and the prior text is backed up
+privately. Live voice and owner go/no-go remain manual gates; installation and
+tests/self-review do not establish full acceptance.

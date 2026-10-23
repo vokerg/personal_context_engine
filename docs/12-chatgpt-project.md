@@ -1,10 +1,12 @@
 # 12 — NOTES Project integration and acceptance (#105)
 
 **2026-10-23:** #99, #100, #103 and #104 and their private contracts are merged.
-The final `notes-v2.0` prompt and capture-only rollback are review candidates in
-the **private content repository**. Editing those files does not install Project
-settings. Keep #105 open until the owner reviews/installs the prompt, approves
-actual text/voice/research acceptance and records a go/no-go.
+The reviewed `notes-v2.0` prompt was installed in the actual NOTES Project with
+explicit owner authorization. Reloading Project settings returned the exact
+6,851-character prompt; the previous installed text is backed up privately for
+rollback. The source and capture-only rollback remain in the **private content
+repository**. Keep #105 open until actual text/voice/research acceptance and the
+owner go/no-go are recorded.
 
 ## Authority and installation
 
@@ -16,10 +18,11 @@ permission authority; public [Markdown v1](04-capture-contract.md),
 [research schema/runbook](20-research-capture.md), and
 [security rules](09-security-and-privacy.md) define executable boundaries.
 
-The owner opens NOTES → Project settings → Instructions, reviews/pastes only the
-versioned prompt block, then starts fresh ordinary Chat conversations. This issue
-explicitly reserves live installation to the owner. Do not edit existing personal
-chats or instructions automatically to manufacture an acceptance result.
+The owner, or an agent explicitly authorized by the owner for this installation,
+opens NOTES → Project settings → Instructions, pastes only the reviewed versioned
+prompt block and saves it. Reload settings and compare the saved text, then start
+fresh ordinary Chat conversations. Editing repository files alone does not
+install settings. Do not edit existing personal chats to manufacture acceptance.
 
 The combined prompt preserves one-send ordinary GitHub Markdown capture without
 required `@Personal Context Engine`. It explicitly attempts the approved taxonomy
@@ -39,7 +42,19 @@ access. Observe actual app selection, authorization, calls and persistence.
 
 ## Verified evidence and limits
 
-Browser checks on the existing installed capture-only prompt:
+Installed `notes-v2.0` checks:
+
+- Explicit owner authorization was followed by a real settings Save and reload;
+  the saved prompt matched all 6,851 reviewed characters. The prior installed
+  text is backed up privately, outside either repository.
+- A fresh ordinary NOTES Chat saved one synthetic memo without an app mention.
+  Its activity reported reading the capture rules and taxonomy. Independent
+  GitHub parsing and PostgreSQL checks confirmed valid v1, the complete message
+  plus its terminal Markdown newline, `chatgpt_text`, no due time, no report and
+  `FINALIZED` ingestion. Tags were legitimately empty. Research acceptance is
+  recorded separately; a memo receipt does not establish research persistence.
+
+Browser baseline checks on the prior installed capture-only prompt:
 
 - Two successive synthetic memo messages in an actual NOTES Chat each created one
   GitHub Markdown file and read it back, without per-message app mentions. No
@@ -69,7 +84,7 @@ paging reached page five (entries beyond 200), full-catalog search found the fin
 entry and keyboard unapproval removed it. At 390×844 the page width remained 390
 pixels, with explicit approved/candidate text. Mobile note detail added and removed
 a manual candidate tag independently of source tags. This is local browser
-verification, not real-user voice or candidate-prompt installation acceptance.
+verification, not real-user voice acceptance.
 
 ## Remaining owner acceptance matrix
 
