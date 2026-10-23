@@ -73,3 +73,11 @@ export interface ContentStore {
   /** Preserve invalid source under rejected/, without generating side effects. */
   reject(request: TransitionRequest): Promise<TransitionResult>;
 }
+
+/** Independently allowlisted, read-only GitHub research ingestion. */
+export interface ResearchIngressStore {
+  /** Lists only research/inbox/<report-id>.json; no note or unrelated file. */
+  listResearch(options?: ListPendingOptions): Promise<PendingPage>;
+  /** Reads an immutable observed revision; caller verifies it still matches. */
+  readResearch(path: string): Promise<ContentFile>;
+}
