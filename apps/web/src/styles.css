@@ -110,7 +110,6 @@ summary { cursor: pointer; font-weight: 650; margin-top: 16px; }
 .tag-browser section[aria-label="Approved tag vocabulary"] { border-top: 1px solid #e7edf2; margin: 15px 0; padding-top: 15px; }
 .tag-browser #catalog-query { display: block; max-width: 340px; margin: 6px 0 12px; }
 
-.tag-status-approved { color: #225b39; font-weight: 600; }
 .approved-catalog h5:focus-visible { outline: 3px solid #417ec7; outline-offset: 2px; }
 .approved-catalog { min-width: 0; }
 .tag-status-candidate { color: #805b18; }

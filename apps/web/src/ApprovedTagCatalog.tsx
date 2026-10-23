@@ -123,8 +123,7 @@ export function ApprovedTagCatalog({
       ) : (
         <>
           <p className="subtitle">
-            Page {previous.length + 1} · {page?.approved.length ?? 0} approved
-            tags
+            Page {previous.length + 1} · {page?.approved.length ?? 0} tags
           </p>
           <div className="tag-chips" role="group" aria-label="Approved tags">
             {page?.approved.map((tag) => (
@@ -141,7 +140,6 @@ export function ApprovedTagCatalog({
                   {tag.displayName || tag.slug}{" "}
                   <span aria-hidden="true">{tag.noteCount}</span>
                 </button>
-                <span className="tag-status tag-status-approved">approved</span>
               </span>
             ))}
           </div>

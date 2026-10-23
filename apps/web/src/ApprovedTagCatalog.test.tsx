@@ -82,7 +82,7 @@ async function click(label: string) {
 }
 it("pages through more than 200 approvals and searches the full server catalog", async () => {
   await render();
-  expect(container.textContent).toContain("50 approved tags");
+  expect(container.textContent).toContain("Page 1 · 50 tags");
   for (let i = 0; i < 4; i++) await click("Next tags");
   expect(container.textContent).toContain("Hidden comet");
   expect(container.textContent).toContain("Page 5");
@@ -106,9 +106,7 @@ it("pages through more than 200 approvals and searches the full server catalog",
   expect(urls.at(-1)?.searchParams.get("q")).toBe("comet");
   expect(urls.at(-1)?.searchParams.has("after")).toBe(false);
   expect(container.textContent).toContain("Hidden comet");
-  expect(container.querySelector(".tag-status-approved")?.textContent).toBe(
-    "approved",
-  );
+  expect(container.querySelector(".tag-status-approved")).toBeNull();
 });
 it("restarts at the first page if a concurrent mutation invalidates the catalog revision", async () => {
   await render();
