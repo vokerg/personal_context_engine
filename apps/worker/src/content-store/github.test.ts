@@ -88,9 +88,13 @@ class FakeGitHub {
     const headers = new Headers(init?.headers);
     const authorization = headers.get("authorization");
     this.calls.push({ path, method, authorization });
+    const contentsPrefix = "/repos/owner/synthetic-repo/contents/";
     if (
       url.origin !== "https://api.github.com" ||
-      !path.startsWith("/repos/owner/synthetic-repo/git/")
+      !(
+        path.startsWith("/repos/owner/synthetic-repo/git/") ||
+        path.startsWith(contentsPrefix)
+      )
     ) {
       return json({ error: "unrecognized endpoint" }, 404);
     }
@@ -101,6 +105,20 @@ class FakeGitHub {
       const { status, headers: retryHeaders } = this.failOnce;
       this.failOnce = undefined;
       return json({ error: "synthetic failure" }, status, retryHeaders);
+    }
+    if (method === "GET" && path.startsWith(contentsPrefix)) {
+      const sourcePath = decodeURIComponent(path.slice(contentsPrefix.length));
+      const current = this.commits.get(this.head)!;
+      const entry = this.trees.get(current.tree)!.get(sourcePath);
+      if (!entry) return json({}, 404);
+      const bytes = this.blobs.get(entry.sha)!;
+      return json({
+        type: entry.mode === "100644" ? "file" : "symlink",
+        sha: entry.sha,
+        encoding: "base64",
+        content: (bytes.toString("base64").match(/.{1,60}/g) ?? []).join("\\n") + "\\n",
+        size: bytes.length,
+      });
     }
     if (method === "GET" && path.endsWith("/git/ref/heads/main")) {
       return json({ object: { sha: this.head } });
@@ -418,6 +436,9 @@ describe("dedicated GitHub research ingress", () => {
     ).rejects.toMatchObject({ code: "INVALID_CURSOR" });
     expect(fake.calls.every((call) => call.method === "GET")).toBe(true);
     expect((await store.readResearch(validPath)).path).toBe(validPath);
+    expect(
+      fake.calls.filter((call) => call.path.includes("/contents/")).length,
+    ).toBe(2);
   });
 
   it("rejects oversized and unsafe research blobs without changing sources", async () => {
