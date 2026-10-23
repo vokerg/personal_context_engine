@@ -359,7 +359,7 @@ and #95.
 
 ### D-025 — User-curated tag vocabulary and removable snapshot
 
-**Accepted product behavior (2026-10-21), implementation pending.** Each note's
+**Accepted product behavior (2026-10-21). Storage/import/index/retrieval/UI mechanisms implemented in #104; live Project acceptance remains #105.** Each note's
 original Markdown v1 `tags` list is source classification, **not** an approved
 vocabulary. A tag is **approved** only when its slug is present in the
 owner-scoped PostgreSQL registry; other observed/LLM-suggested slugs are
@@ -392,7 +392,7 @@ candidate/approved workflow but remain relevant to optional aliases.
 
 ### D-026 — Ordinary MCP-grounded contextual research
 
-**Accepted product behavior (2026-10-21), implementation pending.** A user
+**Accepted product behavior (2026-10-21). Storage/import/index/retrieval/UI mechanisms implemented in #104; live Project acceptance remains #105.** A user
 may explicitly request research and its capture during an **ordinary ChatGPT
 Project conversation**. This is **not the product-specific ChatGPT Deep
 Research feature**, not an always-on research agent, and not an LLM job run by

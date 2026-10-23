@@ -102,6 +102,8 @@ export function createSearchService(
   }
   return {
     getByOwner: repo.getByOwner,
+    researchEnabled: repo.researchEnabled,
+    getResearchByOwner: repo.getResearchByOwner,
     diagnosticsEnabled,
     async diagnoseByOwner(owner: string, raw: DiagnoseSearchRequest) {
       if (!diagnosticsEnabled) throw new Error("Search diagnostics disabled");

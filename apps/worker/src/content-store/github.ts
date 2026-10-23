@@ -113,6 +113,7 @@ function decodeContent(base64: string, advertisedSize: number): string {
 class BranchMoved extends Error {}
 
 export class GitHubContentStore implements ContentStore, ResearchIngressStore {
+  private researchSnapshot: Snapshot | undefined;
   private readonly root: string;
   private readonly branch: string;
   private readonly token: string;
@@ -310,6 +311,7 @@ export class GitHubContentStore implements ContentStore, ResearchIngressStore {
     if (options.cursor !== undefined && !RESEARCH.test(options.cursor))
       fail("INVALID_CURSOR");
     const snapshot = await this.snapshot();
+    this.researchSnapshot = snapshot;
     const paths = [...snapshot.entries.keys()]
       .filter((path) => RESEARCH.test(path))
       .sort()
@@ -317,7 +319,7 @@ export class GitHubContentStore implements ContentStore, ResearchIngressStore {
     const selected = paths.slice(0, limit);
     const files = selected.map((path) => ({
       path,
-      revision: this.entry(snapshot, path)!.sha,
+      revision: snapshot.entries.get(path)!.sha,
     }));
     return paths.length > selected.length && selected.length > 0
       ? { files, nextCursor: selected[selected.length - 1]! }
@@ -326,11 +328,15 @@ export class GitHubContentStore implements ContentStore, ResearchIngressStore {
 
   async readResearch(path: string): Promise<ContentFile> {
     if (!RESEARCH.test(path)) fail("INVALID_PATH");
-    // GET Contents resolves the CURRENT branch path in one HTTP call. The
-    // importer compares its SHA to the scan's observed SHA before DB write.
+    // Pin Contents to the scan commit and validate mode before GitHub can
+    // dereference a symlink. One bad object must not block later scan entries.
+    const snapshot = this.researchSnapshot ?? (await this.snapshot());
+    const entry = this.entry(snapshot, path);
+    if (!entry) fail("NOT_FOUND");
     const file = await this.request(
-      `/contents/${path}?ref=${encodeURIComponent(this.branch)}`,
+      `/contents/${path}?ref=${encodeURIComponent(snapshot.head)}`,
     );
+    if (file.sha !== entry.sha) fail("REVISION_CONFLICT");
     if (
       file.type !== "file" ||
       typeof file.sha !== "string" ||

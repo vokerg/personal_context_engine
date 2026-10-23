@@ -98,6 +98,7 @@ export interface ApiDependencies {
     ): Promise<ResearchReceipt>;
     getByOwner(owner: string, reportId: string): Promise<ResearchRecord | null>;
     listByNote(owner: string, noteId: string): Promise<ResearchRecord[] | null>;
+    importsByNote?(owner: string, noteId: string): Promise<unknown[]>;
   };
   /** Independent registry: no note source writes, and no GitHub dependency. */
   noteTagEdits?: {
@@ -426,7 +427,14 @@ export function createApp(options: ApiOptions = {}) {
           request.params.id,
         );
         return reports
-          ? ResearchListSchema.parse({ reports })
+          ? ResearchListSchema.parse({
+              reports,
+              imports:
+                (await research.importsByNote?.(
+                  request.authenticatedPrincipal!.subject,
+                  request.params.id,
+                )) ?? [],
+            })
           : reply.code(404).send(errorResponse("NOT_FOUND"));
       },
     );

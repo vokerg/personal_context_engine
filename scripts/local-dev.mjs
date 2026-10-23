@@ -72,7 +72,11 @@ try {
   const {queryEmbeddingProvider}=await import("../apps/api/dist/search-provider.js");
   const {createSearchRepository,createApiCaptureRepository}=await import("@pce/db");
   if(config.searchEnabled&&!sessionAuth)throw new Error("Search requires explicit local session mode");
-  const search=config.searchEnabled?createSearchService(createSearchRepository(db),randomBytes(32).toString("hex"),queryEmbeddingProvider(process.env),undefined,process.env.PCE_SEARCH_DIAGNOSTICS === "true"):undefined;
+  const {researchReportsEnabled}=await import("../apps/api/dist/config.js");
+  const researchEnabled=researchReportsEnabled(process.env);
+  if(researchEnabled&&!sessionAuth)throw new Error("Research requires explicit local sessions");
+  const {createResearchRepository}=await import("@pce/db");
+  const search=config.searchEnabled?createSearchService(createSearchRepository(db,researchEnabled),randomBytes(32).toString("hex"),queryEmbeddingProvider(process.env),undefined,process.env.PCE_SEARCH_DIAGNOSTICS === "true"):undefined;
   const {oauthClients}=await import("../apps/api/dist/oauth.js");
   const clients=oauthClients(process.env);
   if(clients.length && (!search || !sessionAuth))throw new Error("MCP requires local search and sessions");
@@ -98,6 +102,7 @@ try {
     dependencies: {
       ...(sessionAuth ? {sessionAuth,capture:createApiCaptureRepository(db)} : {}),
       ...(search?{search}:{}),
+      ...(researchEnabled?{research:createResearchRepository(db)}:{}),
       ...(clients.length?{mcp:{db,clients}}:{}),
       checkDatabase: () => checkDatabase(db),
       notes: createLocalReader(db, ids, {
@@ -115,6 +120,7 @@ try {
       allowedHosts: [],
     },
     define: {
+      "import.meta.env.VITE_PCE_RESEARCH_REPORTS": JSON.stringify(String(researchEnabled)),
       "import.meta.env.VITE_PCE_DB_SEARCH": JSON.stringify(String(config.searchEnabled)),
       "import.meta.env.VITE_PCE_SESSION_AUTH": JSON.stringify(String(!!sessionAuth)),
       "import.meta.env.VITE_PCE_LOCAL_DEV": JSON.stringify("true"),

@@ -260,3 +260,5 @@ export type {
 export { SEARCH_COSINE_THRESHOLD, SEARCH_RRF_K } from "./search-ranking.js";
 
 export { createResearchRepository, ResearchConflict } from "./research.js";
+
+export { createResearchEmbeddingRepository } from "./research-embeddings.js";

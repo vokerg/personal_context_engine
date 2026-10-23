@@ -375,8 +375,80 @@ model ResearchReport {
   origin             String   @db.VarChar(12)
   createdAt          DateTime @default(now()) @db.Timestamptz(3)
 
+  chunks ResearchChunk[]
+
+  @@unique([id, ownerSubject])
   @@unique([seriesId, revision])
   @@unique([sourcePath, sourceRevision])
   @@index([ownerSubject, parentNoteId, researchedAt])
   @@map("research_reports")
+}
+
+model ResearchChunk {
+  id                String              @id @db.Char(64)
+  reportId          String              @db.VarChar(36)
+  ownerSubject      String              @db.VarChar(128)
+  report            ResearchReport      @relation(fields: [reportId, ownerSubject], references: [id, ownerSubject], onDelete: Cascade, onUpdate: Restrict)
+  sourceRevision    String              @db.VarChar(128)
+  reportContentHash String              @db.Char(64)
+  chunkerVersion    String              @db.VarChar(64)
+  section           String              @db.VarChar(24)
+  ordinal           Int
+  startOffset       Int
+  endOffset         Int
+  contentHash       String              @db.Char(64)
+  text              String              @db.Text
+  embeddings        ResearchEmbedding[]
+  createdAt         DateTime            @default(now()) @db.Timestamptz(3)
+
+  @@unique([reportId, chunkerVersion, section, ordinal])
+  @@index([ownerSubject, reportId])
+  @@map("research_chunks")
+}
+
+// Provider execution is future issue #47. Vector is deliberately inaccessible
+// via Prisma's regular CRUD API; later writers must use bounded, validated SQL.
+// The first storage contract fixes 1536 dimensions until a reviewed migration.
+model ResearchEmbedding {
+  id                   String                       @id @db.Char(64)
+  chunkId              String                       @db.Char(64)
+  chunk                ResearchChunk                @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  provider             String                       @db.VarChar(64)
+  modelId              String                       @db.VarChar(128)
+  dimensions           Int
+  status               EmbeddingStatus              @default(PENDING)
+  vector               Unsupported("vector(1536)")?
+  attemptCount         Int                          @default(0)
+  leaseOwner           String?                      @db.VarChar(128)
+  leaseUntil           DateTime?                    @db.Timestamptz(3)
+  nextRetryAt          DateTime?                    @db.Timestamptz(3)
+  lastErrorCode        String?                      @db.VarChar(64)
+  indexedAt            DateTime?                    @db.Timestamptz(3)
+  usageTokens          Int?
+  estimatedCostNanoUsd BigInt?
+  createdAt            DateTime                     @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                     @updatedAt @db.Timestamptz(3)
+
+  @@unique([chunkId, modelId, dimensions])
+  @@index([status, nextRetryAt])
+  @@map("research_embeddings")
+}
+
+// Durable per-artifact observations. Parent IDs are untrusted until validated;
+// readers must additionally verify the parent belongs to the authenticated owner.
+model ResearchIngressAttempt {
+  id             String    @id @db.Char(64)
+  checkpointKey  String    @db.Char(64)
+  ownerSubject   String    @db.VarChar(128)
+  sourcePath     String    @db.Text
+  sourceRevision String    @db.VarChar(128)
+  parentNoteId   String?   @db.VarChar(36)
+  status         String    @db.VarChar(24)
+  attemptCount   Int       @default(0)
+  nextRetryAt    DateTime? @db.Timestamptz(3)
+  lastErrorCode  String?   @db.VarChar(64)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@index([ownerSubject, parentNoteId])
+  @@map("research_ingress_attempts")
 }

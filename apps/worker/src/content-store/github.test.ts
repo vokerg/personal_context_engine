@@ -454,4 +454,17 @@ describe("dedicated GitHub research ingress", () => {
       code: "UNSAFE_ENTRY",
     });
   });
+  it("keeps scanning healthy research after an unsafe entry and pins reads to the observed commit", async () => {
+    const fake = new FakeGitHub();
+    const next = "research/inbox/44444444-4444-4444-8444-444444444444.json";
+    fake.put(validPath, "unsafe", "120000");
+    fake.put(next, "{}");
+    const store = fake.store();
+    const page = await store.listResearch();
+    expect(page.files).toHaveLength(2);
+    await expect(store.readResearch(validPath)).rejects.toMatchObject({
+      code: "UNSAFE_ENTRY",
+    });
+    expect((await store.readResearch(next)).content).toBe("{}");
+  });
 });

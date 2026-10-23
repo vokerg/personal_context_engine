@@ -16,6 +16,7 @@ import { isAbsolute } from "node:path";
 import {
   checkDatabase,
   createDatabaseClient,
+  createResearchEmbeddingRepository,
   createEmbeddingJobRepository,
 } from "@pce/db";
 import {
@@ -193,6 +194,16 @@ async function startEmbeddings(recurring = false): Promise<void> {
         ownerSubject: owner,
         ...(afterNoteId ? { afterNoteId } : {}),
       });
+      if (process.env.PCE_RESEARCH_REPORTS === "true") {
+        const research = await runEmbeddingPass({
+          queue: createResearchEmbeddingRepository(db),
+          provider,
+          ownerSubject: owner,
+        });
+        console.log(
+          "Research embedding pass complete " + JSON.stringify(research),
+        );
+      }
       console.log(
         "Embedding pass complete " +
           JSON.stringify({ at: new Date().toISOString(), ...report }),

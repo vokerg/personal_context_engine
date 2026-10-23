@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
+import { ResearchArtifactSchema } from "@pce/contracts";
 import { createResearchRepository } from "@pce/db";
 import type { ResearchIngressStore } from "./content-store/port.js";
 import { ContentStoreError } from "./content-store/port.js";
@@ -128,11 +129,64 @@ export async function runResearchImportPass({
   };
   for (const ref of page.files) {
     report.scanned++;
+    const attemptId = createHash("sha256")
+      .update(JSON.stringify([checkpointKey, ref.path]))
+      .digest("hex");
+    const prior = await db.researchIngressAttempt.findUnique({
+      where: { id: attemptId },
+    });
+    const same = prior?.sourceRevision === ref.revision;
+    if (
+      same &&
+      (prior.status === "IMPORTED" ||
+        prior.status === "INVALID" ||
+        (prior.nextRetryAt && prior.nextRetryAt > now()))
+    ) {
+      if (prior.status === "IMPORTED") report.replayed++;
+      else if (prior.status === "INVALID") report.invalid++;
+      else report.deferred++;
+      continue;
+    }
+    let parentNoteId: string | null = null;
+    const count = (same ? (prior?.attemptCount ?? 0) : 0) + 1;
+    const record = async (status: string, code: string | null) => {
+      const data = {
+        ownerSubject,
+        checkpointKey,
+        sourcePath: ref.path,
+        sourceRevision: ref.revision,
+        parentNoteId,
+        status,
+        attemptCount: count,
+        lastErrorCode: code,
+        nextRetryAt:
+          status === "RETRY"
+            ? new Date(
+                now().getTime() +
+                  Math.min(3600000, 5000 * 2 ** Math.min(count, 10)),
+              )
+            : null,
+      };
+      await db.researchIngressAttempt.upsert({
+        where: { id: attemptId },
+        create: { id: attemptId, ...data },
+        update: data,
+      });
+    };
     try {
       const read = await store.readResearch(ref.path);
       if (read.path !== ref.path || read.revision !== ref.revision) {
         report.deferred++;
+        await record("RETRY", "SOURCE_CHANGED");
         continue;
+      }
+      try {
+        const parsed = ResearchArtifactSchema.safeParse(
+          JSON.parse(read.content),
+        );
+        if (parsed.success) parentNoteId = parsed.data.parentNoteId;
+      } catch {
+        /* The importer reports malformed input with a fixed status. */
       }
       const receipt = await importer(
         ownerSubject,
@@ -142,15 +196,22 @@ export async function runResearchImportPass({
       );
       if (receipt.replayed) report.replayed++;
       else report.imported++;
+      await record("IMPORTED", null);
     } catch (error) {
       if (
         error instanceof TypeError ||
         (error instanceof ContentStoreError &&
-          error.code === "INVALID_CONTENT") ||
+          ["INVALID_CONTENT", "UNSAFE_ENTRY", "INVALID_PATH"].includes(
+            error.code,
+          )) ||
         (error instanceof Error && error.name === "ZodError")
-      )
+      ) {
         report.invalid++;
-      else report.deferred++;
+        await record("INVALID", "INVALID_ARTIFACT");
+      } else {
+        report.deferred++;
+        await record("RETRY", "DEPENDENCY_OR_SOURCE_UNAVAILABLE");
+      }
       // Never log error messages: source text, paths, URLs may be embedded.
     }
   }

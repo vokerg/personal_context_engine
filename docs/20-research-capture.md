@@ -1,10 +1,9 @@
 # 20 — Ordinary PCE-grounded research capture
 
-**D-026 accepted 2026-10-21. Partial foundation implemented under #104; end-to-end flow NOT shipped.**
+**D-026 accepted 2026-10-21. DB/API/import/search/web mechanisms implemented under #104; live ChatGPT Project acceptance remains #105.**
 Owner issue [#104](https://github.com/vokerg/personal_context_engine/issues/104).
 [Tag governance](06-domain-and-taxonomy.md) and [Project integration](12-chatgpt-project.md)
-are separate dependencies. This document specifies boundaries, the first executable report schema/DB API,
-and the remaining rollout gates. No ChatGPT Project prompt or private capture
+are separate dependencies. This document specifies the executable report contract, operation and rollout gates. No ChatGPT Project prompt or private capture
 permissions have been activated.
 
 ## Trigger and reasoning owner
@@ -46,7 +45,7 @@ and `## Original input` as the terminal section. A `ResearchReport` is
 **a different, separately versioned object**. It must not be appended below
 the original input or represented through unknown Markdown v1 fields.
 
-The future report contract must preserve at least:
+The executable report contract preserves:
 
 | Field family | Required semantics |
 | --- | --- |
@@ -151,10 +150,15 @@ summary and content hash are never changed by a report save.
 | `GET /api/v1/research/reports/:id` | `notes:read` | Owner-filtered report and immutable historical evidence |
 | `GET /api/v1/notes/:id/research` | `notes:read` | Owner-filtered list of up to 100 reports, or 404 for unknown/unowned note |
 
-**Default disabled:** `PCE_RESEARCH_REPORTS=false` (or unset) does not\nregister these routes. Set `PCE_RESEARCH_REPORTS=true` only with configured\nauthenticated database sessions when deliberately exercising this foundation.\nThis setting does **not** activate GitHub research ingestion, indexing,\nChatGPT capture instructions, or the complete user-facing research workflow.\nInvalid values fail API startup validation.\n\nPOST returns `DB_PERSISTED`, report/note IDs, revision,
-`replayed`, and **`indexing: NOT_INDEXED`**. This explicitly indicates
-report persistence without claiming that a semantic/lexical research
-index exists yet. A document containing PCE context that was not retrieved
+**Default disabled:** `PCE_RESEARCH_REPORTS=false` (or unset) omits report
+routes and report search/index preparation. Enable with configured authenticated
+DB sessions. GitHub ingress and provider egress have independent opt-ins; this
+flag never changes ChatGPT capture instructions. Invalid values fail API startup.
+
+POST returns `DB_PERSISTED`, report/note IDs, revision,
+`replayed`, and **`indexing: PENDING`** on first commit (current state on replay). This indicates report persistence independently of the optional embedding queue.
+Owner-scoped lexical search reads committed report text immediately. Detail/history
+reads report `PENDING`, `READY` or `FAILED` from its separate embedding rows. A document containing PCE context that was not retrieved
 must not be misrepresented as verified by the API. Conflict, bad input,
 unowned lookup and unauthorized access return fixed, redacted errors.
 
@@ -199,27 +203,93 @@ not affect capture, tags or indexing. There is no writer-side receipt from
 this reader; verified report persistence must be checked through the
 owner-scoped DB API before claiming it was imported.
 
-**Current safety boundaries:** replay/checkpoint recovery is implemented,
-but failures are revisited on scan wrap rather than held in a distinct durable
-per-report retry queue; large backlogs may delay later retries. The importer
-neither indexes research nor shows it in the web UI yet, and does not prove
-that an interactive ChatGPT session performed PCE MCP retrieval. Public
-worker code being present does not mean a live worker, token, migrations or
-ChatGPT Project settings are installed. A separate private-repository PR
-must document narrowly permitted report creates; it must not activate the
-prompt until the integrated roll-out under #105.
+## Durable retry and partial-save status
 
-Two-step ChatGPT GitHub note/report creation cannot be made atomic.
-The final capture workflow must explicitly handle note-only success, read-back
-and idempotent report retry instead of claiming both were saved. Real current
-ChatGPT Project prompts remain unchanged. The private content-repo
-`AGENTS.md` must not authorize report creates before worker support,
-synthetic recovery and exact path permissions are verified.
+Each observed artifact has a database-backed `research_ingress_attempts` row
+scoped to owner/repository/branch/path. The worker records the observed revision,
+attempt count, fixed status/error code and next retry time. Transient failures
+(including a missing parent or predecessor) retry on scan wrap after bounded
+exponential backoff, capped at one hour. Invalid JSON, path or unsafe objects
+are retained with `INVALID` status; changing the observed blob resets that
+observation. A source that disappears never deletes its DB report or original.
+Successful observations skip redundant reads, while report ID/content hash
+checks independently protect duplicate import after checkpoint loss.
 
-**Remaining #104 work:** connect the private report ingress through the
-existing bounded worker (not a separate crawler), durable replay and recovery,
-index separately labelled research chunks with lexical degradation, expose
-report sources/history and research hits in the web UI, submit the distinct
-private-repo PR with minimum permissions, and validate synthetic two-file
-failure cases. **#105** owns the combined Project prompt and actual attached
-PCE MCP grounding smoke tests, after #104 and tag rollout.
+The authenticated note research endpoint returns bounded import statuses only
+after verifying the parent belongs to the caller. It never exposes source paths,
+credentials or exception text. Missing/invalid JSON cannot always establish a
+trusted parent; aggregate worker counts remain the operator diagnostic in that
+case. A note-only write with **no report file at all** cannot be detected by a
+reader: the UI states that no saved report is verified and gives a safe retry
+instruction. It does not invent a failed report or delete the note.
+
+Create/read back each GitHub artifact independently. If a create acknowledgement
+is lost, inspect the original ID/path before retrying. Matching bytes mean reuse
+the existing receipt; different bytes mean a conflict requiring manual review.
+For an invalid immutable create, prepare a newly validated report with a new ID
+rather than overwriting history. Never create a second repair note. GitHub file
+success is not a DB receipt; check authenticated report reads separately.
+
+## Indexing and retrieval
+
+`research_chunks` and `research_embeddings` are separate from note originals and
+note vectors. The existing `db-jobs-once|db-jobs-loop` pass prepares bounded,
+deterministic NFC/LF chunks from report title, question, findings, classified
+claims and limitations. The existing `embeddings-once|embeddings-loop` process
+can also prepare/embed reports with `PCE_RESEARCH_REPORTS=true`; it requires the
+same independent private-text egress consent and provider configuration as note
+indexing. No research generation, browsing or new worker service is introduced.
+Research shares the existing per-owner DB rate lock and 60,000-token daily
+reservation budget with note embeddings. Paid retries/crashes retain reservations;
+lease/owner/model/hash checks guard vector completion. Six failed paid attempts
+become `FAILED`. The worker logs only fixed errors and aggregate counts.
+
+With `PCE_RESEARCH_REPORTS=true` and `PCE_DB_SEARCH=true`, authenticated search
+includes explicitly labelled `contentType: research` results with report ID,
+parent note ID and immutable source revision. Parent note tags/projects/kind
+scope filters; date filters apply to the report research date. Research uses
+PostgreSQL lexical retrieval and pgvector cosine candidates fused by reciprocal
+rank, independently of user-note ranking. Keywords remain available when no
+vectors/provider exist or provider/budget checks fail. Public defaults remain
+off. No private report text is sent to a provider without existing egress gates.
+
+MCP `search_context` preserves attribution. `get_note` continues reading originals;
+`get_research` reads reports only when research is enabled. Compatibility `fetch`
+returns research with explicit report metadata; search links identify both the
+parent note and report. Never cite an AI-generated report as verbatim user input.
+
+## Web and local configuration
+
+`PCE_RESEARCH_REPORTS=true` attaches report API/history/status in both the normal
+API launcher and `dev:local`. The local launcher injects the matching browser
+flag. Hosted Vite builds additionally set `VITE_PCE_RESEARCH_REPORTS=true` at build
+time. Note detail keeps the original input separate from the generated Research
+and Sources views. It shows draft/context-unavailable state, index state,
+checked-at dates, classified claim citations, limitations and immutable version
+selection. Sources are literal links; source text is never rendered as HTML.
+Historical citations do not assert current source availability. Research search
+hits navigate to the corresponding parent/report; Back returns to the timeline.
+
+Apply `npm run db:migrate` through the trusted direct DB connection before
+restarting API/workers. The additive delivery migration adds composite owner
+constraints, durable attempt rows, separate chunks/vectors, lexical GIN and
+vector HNSW indexes. Verify first on a disposable synthetic PostgreSQL database.
+Disable `PCE_RESEARCH_REPORTS` to remove report API/UI/retrieval, and independently
+disable `PCE_RESEARCH_INGRESS_ENABLED` to stop GitHub reads. These gates do not
+delete stored originals/reports or change the ordinary Markdown capture path.
+Do not drop the new tables as a routine rollback.
+
+## Cross-repository and live activation
+
+The companion private content-repository PR updates only `AGENTS.md` and README
+with conditional create-only `research/inbox/<report-id>.json` permissions,
+PCE retrieval requirements and two-file recovery. Verify that diff independently;
+no private notes or report bodies belong in the public repository or CI.
+The dedicated GitHub reader requires a **separate Contents: read credential**;
+do not substitute an existing capture/publisher write token. A missing credential
+means the live GitHub importer is not operational, even when synthetic tests pass.
+
+Neither this feature nor a private contract merge installs Project settings.
+**#105 exclusively owns** consolidation with tag instructions, manual owner
+installation, actual ordinary ChatGPT PCE tool invocation, external evidence and
+text/voice acceptance. Keep the existing prompt/capture path until that test.

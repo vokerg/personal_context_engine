@@ -1,4 +1,9 @@
 import {
+  ResearchListSchema,
+  ResearchRecordSchema,
+  type ResearchRecord,
+} from "@pce/contracts";
+import {
   SearchRequestSchema,
   SearchResponseSchema,
   type SearchRequest,
@@ -425,3 +430,25 @@ export function getSearchNote(
   );
 }
 export type { SearchRequest, SearchResponse };
+
+export function getResearchForNote(
+  options: AuthenticatedRequestOptions,
+  id: string,
+) {
+  return authenticatedGet(
+    options,
+    "/api/v1/notes/" + NoteIdSchema.parse(id) + "/research",
+    ResearchListSchema.parse,
+  );
+}
+export function getResearchReport(
+  options: AuthenticatedRequestOptions,
+  id: string,
+) {
+  return authenticatedGet(
+    options,
+    "/api/v1/research/reports/" + NoteIdSchema.parse(id),
+    ResearchRecordSchema.parse,
+  );
+}
+export type { ResearchRecord };

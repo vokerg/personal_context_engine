@@ -18,6 +18,10 @@ function fakeDb() {
   let cursor: string | null = null;
   let lastScanAt: Date | null = null;
   const db = {
+    researchIngressAttempt: {
+      findUnique: async () => null,
+      upsert: async () => ({}),
+    },
     ingestionCheckpoint: {
       upsert: async () => ({ cursor }),
       update: async (args: {

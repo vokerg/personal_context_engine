@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { createEmbeddingJobRepository, type PrismaClient } from "@pce/db";
+import {
+  createEmbeddingJobRepository,
+  createResearchEmbeddingRepository,
+  type PrismaClient,
+} from "@pce/db";
 
 /** A bounded durable job pass: prepares derived DB jobs, never calls a provider. */
 export async function runDbJobPass(
@@ -100,6 +104,11 @@ export async function runDbJobPass(
         else report.retried++;
       }
     }
+  }
+  if (process.env.PCE_RESEARCH_REPORTS === "true") {
+    const research = createResearchEmbeddingRepository(db);
+    for (const id of await research.candidateNotes(ownerSubject))
+      await research.prepareNote(id, ownerSubject);
   }
   return report;
 }
