@@ -54,6 +54,33 @@ Installed `notes-v2.0` checks:
   plus its terminal Markdown newline, `chatgpt_text`, no due time, no report and
   `FINALIZED` ingestion. Tags were legitimately empty. Research acceptance is
   recorded separately; a memo receipt does not establish research persistence.
+- A separate fresh-chat read-only query returned an unrelated semantic match
+  which was excluded without opening its original. A repeat with an absent-tag
+  filter returned an actual empty result array, hybrid mode and null degradation.
+  Both were correctly classified as no relevant context, rather than an outage;
+  neither request created a note or report.
+
+- Explicit research in the ordinary installed-prompt chat called PCE, read the
+  exact related synthetic original, and used one external source. Parent and
+  separate report create/read-back succeeded. Independent executable parsing
+  confirmed Markdown v1, ResearchArtifact v1, exact parent/capture linkage, the
+  related source revision, three valid attributed claims and unchanged source
+  original. The worker finalized the parent and imported report revision one as
+  COMPLETE with one retrieval chunk; DB payload/hash matched the parsed GitHub
+  artifact. A repeat checked the worker-moved canonical note and original report
+  path, reused existing success and created no duplicate note/report.
+- A live report-read check exposed a missing hosted feature flag: the connector
+  had no dedicated report tool and compatibility fetch returned NOT_FOUND.
+  This was reported honestly instead of substituting GitHub. Adding the existing
+  Render `PCE_RESEARCH_REPORTS=true` and production-only Vercel build flag, then
+  redeploying current main, restored actual PCE compatibility fetch. The ChatGPT
+  tool catalog still lacked the dedicated reader, so the supported fallback was
+  used: correct parent/revision, research content type and READY indexing were
+  returned. The authenticated hosted web displayed version history, generated
+  research separately from the original, ready status and PCE/external provenance;
+  keyboard Sources navigation showed the cited revision and historical check time.
+  Anonymous report access returned 401 with no-store; readiness returned 200.
+  No scopes, owner identity, secrets, preview settings or worker schedules changed.
 
 Browser baseline checks on the prior installed capture-only prompt:
 
@@ -86,6 +113,12 @@ entry and keyboard unapproval removed it. At 390×844 the page width remained 39
 pixels, with explicit approved/candidate text. Mobile note detail added and removed
 a manual candidate tag independently of source tags. This is local browser
 verification, not real-user voice acceptance.
+
+The two new synthetic notes and one linked report are temporarily retained for
+owner review; no personal originals or approved tags were edited by these checks.
+Forced live MCP outage and GitHub report-write denial have not been exercised.
+Deterministic isolated tests cover their failure/retry mechanisms; do not label
+those live client scenarios passed. Owner go/no-go must account for these gaps.
 
 ## Remaining owner acceptance matrix
 
