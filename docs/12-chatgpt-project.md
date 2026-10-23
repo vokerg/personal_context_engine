@@ -43,8 +43,9 @@ Browser checks on the existing installed capture-only prompt:
 
 - Two successive synthetic memo messages in an actual NOTES Chat each created one
   GitHub Markdown file and read it back, without per-message app mentions. No
-  research or reminder action was requested or reported. An independent parser/DB
-  check confirmed valid v1 and the full original first message persisted exactly.
+  research or reminder action was requested or reported. Independent parser/DB
+  checks confirmed valid v1 and both full original messages persisted exactly.
+  Only those two exact synthetic captures were removed after verification.
 - An explicit read-only PCE research-capability request encountered an expired
   connection. Renewing its existing `notes:read` OAuth grant restored PCE retrieval.
   The visible activity showed context retrieval, and the response identified the

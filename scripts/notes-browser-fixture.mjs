@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Opt-in browser acceptance fixture. No private .env, remote DB or provider calls.
+// Opt-in browser fixture. Explicit disposable DB target; no remote DB/provider calls.
 import { randomUUID } from "node:crypto";
 import { sessionAllowed } from "./local-runtime.mjs";
 import { createServer } from "vite";
