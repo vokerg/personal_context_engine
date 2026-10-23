@@ -434,5 +434,7 @@ capture-only rollback. The public implementation adds owner-scoped searchable
 catalog pagination and a combined synthetic acceptance path. The actual installed
 Project settings were updated only after explicit owner authorization; a reload
 verified the exact reviewed 6,851-character prompt and the prior text is backed up
-privately. Live voice and owner go/no-go remain manual gates; installation and
-tests/self-review do not establish full acceptance.
+privately. The owner waived microphone testing on 2026-10-23, so actual audio
+fidelity/Voice-mode behavior remain untested and non-blocking. Owner go/no-go
+remains a manual gate; installation and tests/self-review do not establish full
+acceptance.

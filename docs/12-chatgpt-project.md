@@ -5,8 +5,9 @@ The reviewed `notes-v2.0` prompt was installed in the actual NOTES Project with
 explicit owner authorization. Reloading Project settings returned the exact
 6,851-character prompt; the previous installed text is backed up privately for
 rollback. The source and capture-only rollback remain in the **private content
-repository**. Keep #105 open until actual text/voice/research acceptance and the
-owner go/no-go are recorded.
+repository**. Keep #105 open until remaining text/research acceptance and the
+owner go/no-go are recorded. The owner waived microphone testing on 2026-10-23;
+actual audio/transcription fidelity is untested and is not a release blocker.
 
 ## Authority and installation
 
@@ -96,7 +97,7 @@ and candidate in fresh chats after the owner installs each version.
 | Scenario | Required evidence |
 | --- | --- |
 | Ordinary single/split memo | Successful creates plus exact read-back; full original preserved; split IDs/capture linkage validated |
-| Successive actual voice memos | Real dictation/voice in NOTES; correct modality and faithful available transcript; no forced app mention |
+| Successive actual voice memos | Owner waived microphone testing on 2026-10-23; untested, non-blocking. Dictation supplies editable text before send; preserve the received text and never infer modality. |
 | Approved/candidate/no tags | Snapshot explicitly read; approved slugs preferred where relevant; few candidates or [] valid |
 | Missing/stale taxonomy | Ordinary save succeeds conservatively, without a false currency claim |
 | Reminder ambiguity | Missing time/zone prompts only for necessary facts; no invented due time or notification promise |
@@ -112,7 +113,9 @@ and candidate in fresh chats after the owner installs each version.
 
 Do not fake an outage by disconnecting a real integration or change repository
 permissions merely to run a negative case. Use a supported isolated test surface
-or record that case as pending. Actual voice and owner approval remain manual.
+or record that case as pending. Owner approval remains manual. Microphone testing
+was waived by the owner: [Dictate transcribes into editable message text](https://help.openai.com/en/articles/12168547-voice-dictation-faq);
+this does not establish transcription fidelity or live Voice-mode tool behavior.
 
 ## Catalog pagination and browser fixture
 
