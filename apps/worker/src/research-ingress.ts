@@ -33,7 +33,8 @@ export function researchIngressConfig(
     branch.includes("//") ||
     !token ||
     token.length > 4096
-  ) throw new Error("Invalid research ingress configuration");
+  )
+    throw new Error("Invalid research ingress configuration");
   return { repository, branch, token };
 }
 
@@ -43,10 +44,21 @@ export function researchIngressCheckpointKey(
   repository: string,
   branch: string,
 ): string {
-  if (!OWNER.test(owner) || !REPOSITORY.test(repository) || !BRANCH.test(branch))
+  if (
+    !OWNER.test(owner) ||
+    !REPOSITORY.test(repository) ||
+    !BRANCH.test(branch)
+  )
     throw new Error("Invalid research checkpoint scope");
   return createHash("sha256")
-    .update(JSON.stringify(["research-inbox-v1", owner, repository.toLowerCase(), branch]))
+    .update(
+      JSON.stringify([
+        "research-inbox-v1",
+        owner,
+        repository.toLowerCase(),
+        branch,
+      ]),
+    )
     .digest("hex");
 }
 
@@ -96,9 +108,7 @@ export async function runResearchImportPass({
     throw new Error("Invalid research scope");
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_PER_PASS)
     throw new Error("Invalid research pass limit");
-  const importer =
-    importArtifact ??
-    createResearchRepository(db).importByOwner;
+  const importer = importArtifact ?? createResearchRepository(db).importByOwner;
   const checkpoint = await db.ingestionCheckpoint.upsert({
     where: { key: checkpointKey },
     create: { key: checkpointKey },
@@ -124,15 +134,22 @@ export async function runResearchImportPass({
         report.deferred++;
         continue;
       }
-      const receipt = await importer(ownerSubject, read.content, ref.path, ref.revision);
+      const receipt = await importer(
+        ownerSubject,
+        read.content,
+        ref.path,
+        ref.revision,
+      );
       if (receipt.replayed) report.replayed++;
       else report.imported++;
     } catch (error) {
       if (
         error instanceof TypeError ||
-        error instanceof ContentStoreError && error.code === "INVALID_CONTENT" ||
-        error instanceof Error && error.name === "ZodError"
-      ) report.invalid++;
+        (error instanceof ContentStoreError &&
+          error.code === "INVALID_CONTENT") ||
+        (error instanceof Error && error.name === "ZodError")
+      )
+        report.invalid++;
       else report.deferred++;
       // Never log error messages: source text, paths, URLs may be embedded.
     }

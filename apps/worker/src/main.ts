@@ -24,7 +24,10 @@ import {
 } from "./embeddings.js";
 import type { ContentStore } from "./content-store/port.js";
 import { FilesystemContentStore } from "./content-store/filesystem.js";
-import { GitHubContentStore, githubContentStoreFromEnv } from "./content-store/github.js";
+import {
+  GitHubContentStore,
+  githubContentStoreFromEnv,
+} from "./content-store/github.js";
 import { runIngestionBatch, workerStatus } from "./worker.js";
 
 // Safe scaffold default. Real writes require an explicit worker mode,
@@ -56,7 +59,9 @@ async function start(mode: string): Promise<void> {
     if (!owner || !process.env.DATABASE_URL)
       throw new Error("DB jobs require trusted owner and DB");
     const researchOptions = researchIngressConfig(process.env);
-    const ingress = researchOptions ? new GitHubContentStore(researchOptions) : null;
+    const ingress = researchOptions
+      ? new GitHubContentStore(researchOptions)
+      : null;
     if (ingress) await ingress.verifyPrivateRepository();
     const publisherOptions = snapshotPublisherConfig(process.env);
     const publisher = publisherOptions
@@ -95,7 +100,9 @@ async function start(mode: string): Promise<void> {
             ownerSubject: owner,
             checkpointKey,
           });
-          console.log("Research import pass complete " + JSON.stringify(report));
+          console.log(
+            "Research import pass complete " + JSON.stringify(report),
+          );
         }
       };
       if (mode === "db-jobs-loop")

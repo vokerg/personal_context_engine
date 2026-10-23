@@ -5,7 +5,10 @@ import {
   researchIngressConfig,
   runResearchImportPass,
 } from "./research-ingress.js";
-import type { ContentFile, ResearchIngressStore } from "./content-store/port.js";
+import type {
+  ContentFile,
+  ResearchIngressStore,
+} from "./content-store/port.js";
 
 const note = "33333333-3333-4333-8333-333333333333";
 const path = `research/inbox/${note}.json`;
@@ -31,8 +34,9 @@ function fakeDb() {
 describe("research ingress configuration", () => {
   it("is disabled unless separately opted in with private-reader credentials", () => {
     expect(researchIngressConfig({})).toBeNull();
-    expect(researchIngressConfig({ PCE_RESEARCH_INGRESS_ENABLED: "false" }))
-      .toBeNull();
+    expect(
+      researchIngressConfig({ PCE_RESEARCH_INGRESS_ENABLED: "false" }),
+    ).toBeNull();
     expect(() =>
       researchIngressConfig({ PCE_RESEARCH_INGRESS_ENABLED: "enabled" }),
     ).toThrow();
@@ -44,12 +48,14 @@ describe("research ingress configuration", () => {
         PCE_RESEARCH_INGRESS_TOKEN: "fake",
       }),
     ).toThrow();
-    expect(researchIngressConfig({
-      PCE_RESEARCH_INGRESS_ENABLED: "true",
-      PCE_RESEARCH_INGRESS_REPOSITORY: "owner/private",
-      PCE_RESEARCH_INGRESS_BRANCH: "main",
-      PCE_RESEARCH_INGRESS_TOKEN: "synthetic-not-real",
-    })).toEqual({
+    expect(
+      researchIngressConfig({
+        PCE_RESEARCH_INGRESS_ENABLED: "true",
+        PCE_RESEARCH_INGRESS_REPOSITORY: "owner/private",
+        PCE_RESEARCH_INGRESS_BRANCH: "main",
+        PCE_RESEARCH_INGRESS_TOKEN: "synthetic-not-real",
+      }),
+    ).toEqual({
       repository: "owner/private",
       branch: "main",
       token: "synthetic-not-real",
@@ -89,12 +95,17 @@ describe("bounded research import pass", () => {
         },
       });
     expect(await run()).toMatchObject({
-      scanned: 1, imported: 0, deferred: 1, hasMore: false,
+      scanned: 1,
+      imported: 0,
+      deferred: 1,
+      hasMore: false,
     });
     expect(getCursor()).toBeNull();
     parentAvailable = true;
     expect(await run()).toMatchObject({
-      scanned: 1, imported: 1, deferred: 0,
+      scanned: 1,
+      imported: 1,
+      deferred: 0,
     });
     expect(imports).toHaveLength(2);
     expect(getLastScan()).toBeInstanceOf(Date);
@@ -118,16 +129,27 @@ describe("bounded research import pass", () => {
         content: "{}",
       }),
     };
-    const run = () => runResearchImportPass({
-      db, store, ownerSubject: "owner-1", checkpointKey: key, limit: 1,
-      importArtifact: async () => ({ replayed: true }),
-    });
+    const run = () =>
+      runResearchImportPass({
+        db,
+        store,
+        ownerSubject: "owner-1",
+        checkpointKey: key,
+        limit: 1,
+        importArtifact: async () => ({ replayed: true }),
+      });
     expect(await run()).toMatchObject({
-      scanned: 1, deferred: 1, replayed: 0, hasMore: true,
+      scanned: 1,
+      deferred: 1,
+      replayed: 0,
+      hasMore: true,
     });
     expect(getCursor()).toBe(path);
     expect(await run()).toMatchObject({
-      scanned: 1, replayed: 1, deferred: 0, hasMore: false,
+      scanned: 1,
+      replayed: 1,
+      deferred: 0,
+      hasMore: false,
     });
     expect(getCursor()).toBeNull();
     expect(calls).toEqual([undefined, path]);
@@ -137,15 +159,21 @@ describe("bounded research import pass", () => {
     const { db } = fakeDb();
     const store: ResearchIngressStore = {
       listResearch: async () => ({ files: [{ path, revision: "sha" }] }),
-      readResearch: async () => { throw new TypeError("Private URL"); },
+      readResearch: async () => {
+        throw new TypeError("Private URL");
+      },
     };
     const args = { db, store, ownerSubject: "owner-1", checkpointKey: key };
-    await expect(runResearchImportPass({ ...args, limit: 101 }))
-      .rejects.toThrow("Invalid research pass limit");
-    await expect(runResearchImportPass({ ...args, ownerSubject: "../bad" }))
-      .rejects.toThrow("Invalid research scope");
+    await expect(
+      runResearchImportPass({ ...args, limit: 101 }),
+    ).rejects.toThrow("Invalid research pass limit");
+    await expect(
+      runResearchImportPass({ ...args, ownerSubject: "../bad" }),
+    ).rejects.toThrow("Invalid research scope");
     expect(await runResearchImportPass(args)).toMatchObject({
-      scanned: 1, invalid: 1, imported: 0,
+      scanned: 1,
+      invalid: 1,
+      imported: 0,
     });
   });
 });

@@ -395,7 +395,10 @@ describe("dedicated GitHub research ingress", () => {
   it("reads only allowlisted JSON research, without moving or deleting it", async () => {
     const fake = new FakeGitHub();
     fake.put(validPath, '{"schemaVersion":1}');
-    fake.put("research/history/33333333-3333-4333-8333-333333333333.json", "old");
+    fake.put(
+      "research/history/33333333-3333-4333-8333-333333333333.json",
+      "old",
+    );
     fake.put("inbox/note.md", "capture");
     const store = fake.store();
     const page = await store.listResearch();
@@ -407,10 +410,12 @@ describe("dedicated GitHub research ingress", () => {
     await expect(store.readResearch("inbox/note.md")).rejects.toMatchObject({
       code: "INVALID_PATH",
     });
-    await expect(store.readResearch("research/inbox/../README.md"))
-      .rejects.toMatchObject({ code: "INVALID_PATH" });
-    await expect(store.listResearch({ cursor: "inbox/note.md" }))
-      .rejects.toMatchObject({ code: "INVALID_CURSOR" });
+    await expect(
+      store.readResearch("research/inbox/../README.md"),
+    ).rejects.toMatchObject({ code: "INVALID_PATH" });
+    await expect(
+      store.listResearch({ cursor: "inbox/note.md" }),
+    ).rejects.toMatchObject({ code: "INVALID_CURSOR" });
     expect(fake.calls.every((call) => call.method === "GET")).toBe(true);
     expect((await store.readResearch(validPath)).path).toBe(validPath);
   });

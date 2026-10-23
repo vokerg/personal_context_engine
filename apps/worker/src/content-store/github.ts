@@ -17,7 +17,8 @@ const INBOX = new RegExp(`^inbox/(${FILE_NAME})$`);
 const REJECTED = new RegExp(`^rejected/(${FILE_NAME})$`);
 const NOTES = new RegExp(`^notes/[0-9]{4}/(0[1-9]|1[0-2])/(${FILE_NAME})$`);
 // Research JSON is not Markdown v1 and is never finalized or rejected as a note.
-const RESEARCH = /^research\/inbox\/(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\.json$/;
+const RESEARCH =
+  /^research\/inbox\/(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\.json$/;
 const MAX_RESEARCH_BYTES = 250_000;
 const BLOB_SHA = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
 const MAX_FILE_BYTES = 1024 * 1024;
@@ -335,7 +336,8 @@ export class GitHubContentStore implements ContentStore, ResearchIngressStore {
       typeof blob.content !== "string" ||
       typeof blob.size !== "number" ||
       blob.size > MAX_RESEARCH_BYTES
-    ) fail("INVALID_CONTENT");
+    )
+      fail("INVALID_CONTENT");
     const content = decodeContent(blob.content.replace(/\\s/g, ""), blob.size);
     if (Buffer.byteLength(content, "utf8") > MAX_RESEARCH_BYTES)
       fail("INVALID_CONTENT");
