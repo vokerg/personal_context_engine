@@ -3,6 +3,7 @@ import type {
   ContentFile,
   ContentRef,
   ContentStore,
+  ResearchIngressStore,
   FinalizeRequest,
   ListPendingOptions,
   PendingPage,
@@ -15,6 +16,9 @@ const FILE_NAME = "[a-zA-Z0-9][a-zA-Z0-9._-]*\\.md";
 const INBOX = new RegExp(`^inbox/(${FILE_NAME})$`);
 const REJECTED = new RegExp(`^rejected/(${FILE_NAME})$`);
 const NOTES = new RegExp(`^notes/[0-9]{4}/(0[1-9]|1[0-2])/(${FILE_NAME})$`);
+// Research JSON is not Markdown v1 and is never finalized or rejected as a note.
+const RESEARCH = /^research\\/inbox\\/(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\\.json$/;
+const MAX_RESEARCH_BYTES = 250_000;
 const BLOB_SHA = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
 const MAX_FILE_BYTES = 1024 * 1024;
 const MAX_ENTRIES = 100_000;
@@ -107,7 +111,7 @@ function decodeContent(base64: string, advertisedSize: number): string {
 
 class BranchMoved extends Error {}
 
-export class GitHubContentStore implements ContentStore {
+export class GitHubContentStore implements ContentStore, ResearchIngressStore {
   private readonly root: string;
   private readonly branch: string;
   private readonly token: string;
@@ -295,6 +299,47 @@ export class GitHubContentStore implements ContentStore {
     return paths.length > selected.length && selected.length > 0
       ? { files, nextCursor: selected[selected.length - 1]! }
       : { files };
+  }
+
+  /** Read-only, independently allowlisted research inbox. No content moves. */
+  async listResearch(options: ListPendingOptions = {}): Promise<PendingPage> {
+    const limit = options.limit ?? 50;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)
+      fail("INVALID_LIMIT");
+    if (options.cursor !== undefined && !RESEARCH.test(options.cursor))
+      fail("INVALID_CURSOR");
+    const snapshot = await this.snapshot();
+    const paths = [...snapshot.entries.keys()]
+      .filter((path) => RESEARCH.test(path))
+      .sort()
+      .filter((path) => options.cursor === undefined || path > options.cursor);
+    const selected = paths.slice(0, limit);
+    const files = selected.map((path) => ({
+      path,
+      revision: this.entry(snapshot, path)!.sha,
+    }));
+    return paths.length > selected.length && selected.length > 0
+      ? { files, nextCursor: selected[selected.length - 1]! }
+      : { files };
+  }
+
+  async readResearch(path: string): Promise<ContentFile> {
+    if (!RESEARCH.test(path)) fail("INVALID_PATH");
+    const entry = this.entry(await this.snapshot(), path);
+    if (!entry) fail("NOT_FOUND");
+    if (entry.size !== undefined && entry.size > MAX_RESEARCH_BYTES)
+      fail("INVALID_CONTENT");
+    const blob = await this.request(`/git/blobs/${entry.sha}`);
+    if (
+      blob.encoding !== "base64" ||
+      typeof blob.content !== "string" ||
+      typeof blob.size !== "number" ||
+      blob.size > MAX_RESEARCH_BYTES
+    ) fail("INVALID_CONTENT");
+    const content = decodeContent(blob.content.replace(/\\s/g, ""), blob.size);
+    if (Buffer.byteLength(content, "utf8") > MAX_RESEARCH_BYTES)
+      fail("INVALID_CONTENT");
+    return { path, revision: entry.sha, content };
   }
 
   async stat(path: string): Promise<ContentRef | null> {
