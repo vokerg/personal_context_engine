@@ -116,7 +116,8 @@ class FakeGitHub {
         type: entry.mode === "100644" ? "file" : "symlink",
         sha: entry.sha,
         encoding: "base64",
-        content: (bytes.toString("base64").match(/.{1,60}/g) ?? []).join("\n") + "\n",
+        content:
+          (bytes.toString("base64").match(/.{1,60}/g) ?? []).join("\n") + "\n",
         size: bytes.length,
       });
     }

@@ -335,13 +335,15 @@ export class GitHubContentStore implements ContentStore, ResearchIngressStore {
       file.type !== "file" ||
       typeof file.sha !== "string" ||
       !BLOB_SHA.test(file.sha)
-    ) fail("UNSAFE_ENTRY");
+    )
+      fail("UNSAFE_ENTRY");
     if (
       file.encoding !== "base64" ||
       typeof file.content !== "string" ||
       typeof file.size !== "number" ||
       file.size > MAX_RESEARCH_BYTES
-    ) fail("INVALID_CONTENT");
+    )
+      fail("INVALID_CONTENT");
     const content = decodeContent(file.content.replace(/\s/g, ""), file.size);
     if (Buffer.byteLength(content, "utf8") > MAX_RESEARCH_BYTES)
       fail("INVALID_CONTENT");
