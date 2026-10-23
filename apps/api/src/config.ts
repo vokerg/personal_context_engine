@@ -56,6 +56,17 @@ function parseOrigin(
   return value;
 }
 
+/** This storage/API foundation is not a production research-capture release gate.
+ * Keep the new routes absent unless an operator deliberately enables them.
+ * Invalid values fail closed instead of silently changing feature availability.
+ */
+export function researchReportsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const value = env.PCE_RESEARCH_REPORTS;
+  if (value !== undefined && value !== "true" && value !== "false")
+    throw new Error("PCE_RESEARCH_REPORTS must be true or false");
+  return value === "true";
+}
+
 /** Explicit environment injection makes config tests independent of process.env. */
 export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
   const environment = env.NODE_ENV ?? "development";
