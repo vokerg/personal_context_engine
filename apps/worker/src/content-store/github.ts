@@ -326,22 +326,26 @@ export class GitHubContentStore implements ContentStore, ResearchIngressStore {
 
   async readResearch(path: string): Promise<ContentFile> {
     if (!RESEARCH.test(path)) fail("INVALID_PATH");
-    const entry = this.entry(await this.snapshot(), path);
-    if (!entry) fail("NOT_FOUND");
-    if (entry.size !== undefined && entry.size > MAX_RESEARCH_BYTES)
-      fail("INVALID_CONTENT");
-    const blob = await this.request(`/git/blobs/${entry.sha}`);
+    // GET Contents resolves the CURRENT branch path in one HTTP call. The
+    // importer compares its SHA to the scan's observed SHA before DB write.
+    const file = await this.request(
+      `/contents/${path}?ref=${encodeURIComponent(this.branch)}`,
+    );
     if (
-      blob.encoding !== "base64" ||
-      typeof blob.content !== "string" ||
-      typeof blob.size !== "number" ||
-      blob.size > MAX_RESEARCH_BYTES
-    )
-      fail("INVALID_CONTENT");
-    const content = decodeContent(blob.content.replace(/\\s/g, ""), blob.size);
+      file.type !== "file" ||
+      typeof file.sha !== "string" ||
+      !BLOB_SHA.test(file.sha)
+    ) fail("UNSAFE_ENTRY");
+    if (
+      file.encoding !== "base64" ||
+      typeof file.content !== "string" ||
+      typeof file.size !== "number" ||
+      file.size > MAX_RESEARCH_BYTES
+    ) fail("INVALID_CONTENT");
+    const content = decodeContent(file.content.replace(/\s/g, ""), file.size);
     if (Buffer.byteLength(content, "utf8") > MAX_RESEARCH_BYTES)
       fail("INVALID_CONTENT");
-    return { path, revision: entry.sha, content };
+    return { path, revision: file.sha, content };
   }
 
   async stat(path: string): Promise<ContentRef | null> {
