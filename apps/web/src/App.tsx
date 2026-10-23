@@ -1,3 +1,4 @@
+import { ApprovedTagCatalog } from "./ApprovedTagCatalog.js";
 import { ResearchPanel } from "./ResearchPanel.js";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
@@ -123,17 +124,22 @@ export function App({
   const [tagDraft, setTagDraft] = useState("");
   const [tagEditBusy, setTagEditBusy] = useState(false);
   const [tagEditError, setTagEditError] = useState("");
-  const [catalogQuery, setCatalogQuery] = useState("");
   const registrySlugs = useMemo(
     () => new Set(registry?.approved.map((tag) => tag.slug) ?? []),
     [registry],
   );
+  const observedStatuses = useMemo(
+    () =>
+      new Map(registry?.observedStatuses?.map((s) => [s.slug, s.status]) ?? []),
+    [registry],
+  );
   const statusOf = (slug: string) =>
-    registrySlugs.has(slug)
+    observedStatuses.get(slug) ??
+    (registrySlugs.has(slug)
       ? "approved"
       : registry?.truncated
         ? "unverified"
-        : "candidate";
+        : "candidate");
   const [browseCursor, setBrowseCursor] = useState<string | undefined>();
   const [previousCursors, setPreviousCursors] = useState<
     Array<string | undefined>
@@ -284,7 +290,6 @@ export function App({
     setRegistry(null);
     setRegistryError("");
     setRegistryBusy(null);
-    setCatalogQuery("");
     setFacets({ projects: [], kinds: [], truncated: false });
     setBrowseCursor(undefined);
     setPreviousCursors([]);
@@ -1145,11 +1150,13 @@ export function App({
                           {tag.slug} <span aria-hidden="true">{tag.count}</span>
                         </button>
                         {registry && (
-                          <span className="tag-status">
+                          <span
+                            className={`tag-status tag-status-${statusOf(tag.slug)}`}
+                          >
                             {statusOf(tag.slug)}
                           </span>
                         )}
-                        {registry && !registrySlugs.has(tag.slug) && (
+                        {registry && statusOf(tag.slug) !== "approved" && (
                           <button
                             className="ghost tag-action"
                             type="button"
@@ -1200,63 +1207,15 @@ export function App({
                           worker.
                         </p>
                       )}
-                      <label htmlFor="catalog-query">Find approved tags</label>
-                      <input
-                        id="catalog-query"
-                        value={catalogQuery}
-                        onChange={(event) =>
-                          setCatalogQuery(event.target.value)
-                        }
-                        placeholder="Search approved tags"
+                      <ApprovedTagCatalog
+                        baseUrl={baseUrl}
+                        token={token}
+                        useSessionCookie={sessionAuthentication}
+                        registry={registry}
+                        busy={registryBusy !== null}
+                        selectTag={selectTag}
+                        unapprove={(slug) => void changeApproval(slug, false)}
                       />
-                      <div
-                        className="tag-chips"
-                        role="group"
-                        aria-label="Approved tags"
-                      >
-                        {registry.approved
-                          .filter((tag) =>
-                            (tag.slug + " " + (tag.displayName ?? ""))
-                              .toLowerCase()
-                              .includes(catalogQuery.toLowerCase()),
-                          )
-                          .map((tag) => (
-                            <span className="tag-pair" key={tag.slug}>
-                              <button
-                                className="tag-chip"
-                                type="button"
-                                aria-label={`Filter by approved tag ${tag.slug}, ${tag.noteCount} notes`}
-                                onClick={() => selectTag(tag.slug)}
-                              >
-                                {tag.displayName || tag.slug}{" "}
-                                <span aria-hidden="true">{tag.noteCount}</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="ghost tag-action"
-                                disabled={registryBusy !== null}
-                                aria-label={`Unapprove tag ${tag.slug}`}
-                                onClick={() =>
-                                  void changeApproval(tag.slug, false)
-                                }
-                              >
-                                Unapprove
-                              </button>
-                            </span>
-                          ))}
-                      </div>
-                      {!registry.approved.length && (
-                        <p>
-                          No approved tags yet. Approve an observed tag to build
-                          your vocabulary.
-                        </p>
-                      )}
-                      {registry.truncated && (
-                        <p role="status">
-                          Showing first 200 approved tags; status of other tags
-                          may be unverified.
-                        </p>
-                      )}
                     </section>
                   )}
                   {tags.truncated && (
@@ -1525,7 +1484,7 @@ export function App({
                                   : "source"}
                               {registry ? ` · ${statusOf(tag)}` : ""}
                             </span>
-                            {registry && !registrySlugs.has(tag) && (
+                            {registry && statusOf(tag) !== "approved" && (
                               <button
                                 className="ghost tag-action"
                                 type="button"

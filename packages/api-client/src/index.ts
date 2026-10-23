@@ -1,3 +1,4 @@
+import { TagRegistryQuerySchema, type TagRegistryQuery } from "@pce/contracts";
 import {
   ResearchListSchema,
   ResearchRecordSchema,
@@ -302,9 +303,17 @@ export function getTags(
 
 export function getTagRegistry(
   options: AuthenticatedRequestOptions,
+  query: TagRegistryQuery = {},
 ): Promise<TagRegistryResponse> {
-  return authenticatedGet(options, "/api/v1/tag-registry", (data) =>
-    TagRegistryResponseSchema.parse(data),
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(
+    TagRegistryQuerySchema.parse(query),
+  ))
+    if (value !== undefined) params.set(key, String(value));
+  return authenticatedGet(
+    options,
+    "/api/v1/tag-registry" + (params.size ? "?" + params.toString() : ""),
+    (data) => TagRegistryResponseSchema.parse(data),
   );
 }
 

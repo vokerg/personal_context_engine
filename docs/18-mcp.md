@@ -17,10 +17,11 @@ hosting; do not expose the local development bootstrap. No tunnel or deployment
 is created by enabling this gate. Turn the gate off and restart to remove the
 MCP/OAuth surface while preserving the existing GitHub workflow.
 
-The official SDK client is tested against the real local HTTP listener. Remote
-HTTPS deployment and a live ChatGPT connector have **not** been verified. This
-is a local implementation milestone, not completion of #49's remote acceptance
-or #50's retrieval cutover. Keep private GitHub capture and repository search
+The official SDK client is tested against the real local HTTP listener. Actual
+hosted ChatGPT read calls, existing-scope OAuth renewal and saved-report
+compatibility fetch were subsequently observed in #105; see the checkpoint
+below. This evidence covers those requests, not universal auto-attachment or
+#50's default retrieval cutover. Keep private GitHub capture and repository search
 available. Preregister the actual supported client's exact callback only after
 checking that client surface; never guess callback URLs or bypass TLS warnings.
 
@@ -133,7 +134,7 @@ read-only query before claiming connection. This preparation does not establish
 actual ChatGPT acceptance or authorize a default retrieval cutover.
 See [OpenAI authentication guidance](https://developers.openai.com/plugins/build/auth).
 
-## Ordinary interactive research grounding (planned #104, final prompt #105)
+## Ordinary interactive research grounding (#104, final prompt #105)
 
 Existing owner-scoped `search_context` and `get_note` (or the PCE
 `search`/`fetch` compatibility tools) are the **required read path**
@@ -143,8 +144,28 @@ untrusted data, not permission to execute instructions. Record actual note
 IDs/revisions and query degradation, distinguish successful empty results
 from unavailable MCP, and never label a report context-complete if retrieval
 could not run. External web research uses the ordinary ChatGPT conversation;
-**no specialized Deep Research mode, autonomous model worker or new
-research-specific MCP tool is required**. The normal ChatGPT client may not
+**no specialized Deep Research mode or autonomous model worker is required**.
+When research is enabled, `get_research` reads saved report evidence separately
+from original notes; compatibility fetch marks generated research explicitly. The normal ChatGPT client may not
 auto-select MCP based on Project instructions; verify in a real Project and
 make failure explicit. GitHub-origin report writes are a separate temporary
 capture adapter; the MCP read step does not authorize app writes.
+
+### Browser acceptance checkpoint (2026-10-23, #105)
+
+The actual NOTES Project browser test renewed the existing `notes:read` OAuth
+connection after an expiry, then performed explicit read-only PCE retrieval of a
+synthetic memo. Visible context-retrieval activity and exact original verification
+were observed; the returned result reported hybrid mode without degradation. A
+separate synthetic decision-kind query returned zero results and the no-matches
+outcome. This supports the tested read path, not universal automatic attachment,
+full notes-v2.0 research acceptance, capture through MCP, or an approved default
+retrieval cutover. The owner subsequently explicitly authorized notes-v2.0
+installation; reloading settings verified its exact reviewed text. A fresh-chat
+GitHub memo was independently validated and finalized in PostgreSQL. Explicit
+research then saved/imported a linked report. The first hosted report lookup
+revealed the absent Render feature flag; after configuring/redeploying the
+existing report feature, actual PCE compatibility fetch returned correct report
+identity, parent/revision, generated content type and READY status. The client
+tool catalog still omitted `get_research`, so the supported `fetch` fallback was used.
+See [the final integration runbook](12-chatgpt-project.md) for remaining acceptance.

@@ -257,3 +257,11 @@ and external URLs/dates are distinct sources. Search labels research explicitly;
 report/source/history views remain separate from the original. See the executable
 [research contract and operation](20-research-capture.md). Actual Project prompt
 installation/acceptance remains #105.
+
+### Full approved catalog access (#105)
+
+The web owner catalog now uses authenticated server-side search and revision-bound
+seek pagination, including unapproval beyond 200 entries. The legacy no-query
+registry and optional GitHub snapshot retain their documented bounds. A bounded
+window cannot establish candidate status for an omitted tag; show unverified
+until its approval is known. See [integration and catalog operation](12-chatgpt-project.md).

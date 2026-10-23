@@ -1,3 +1,4 @@
+import { TagRegistryQuerySchema, type TagRegistryQuery } from "@pce/contracts";
 import { registerMcp, type McpOptions } from "./mcp.js";
 import { SearchRequestSchema, SearchResponseSchema } from "@pce/contracts";
 import {
@@ -110,6 +111,14 @@ export interface ApiDependencies {
   };
   tagRegistry?: {
     listByOwner(owner: string): Promise<TagRegistryResponse>;
+    listObservedStatusesByOwner?(owner: string): Promise<{
+      revision: number;
+      statuses: Array<{ slug: string; status: "approved" | "candidate" }>;
+    }>;
+    pageByOwner?(
+      owner: string,
+      query: TagRegistryQuery,
+    ): Promise<TagRegistryResponse>;
     approveByOwner(
       owner: string,
       slug: string,
@@ -452,11 +461,32 @@ export function createApp(options: ApiOptions = {}) {
       "/api/v1/tag-registry",
       { preHandler: read },
       async (request, reply) => {
-        if (Object.keys(request.query as object).length)
+        const query = TagRegistryQuerySchema.safeParse(request.query);
+        if (!query.success)
+          return reply.code(400).send(errorResponse("BAD_REQUEST"));
+        if (
+          Object.keys(request.query as object).length &&
+          !registry.pageByOwner
+        )
           return reply.code(400).send(errorResponse("BAD_REQUEST"));
         const owner = request.authenticatedPrincipal!.subject;
+        let catalog;
+        try {
+          catalog =
+            Object.keys(request.query as object).length && registry.pageByOwner
+              ? await registry.pageByOwner(owner, query.data)
+              : await registry.listByOwner(owner);
+        } catch (error) {
+          if (error instanceof Error && error.name === "TagCatalogChanged")
+            return reply.code(409).send(errorResponse("CONFLICT"));
+          throw error;
+        }
+        const observed = await registry.listObservedStatusesByOwner?.(owner);
         return TagRegistryResponseSchema.parse({
-          ...(await registry.listByOwner(owner)),
+          ...catalog,
+          ...(observed?.revision === catalog.revision
+            ? { observedStatuses: observed.statuses }
+            : {}),
           ...(registry.getSnapshotStatus
             ? { snapshot: await registry.getSnapshotStatus(owner) }
             : {}),

@@ -198,12 +198,35 @@ export const TagSnapshotStatusSchema = z
   })
   .strict();
 
+export const TagRegistryQuerySchema = z
+  .object({
+    q: z.string().trim().min(1).max(100).optional(),
+    after: TagSlugSchema.optional(),
+    revision: z.coerce.number().int().nonnegative().safe().optional(),
+    limit: z.coerce.number().int().min(1).max(200).optional(),
+  })
+  .strict()
+  .refine((v) => !v.after || v.revision !== undefined);
+export type TagRegistryQuery = z.infer<typeof TagRegistryQuerySchema>;
+
 export const TagRegistryResponseSchema = z
   .object({
     revision: z.number().int().nonnegative().safe(),
     approved: z.array(ApprovedTagSchema).max(200),
     truncated: z.boolean(),
     snapshot: TagSnapshotStatusSchema.optional(),
+    nextCursor: TagSlugSchema.nullable().optional(),
+    observedStatuses: z
+      .array(
+        z
+          .object({
+            slug: TagSlugSchema,
+            status: z.enum(["approved", "candidate"]),
+          })
+          .strict(),
+      )
+      .max(200)
+      .optional(),
   })
   .strict();
 export type TagRegistryResponse = z.infer<typeof TagRegistryResponseSchema>;

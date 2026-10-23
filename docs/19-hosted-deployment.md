@@ -6,9 +6,12 @@ Owner-selected deployment: Vercel hosts the static React web app; Render hosts
 the authenticated Fastify API in Frankfurt, using the existing externally
 provisioned PostgreSQL. Both providers deploy **main only**. Configuration in
 this repository is reproducible setup, not proof that a deployment has completed.
-Record actual provider verification in issue #79. Hosted ChatGPT/MCP acceptance
-remains #49/#50; MCP is disabled for this deployment. The existing GitHub capture
-and repository-search path remains available. Backup automation #61 is deferred.
+Record actual provider verification in issue #79. The public Blueprint keeps
+MCP disabled by default; the existing owner-configured hosted connection was
+actually exercised during #105 acceptance. See the optional MCP/report sections
+below and [the current acceptance record](12-chatgpt-project.md). The existing
+GitHub capture/repository-search path remains available. Backup automation #61
+is deferred.
 
 ## Vercel
 
@@ -104,6 +107,28 @@ source detail apply the same SQL owner predicate. No unowned rows are adopted.
 ## DB-only manual tags (#103)
 
 With existing session authentication and `PCE_DB_SEARCH=true`, the API also enables owner-scoped per-note `PATCH /api/v1/notes/:id/tags`. Only `tags:write` grants or session cookies with the existing origin/CSRF checks may mutate tag overrides. Deployed PostgreSQL must be migrated to include `note_tag_overrides` before serving this version. Original GitHub and API capture tags, content hashes, revisions and embedding chunks remain unchanged; only the effective tag view changes. A 409 indicates the note tags changed in another tab and requires a detail reload. There is no content-repo write, new background worker, paid service, or live NOTES prompt activation.
+
+## Optional research report rollout (#104/#105)
+
+The merged code keeps report API/search/MCP retrieval off unless Render has
+`PCE_RESEARCH_REPORTS=true`. Existing authenticated sessions, database ownership,
+`PCE_DB_SEARCH=true` and the current MCP OAuth configuration remain required.
+Vercel additionally needs production-only `VITE_PCE_RESEARCH_REPORTS=true` and a
+new build to expose report detail/history/status. These flags contain no secrets.
+They do not start a worker or change OAuth scopes. The existing trusted local
+worker imports GitHub reports into the shared DB independently of hosted reads.
+
+During #105 actual browser acceptance, note capture and report DB import worked,
+but the hosted connector had no report reader because the Render flag was absent.
+The missing flags were added and current main redeployed on both providers.
+Actual PCE compatibility fetch then returned the report with correct parent,
+revision and generated-research type; the authenticated hosted web displayed
+research/history/status and source provenance separately from the original.
+Readiness was 200 and anonymous report access 401 with no-store. The client tool
+catalog still omitted the dedicated reader, so the supported fetch fallback was
+used. A DB row alone is not proof of deployed retrieval. Do not copy local
+credentials or enable preview deployments to fix it.
+Rollback sets the flags false and redeploys, retaining originals/report history.
 
 ## Verification and rollback
 
