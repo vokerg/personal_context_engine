@@ -140,6 +140,13 @@ export function App({
       : registry?.truncated
         ? "unverified"
         : "candidate");
+  const approvedObservedTags = useMemo(
+    () =>
+      registry
+        ? tags.tags.filter((tag) => statusOf(tag.slug) === "approved")
+        : [],
+    [registry, registrySlugs, observedStatuses, tags.tags],
+  );
   const [browseCursor, setBrowseCursor] = useState<string | undefined>();
   const [previousCursors, setPreviousCursors] = useState<
     Array<string | undefined>
@@ -702,6 +709,17 @@ export function App({
     }
   }
 
+  function toggleActivityApproval(slug: string) {
+    if (!registry) {
+      // Keep tag navigation usable while an older server has no registry
+      // endpoint. Once the registry is available, activity chips are the
+      // single approval control.
+      selectTag(slug);
+      return;
+    }
+    void changeApproval(slug, statusOf(slug) !== "approved");
+  }
+
   useEffect(() => {
     editEpoch.current += 1;
     setTagDraft("");
@@ -973,7 +991,7 @@ export function App({
               <p className="subtitle">
                 {browseEnabled
                   ? "Browse your notes by date, project, kind and tag. Search includes full note text and original input."
-                  : "Browse by observed tags, project and kind. Search titles and summaries within the returned notes."}
+                  : "Browse by approved tags, project and kind. Search titles and summaries within the returned notes."}
               </p>
             </div>
             <div className="filters" role="group" aria-label="Timeline filters">
@@ -1126,47 +1144,35 @@ export function App({
               {tagsState === "ready" && (
                 <>
                   {tags.tags.length === 0 && <p>No tags yet.</p>}
+                  {tags.tags.length > 0 &&
+                    approvedObservedTags.length === 0 && (
+                      <p>
+                        No approved tags yet. Pick one from a note activity to
+                        add it here.
+                      </p>
+                    )}
                   <div
                     className="tag-chips"
                     role="group"
-                    aria-label="Observed tags"
+                    aria-label="Approved tags"
                   >
-                    {tags.tags.map((tag) => (
+                    {approvedObservedTags.map((tag) => (
                       <span key={tag.slug} className="tag-pair">
                         <button
-                          className="tag-chip"
+                          className="tag-chip tag-chip-picked"
                           type="button"
                           aria-pressed={filters.tag === tag.slug}
-                          aria-label={`Filter by tag ${tag.slug}, ${tag.count} notes`}
-                          title={
-                            registry
-                              ? `Tag status: ${statusOf(tag.slug)}`
-                              : undefined
-                          }
+                          aria-label={`Filter by approved tag ${tag.slug}, ${tag.count} notes`}
+                          title="Approved tag"
                           onClick={() =>
                             selectTag(filters.tag === tag.slug ? "" : tag.slug)
                           }
                         >
+                          <span aria-hidden="true" className="tag-check">
+                            ✓
+                          </span>
                           {tag.slug} <span aria-hidden="true">{tag.count}</span>
                         </button>
-                        {registry && (
-                          <span
-                            className={`tag-status tag-status-${statusOf(tag.slug)}`}
-                          >
-                            {statusOf(tag.slug)}
-                          </span>
-                        )}
-                        {registry && statusOf(tag.slug) !== "approved" && (
-                          <button
-                            className="ghost tag-action"
-                            type="button"
-                            aria-label={`Approve tag ${tag.slug}`}
-                            disabled={registryBusy !== null}
-                            onClick={() => void changeApproval(tag.slug, true)}
-                          >
-                            Approve
-                          </button>
-                        )}
                       </span>
                     ))}
                   </div>
@@ -1212,16 +1218,14 @@ export function App({
                         token={token}
                         useSessionCookie={sessionAuthentication}
                         registry={registry}
-                        busy={registryBusy !== null}
                         selectTag={selectTag}
-                        unapprove={(slug) => void changeApproval(slug, false)}
                       />
                     </section>
                   )}
                   {tags.truncated && (
                     <p role="status">
-                      Showing the first 200 tags. Note chips can select other
-                      observed tags.
+                      Showing the first 200 observed tags. Candidate tags stay
+                      on note activities until picked.
                     </p>
                   )}
                 </>
@@ -1349,12 +1353,44 @@ export function App({
                               >
                                 {note.tags.map((tag) => (
                                   <button
-                                    className="tag-chip"
+                                    className={`tag-chip tag-chip-activity${registry && statusOf(tag) === "approved" ? " tag-chip-picked" : ""}`}
                                     type="button"
                                     key={tag}
-                                    aria-pressed={filters.tag === tag}
-                                    onClick={() => selectTag(tag)}
+                                    aria-pressed={
+                                      registry
+                                        ? statusOf(tag) === "approved"
+                                        : filters.tag === tag
+                                    }
+                                    aria-label={
+                                      registry
+                                        ? statusOf(tag) === "approved"
+                                          ? `Unpick approved tag ${tag}`
+                                          : `Pick tag ${tag} to approve`
+                                        : `Filter by tag ${tag}`
+                                    }
+                                    title={
+                                      registry
+                                        ? `Tag status: ${statusOf(tag)}`
+                                        : undefined
+                                    }
+                                    disabled={
+                                      registry ? registryBusy !== null : false
+                                    }
+                                    onClick={() =>
+                                      registry
+                                        ? toggleActivityApproval(tag)
+                                        : selectTag(tag)
+                                    }
                                   >
+                                    {registry &&
+                                      statusOf(tag) === "approved" && (
+                                        <span
+                                          aria-hidden="true"
+                                          className="tag-check"
+                                        >
+                                          ✓
+                                        </span>
+                                      )}
                                     {tag}
                                   </button>
                                 ))}
@@ -1464,16 +1500,39 @@ export function App({
                         {detail.tags.map((tag) => (
                           <span className="tag-pair" key={tag}>
                             <button
-                              className="tag-chip"
+                              className={`tag-chip tag-chip-activity${registry && statusOf(tag) === "approved" ? " tag-chip-picked" : ""}`}
                               type="button"
                               title={
                                 registry
                                   ? `Tag status: ${statusOf(tag)}`
                                   : undefined
                               }
-                              aria-pressed={filters.tag === tag}
-                              onClick={() => selectTag(tag)}
+                              aria-pressed={
+                                registry
+                                  ? statusOf(tag) === "approved"
+                                  : filters.tag === tag
+                              }
+                              aria-label={
+                                registry
+                                  ? statusOf(tag) === "approved"
+                                    ? `Unpick approved tag ${tag}`
+                                    : `Pick tag ${tag} to approve`
+                                  : `Filter by tag ${tag}`
+                              }
+                              disabled={
+                                registry ? registryBusy !== null : false
+                              }
+                              onClick={() =>
+                                registry
+                                  ? toggleActivityApproval(tag)
+                                  : selectTag(tag)
+                              }
                             >
+                              {registry && statusOf(tag) === "approved" && (
+                                <span aria-hidden="true" className="tag-check">
+                                  ✓
+                                </span>
+                              )}
                               {tag}
                             </button>
                             <span className="tag-status">
@@ -1484,17 +1543,6 @@ export function App({
                                   : "source"}
                               {registry ? ` · ${statusOf(tag)}` : ""}
                             </span>
-                            {registry && statusOf(tag) !== "approved" && (
-                              <button
-                                className="ghost tag-action"
-                                type="button"
-                                aria-label={`Approve note tag ${tag}`}
-                                disabled={registryBusy !== null}
-                                onClick={() => void changeApproval(tag, true)}
-                              >
-                                Approve
-                              </button>
-                            )}
                             {detail.tagEditing && (
                               <button
                                 className="ghost tag-action"

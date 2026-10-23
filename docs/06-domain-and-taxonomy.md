@@ -80,7 +80,7 @@ The original Markdown v1 `tags` array on each Note remains a **source fact**; at
 
 Under a verified session with `tags:write`, `PATCH /api/v1/notes/:id/tags` accepts `{ "operation": "add" | "remove", "slug": "lowercase-tag", "expectedRevision": 0 }`. It returns the current effective `tags`, `changed`, and `tagEditing` (`sourceTags`, `manualAdded`, `manualRemoved`, `revision`). `GET /api/v1/notes/:id` and the search detail route also expose `tagEditing` when served by the DB reader; legacy clients can ignore it. A stale revision returns 409 `CONFLICT` without changing tags; the UI reloads the note before the owner retries. Missing/foreign-owner notes both return 404. Slugs must match the existing Markdown grammar; no per-note free-text fields, cross-owner selection, side effects or silent global approval. Cookie writes require the existing origin/CSRF checks, bearer writes require `tags:write`.
 
-Owner-scoped catalog counts, observed-tag facets, the timeline/browse tag filter, note detail and hybrid search tag filters resolve **effective tags**, including API-only notes. The approved/candidate label still comes exclusively from the separate owner registry (#99); attaching an unapproved tag does not approve it. When the optional GitHub taxonomy exporter (#100) is unavailable, manual per-note editing remains functional. The note detail UI accepts a valid free-form slug or a suggestion from the observed/approved catalogs and exposes separate Remove / Approve / Filter actions. Source `tags` continue to be used when parsing, importing, recovering and refreshing original text embeddings.
+Owner-scoped catalog counts, observed-tag facets, the timeline/browse tag filter, note detail and hybrid search tag filters resolve **effective tags**, including API-only notes. The approved/candidate label still comes exclusively from the separate owner registry (#99); attaching an unapproved tag does not approve it. When the optional GitHub taxonomy exporter (#100) is unavailable, manual per-note editing remains functional. The note detail UI accepts a valid free-form slug or a suggestion from the observed/approved catalogs and exposes a separate Remove action. Activity tag chips are the approval control: clicking a candidate chip picks it into the owner registry, and clicking a picked chip unpicks it while preserving the note tag. Approved observed tags alone appear in the compact global tag browser and remain clickable filter chips. Source `tags` continue to be used when parsing, importing, recovering and refreshing original text embeddings.
 
 Operational limits: existing response contracts bound a note to 100 effective slugs and observed catalogs to 200 entries. A truncated catalog is **not** proof that a slug is unknown. The initial UI does not provide tag undo history beyond reversible add/remove or full server-side catalog search; local agent/mobile accessibility acceptance is deferred to the combined feature check. No special ChatGPT Project prompt or GitHub write permission is required for manual editing.
 
@@ -184,7 +184,7 @@ authorized by this research.
 
 ## Owner-approved candidate/approved tags and manual edits (D-025; #99, #103, #100)
 
-**Accepted product behavior (2026-10-21), implementation pending.** Each note's
+**Accepted product behavior (2026-10-21; web interaction implemented in #112).** Each note's
 original Markdown v1 `tags` list is source classification, **not** an approved
 vocabulary. A tag is **approved** only when its slug is present in the
 owner-scoped PostgreSQL registry; other observed/LLM-suggested slugs are
@@ -192,11 +192,14 @@ owner-scoped PostgreSQL registry; other observed/LLM-suggested slugs are
 slugs over inventing many single-use labels. Approved status is an owner
 decision, never an LLM self-promotion and never authorization to execute tasks.
 
-The UI must support (a) clicking tag text to filter notes, (b) a distinct
-one-click action to promote a candidate into the registry, and (c) attaching
-and detaching tags on a specific note, including free-form newly added tags,
-without implicitly approving them globally. Removing a tag from one note does
-not delete it from the registry or other notes.
+The web UI keeps the global tag browser to approved observed tags only. A
+candidate remains visible on the activity/note carrying it; clicking that chip
+promotes it into the owner registry and shows a check mark plus pressed state.
+Clicking the same picked chip unpicks it through the same owner-scoped API
+without removing the note tag. Approved global chips remain clickable filters.
+Attaching a tag to a specific note, including a free-form newly added tag, does
+not implicitly approve it. Removing a tag from one note does not delete it from
+the registry or other notes.
 
 Preserve GitHub-sourced original text, file hash, historical slugs and
 provenance: manual attach/detach is a database-side **effective-tag override**

@@ -183,7 +183,7 @@ describe("manual note tags", () => {
       ),
     ).toBe(true);
     expect(
-      container.querySelector('[aria-label="Approve note tag manual-tag"]'),
+      container.querySelector('[aria-label="Pick tag manual-tag to approve"]'),
     ).not.toBeNull();
     await click("Remove tag source-tag from this note");
     expect(writes[1]).toEqual({

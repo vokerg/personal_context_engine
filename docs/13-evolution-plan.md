@@ -53,7 +53,7 @@ replication path is authorized.
 
 | Sequence | Issue | Intended behavior |
 | --- | --- | --- |
-| 1 | #99 | Owner-scoped approved-tag registry; raw per-note tags remain candidates unless already approved; zero tags valid; approval is a distinct UI action |
+| 1 | #99 | Owner-scoped approved-tag registry; raw per-note tags remain candidates unless already approved; zero tags valid; activity chips are the approval control and approved global chips remain filters |
 | 2 | #103 | Manual attach/detach tags to a specific note in the DB via effective-tag overrides; retain immutable GitHub original and reflect effective tags in filters/search |
 | 3 | #100 | Optional approved-tag-only private GitHub snapshot, exported by an **additional durable job handler in the existing worker** (not a new service), coalesced/hash-deduplicated, removable by flag; implement private repo guidance |
 | 4 | #104 | **Ordinary interactive ChatGPT research** only when directly requested; MUST use PCE MCP search/read for related notes, optionally ordinary web research, persist a separate sourced/versioned ResearchReport via private GitHub ingress and DB; existing worker imports/indexes, never researches; implement private repo contract |

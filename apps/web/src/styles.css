@@ -85,6 +85,11 @@ select:focus-visible { outline: 3px solid #417ec7; outline-offset: 2px; }
 .tag-chip { border: 1px solid #b7cbd9; border-radius: 18px; padding: 5px 11px; color: #204d70; background: #f2f7fa; overflow-wrap: anywhere; max-width: 100%; }
 .tag-chip:hover { background: #e1eef6; }
 .tag-chip[aria-pressed="true"] { background: #204d70; border-color: #204d70; color: white; }
+.tag-chip-activity { border-style: dashed; }
+.tag-chip-picked { background: #e6f4ec; border-color: #4b9b6b; color: #225b39; font-weight: 650; }
+.tag-chip-picked:hover { background: #d6eddf; }
+.tag-chip-picked[aria-pressed="true"] { background: #204d70; border-color: #204d70; color: white; }
+.tag-check { display: inline-block; margin-right: 4px; font-weight: 800; }
 .tag-chip span { margin-left: 4px; font-size: .8em; }
 .note-tags { padding: 0 24px 12px; margin: 0; }
 .share-hint { color: #5b6d7b; font-size: .8rem; }
@@ -98,7 +103,7 @@ select:focus-visible { outline: 3px solid #417ec7; outline-offset: 2px; }
 summary { cursor: pointer; font-weight: 650; margin-top: 16px; }
 @media (max-width: 920px) { .has-selection .timeline-panel { display: none; } }
 
-/* Approval is an independent action; tag-chip itself always navigates. */
+/* Activity chips are the compact control for picking an approved tag. */
 .tag-pair { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 3px; max-width: 100%; }
 .tag-action { font-size: .76rem; padding: 4px 7px; }
 .tag-status { font-size: .72rem; color: #516675; white-space: nowrap; }

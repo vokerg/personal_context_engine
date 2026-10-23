@@ -108,11 +108,13 @@ replaced with synthetic adapters; this is not a reasoning-model or voice test.
 Existing OAuth tests separately cover PKCE, scopes, refresh/revoke and consent.
 
 Browser catalog acceptance used the isolated synthetic fixture below: keyboard
-paging reached page five (entries beyond 200), full-catalog search found the final
-entry and keyboard unapproval removed it. At 390×844 the page width remained 390
-pixels, with explicit approved/candidate text. Mobile note detail added and removed
-a manual candidate tag independently of source tags. This is local browser
-verification, not real-user voice acceptance.
+paging reached page five (entries beyond 200) and full-catalog search found the
+final entry. The current web interaction keeps candidates out of the global
+browser, uses activity chips as the approval control, and renders a check mark
+and pressed state after picking; no separate unapproval button is rendered.
+At 390×844 the page width remained 390 pixels. Mobile note detail added and
+removed a manual candidate tag independently of source tags. This is local
+browser verification, not real-user voice acceptance.
 
 The two new synthetic notes and one linked report are temporarily retained for
 owner review; no personal originals or approved tags were edited by these checks.
