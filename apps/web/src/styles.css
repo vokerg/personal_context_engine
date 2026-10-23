@@ -106,11 +106,9 @@ summary { cursor: pointer; font-weight: 650; margin-top: 16px; }
 /* Activity chips are the compact control for picking an approved tag. */
 .tag-pair { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 3px; max-width: 100%; }
 .tag-action { font-size: .76rem; padding: 4px 7px; }
-.tag-status { font-size: .72rem; color: #516675; white-space: nowrap; }
+.tag-remove { min-width: 28px; padding-inline: 6px; font-size: 1rem; line-height: 1; }
 .tag-browser section[aria-label="Approved tag vocabulary"] { border-top: 1px solid #e7edf2; margin: 15px 0; padding-top: 15px; }
 .tag-browser #catalog-query { display: block; max-width: 340px; margin: 6px 0 12px; }
 
 .approved-catalog h5:focus-visible { outline: 3px solid #417ec7; outline-offset: 2px; }
 .approved-catalog { min-width: 0; }
-.tag-status-candidate { color: #805b18; }
-.tag-status-unverified { color: #536473; }

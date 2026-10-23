@@ -159,11 +159,9 @@ afterEach(async () => {
 });
 
 describe("manual note tags", () => {
-  it("adds free-form candidates, removes per-note source tags, and never approves a slug implicitly", async () => {
+  it("adds free-form candidates, keeps note chips compact, removes per-note source tags, and never approves a slug implicitly", async () => {
     await connectAndOpen();
-    expect(
-      container.querySelector(".detail-panel .tag-status")?.textContent,
-    ).toContain("source · candidate");
+    expect(container.querySelector(".detail-panel .tag-status")).toBeNull();
     expect(container.textContent).toContain("Add a tag to this note");
     await fill("new-note-tag", "manual-tag");
     await click("Add tag");
@@ -177,11 +175,12 @@ describe("manual note tags", () => {
         '[aria-label="Remove tag manual-tag from this note"]',
       ),
     ).not.toBeNull();
+    expect(container.querySelector(".detail-panel .tag-status")).toBeNull();
     expect(
-      [...container.querySelectorAll(".detail-panel .tag-status")].some(
-        (status) => status.textContent?.includes("manual · candidate"),
-      ),
-    ).toBe(true);
+      container.querySelector(
+        '[aria-label="Remove tag manual-tag from this note"]',
+      )?.textContent,
+    ).toBe("−");
     expect(
       container.querySelector('[aria-label="Pick tag manual-tag to approve"]'),
     ).not.toBeNull();

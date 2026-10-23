@@ -1552,23 +1552,16 @@ export function App({
                               )}
                               {tag}
                             </button>
-                            <span className="tag-status">
-                              {detail.tagEditing?.sourceTags.includes(tag)
-                                ? "source"
-                                : detail.tagEditing
-                                  ? "manual"
-                                  : "source"}
-                              {registry ? ` · ${statusOf(tag)}` : ""}
-                            </span>
                             {detail.tagEditing && (
                               <button
-                                className="ghost tag-action"
+                                className="ghost tag-action tag-remove"
                                 type="button"
                                 aria-label={`Remove tag ${tag} from this note`}
+                                title={`Remove tag ${tag} from this note`}
                                 disabled={tagEditBusy}
                                 onClick={() => void editNoteTag("remove", tag)}
                               >
-                                Remove
+                                <span aria-hidden="true">−</span>
                               </button>
                             )}
                           </span>
