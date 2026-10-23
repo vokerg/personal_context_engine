@@ -52,6 +52,19 @@ test("session issuance checks Host, Origin, fetch metadata, method and peer", ()
     ),
     true,
   );
+  assert.equal(
+    sessionAllowed(
+      {
+        ...request,
+        headers: {
+          ...request.headers,
+          host: "localhost:4310",
+        },
+      },
+      [origin, "http://localhost:4310"],
+    ),
+    false,
+  );
   for (const headers of [
     { host: "evil.test:4310" },
     { origin: "http://evil.test" },

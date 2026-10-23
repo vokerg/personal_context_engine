@@ -281,13 +281,13 @@ export function sessionAllowed(request, origins) {
   const allowedOrigins = (Array.isArray(origins) ? origins : [origins]).map(
     (value) => new URL(value).origin,
   );
+  const hostOrigin = allowedOrigins.find(
+    (value) => new URL(value).host === request.headers.host,
+  );
   return (
     request.method === "GET" &&
-    allowedOrigins.some(
-      (value) => request.headers.host === new URL(value).host,
-    ) &&
-    (!request.headers.origin ||
-      allowedOrigins.includes(request.headers.origin)) &&
+    hostOrigin !== undefined &&
+    (!request.headers.origin || request.headers.origin === hostOrigin) &&
     [undefined, "same-origin", "none"].includes(
       request.headers["sec-fetch-site"],
     ) &&
