@@ -90,7 +90,7 @@ npm ci
 PCE_AUTH_MODE=dev-single-user PCE_DB_SEARCH=true npm run dev:local
 ```
 
-Open `http://127.0.0.1:4310`. The local web session connects automatically;
+Open `http://127.0.0.1:4310` or `http://localhost:4310`. The local web session connects automatically on either loopback alias;
 no manually generated JWT is needed. The launcher builds the workspaces,
 applies migrations using `DIRECT_URL` when configured (runtime queries retain
 `DATABASE_URL`) and imports valid Markdown from the content checkout

@@ -35,12 +35,18 @@ export function localConfig(env) {
   const apiPort = port(env.API_PORT, 3110);
   const webPort = port(env.PCE_WEB_PORT, 4310);
   if (apiPort === webPort) throw new Error("API and web ports must differ.");
+  const origins = [
+    `http://127.0.0.1:${webPort}`,
+    `http://localhost:${webPort}`,
+  ];
   return {
     apiPort,
     webPort,
-    browseEnabled: env.PCE_LOCAL_BROWSE === "true" || env.PCE_DB_SEARCH === "true",
+    browseEnabled:
+      env.PCE_LOCAL_BROWSE === "true" || env.PCE_DB_SEARCH === "true",
     searchEnabled: env.PCE_DB_SEARCH === "true",
-    origin: `http://127.0.0.1:${webPort}`,
+    origin: origins[0],
+    origins,
     contentRoot: resolve(
       env.PCE_CONTENT_ROOT ?? "../personal_context_engine_content",
     ),
@@ -271,11 +277,17 @@ export function mintSession(secret, now = Math.floor(Date.now() / 1000)) {
   );
 }
 
-export function sessionAllowed(request, origin) {
+export function sessionAllowed(request, origins) {
+  const allowedOrigins = (Array.isArray(origins) ? origins : [origins]).map(
+    (value) => new URL(value).origin,
+  );
   return (
     request.method === "GET" &&
-    request.headers.host === new URL(origin).host &&
-    (!request.headers.origin || request.headers.origin === origin) &&
+    allowedOrigins.some(
+      (value) => request.headers.host === new URL(value).host,
+    ) &&
+    (!request.headers.origin ||
+      allowedOrigins.includes(request.headers.origin)) &&
     [undefined, "same-origin", "none"].includes(
       request.headers["sec-fetch-site"],
     ) &&

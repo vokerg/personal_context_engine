@@ -129,7 +129,10 @@ describe("public API boundary", () => {
   });
 
   it("allows configured CORS origins and GET preflights", async () => {
-    const config = loadApiConfig({ API_CORS_ORIGIN: "http://127.0.0.1:4200" });
+    const config = {
+      ...loadApiConfig({ API_CORS_ORIGIN: "http://127.0.0.1:4200" }),
+      corsOrigins: ["http://127.0.0.1:4200", "http://localhost:4200"],
+    };
     const app = createApp({ config });
     try {
       const accepted = await app.inject({
@@ -139,6 +142,14 @@ describe("public API boundary", () => {
       });
       expect(accepted.headers["access-control-allow-origin"]).toBe(
         "http://127.0.0.1:4200",
+      );
+      const localhost = await app.inject({
+        method: "GET",
+        url: "/health",
+        headers: { origin: "http://localhost:4200" },
+      });
+      expect(localhost.headers["access-control-allow-origin"]).toBe(
+        "http://localhost:4200",
       );
       const rejected = await app.inject({
         method: "GET",

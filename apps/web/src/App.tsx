@@ -63,7 +63,8 @@ const initialFilters = emptyFilters;
  */
 export function App({
   localDevelopment = import.meta.env.VITE_PCE_LOCAL_DEV === "true",
-  baseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:3000",
+  baseUrl: configuredBaseUrl = import.meta.env.VITE_API_BASE_URL ??
+    "http://127.0.0.1:3000",
   browseEnabled = import.meta.env.VITE_PCE_LOCAL_BROWSE === "true",
   searchEnabled = import.meta.env.VITE_PCE_DB_SEARCH === "true",
   researchEnabled = import.meta.env.VITE_PCE_RESEARCH_REPORTS === "true",
@@ -74,6 +75,22 @@ export function App({
   searchEnabled?: boolean;
   researchEnabled?: boolean;
 }) {
+  const baseUrl = useMemo(() => {
+    if (!localDevelopment || typeof window === "undefined")
+      return configuredBaseUrl;
+    try {
+      const api = new URL(configuredBaseUrl);
+      const browserHost = window.location.hostname;
+      if (
+        ["localhost", "127.0.0.1"].includes(browserHost) &&
+        ["localhost", "127.0.0.1"].includes(api.hostname)
+      )
+        api.hostname = browserHost;
+      return api.origin;
+    } catch {
+      return configuredBaseUrl;
+    }
+  }, [configuredBaseUrl, localDevelopment]);
   const sessionAuthentication =
     import.meta.env.VITE_PCE_SESSION_AUTH === "true";
   const [username, setUsername] = useState("");

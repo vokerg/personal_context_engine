@@ -63,6 +63,7 @@ try {
   const { createDatabaseClient, checkDatabase } = await import("@pce/db");
   const { createSessionAuth, sessionConfig } = await import("../apps/api/dist/session-auth.js");
   const sessionOptions = sessionConfig({...process.env,PCE_WEB_ORIGIN:config.origin,PCE_API_ORIGIN:`http://127.0.0.1:${config.apiPort}`});
+  if (sessionOptions) sessionOptions.allowedOrigins = config.origins;
   const { createApp } = await import("../apps/api/dist/app.js");
   const { createServer: createVite } = await import("vite");
   db = createDatabaseClient();
@@ -96,6 +97,7 @@ try {
       port: config.apiPort,
       environment: "development",
       corsOrigin: config.origin,
+      corsOrigins: config.origins,
       requiresDatabase: true,
       auth: { issuer, audience, secret },
     },
@@ -141,7 +143,7 @@ try {
               return next();
             res.setHeader("Cache-Control", "no-store");
             res.setHeader("X-Content-Type-Options", "nosniff");
-            if (!sessionAllowed(req, config.origin)) {
+            if (!sessionAllowed(req, config.origins)) {
               res.statusCode = 403;
               res.end();
               return;

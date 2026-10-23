@@ -20,6 +20,10 @@ test("local startup rejects production, network binding, missing DB and conflict
   ])
     assert.throws(() => localConfig(env));
   assert.equal(localConfig({ DATABASE_URL: "fake" }).apiPort, 3110);
+  assert.deepEqual(localConfig({ DATABASE_URL: "fake" }).origins, [
+    "http://127.0.0.1:4310",
+    "http://localhost:4310",
+  ]);
 });
 
 test("session issuance checks Host, Origin, fetch metadata, method and peer", () => {
@@ -34,6 +38,20 @@ test("session issuance checks Host, Origin, fetch metadata, method and peer", ()
     socket: { remoteAddress: "127.0.0.1" },
   };
   assert.equal(sessionAllowed(request, origin), true);
+  assert.equal(
+    sessionAllowed(
+      {
+        ...request,
+        headers: {
+          ...request.headers,
+          host: "localhost:4310",
+          origin: "http://localhost:4310",
+        },
+      },
+      [origin, "http://localhost:4310"],
+    ),
+    true,
+  );
   for (const headers of [
     { host: "evil.test:4310" },
     { origin: "http://evil.test" },

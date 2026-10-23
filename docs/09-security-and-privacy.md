@@ -155,7 +155,8 @@ bounded verification primitive, not a production authentication launch.
 ## Explicit local workspace boundary (#38)
 
 `npm run dev:local` is a separate development entry point, rejected outside
-`NODE_ENV=development`, with API/web bound to `127.0.0.1`. It mints
+`NODE_ENV=development`, with API/web bound to `127.0.0.1`. The local web
+session accepts the equivalent `localhost` browser alias as well. It mints
 15-minute local sessions using an ephemeral signing key held only in the
 launcher process. The same-origin session endpoint validates Host, Origin,
 fetch-site metadata and the loopback peer. Tokens are returned with

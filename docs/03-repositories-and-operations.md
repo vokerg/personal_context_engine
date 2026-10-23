@@ -296,7 +296,9 @@ Required: `DATABASE_URL` in ignored root `.env`. Optional:
 `API_PORT` (default 3110), `PCE_WEB_PORT` (default 4310).
 An existing `API_PORT` in `.env` takes precedence. Ports must be free;
 stop earlier API/web instances before running. The API and web listen only
-on `127.0.0.1`. Open the printed web URL using that exact hostname.
+on `127.0.0.1`. Open the printed web URL using either `127.0.0.1` or
+`localhost`; both loopback aliases are accepted by the local session and API
+CORS checks.
 Ctrl-C stops both services. Ordinary `npm run dev`, the worker and Expo
 remain unchanged; they do not acquire local workspace credentials.
 
@@ -304,7 +306,7 @@ The web obtains a 15-minute `notes:read` session automatically from its
 same-origin development server. Clear session removes it from memory;
 Connect local workspace obtains another. No token or signing key is
 written to disk or browser storage. Restart generates a new server key.
-The session endpoint rejects alternate Host/Origin, cross-site requests,
+The session endpoint rejects non-loopback Host/Origin, cross-site requests,
 non-loopback peers and non-GET methods. This assumes a trusted local OS
 account and browser; it is not a hosted login solution.
 
