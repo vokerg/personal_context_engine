@@ -167,5 +167,5 @@ research then saved/imported a linked report. The first hosted report lookup
 revealed the absent Render feature flag; after configuring/redeploying the
 existing report feature, actual PCE compatibility fetch returned correct report
 identity, parent/revision, generated content type and READY status. The client
-cache still omitted `get_research`, so the supported `fetch` fallback was used.
+tool catalog still omitted `get_research`, so the supported `fetch` fallback was used.
 See [the final integration runbook](12-chatgpt-project.md) for remaining acceptance.
