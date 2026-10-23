@@ -11,7 +11,13 @@ describe("public API boundary", () => {
       expect(ready.statusCode).toBe(200);
       expect(ready.json()).toEqual({ status: "ready" });
       expect((await app.inject("/api/v1")).json()).toEqual({ version: "v1" });
-      for (const path of ["/api/v1/notes", "/api/v1/notes/private-id"]) {
+      for (const path of [
+        "/api/v1/notes",
+        "/api/v1/notes/private-id",
+        "/api/v1/research/reports",
+        "/api/v1/research/reports/11111111-1111-4111-8111-111111111111",
+        "/api/v1/notes/11111111-1111-4111-8111-111111111111/research",
+      ]) {
         const response = await app.inject(path);
         expect(response.statusCode).toBe(404);
         expect(response.json()).toEqual({ error: { code: "NOT_FOUND" } });

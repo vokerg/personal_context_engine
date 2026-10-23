@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { loadApiConfig } from "./config.js";
+import { loadApiConfig, researchReportsEnabled } from "./config.js";
 
 describe("API environment validation", () => {
+  it("fails closed for research report routes unless explicitly enabled", () => {
+    expect(researchReportsEnabled({})).toBe(false);
+    expect(researchReportsEnabled({ PCE_RESEARCH_REPORTS: "false" })).toBe(
+      false,
+    );
+    expect(researchReportsEnabled({ PCE_RESEARCH_REPORTS: "true" })).toBe(true);
+    for (const bad of ["TRUE", "1", "on", ""]) {
+      expect(() =>
+        researchReportsEnabled({ PCE_RESEARCH_REPORTS: bad }),
+      ).toThrow(/PCE_RESEARCH_REPORTS/);
+    }
+  });
+
   it("defaults to loopback with no mandatory dependencies or CORS", () => {
     expect(loadApiConfig({})).toEqual({
       host: "127.0.0.1",

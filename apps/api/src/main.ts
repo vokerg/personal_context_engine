@@ -12,15 +12,17 @@ import {
   createApiCaptureRepository,
   createTagRegistryRepository,
   createNoteTagRepository,
+  createResearchRepository,
 } from "@pce/db";
 import { createApp } from "./app.js";
-import { loadApiConfig } from "./config.js";
+import { loadApiConfig, researchReportsEnabled } from "./config.js";
 
 async function start(): Promise<void> {
   let app: ReturnType<typeof createApp> | undefined;
   let db: ReturnType<typeof createDatabaseClient> | undefined;
   try {
     const config = loadApiConfig();
+    const enableResearchReports = researchReportsEnabled(process.env);
     if (config.requiresDatabase) {
       // Never start an API with mandatory DB configuration without a live DB.
       db = createDatabaseClient();
@@ -41,6 +43,8 @@ async function start(): Promise<void> {
       throw new Error("Search requires configured sessions");
     if (sessionOptions && !connected)
       throw new Error("Sessions require a database");
+    if (enableResearchReports && (!sessionOptions || !connected))
+      throw new Error("Research reports require configured database sessions");
     app = createApp({
       config: {
         ...config,
@@ -63,6 +67,9 @@ async function start(): Promise<void> {
                 ? {
                     sessionAuth: createSessionAuth(connected, sessionOptions),
                     capture: createApiCaptureRepository(connected),
+                    ...(enableResearchReports
+                      ? { research: createResearchRepository(connected) }
+                      : {}),
                     tagRegistry: createTagRegistryRepository(connected),
                     ...(process.env.PCE_DB_SEARCH === "true"
                       ? {
