@@ -1,6 +1,6 @@
 # 20 — Ordinary PCE-grounded research capture
 
-**D-026 accepted 2026-10-21. Partial foundation implemented on feature branch for #104; end-to-end flow NOT shipped.**
+**D-026 accepted 2026-10-21. Partial foundation implemented under #104; end-to-end flow NOT shipped.**
 Owner issue [#104](https://github.com/vokerg/personal_context_engine/issues/104).
 [Tag governance](06-domain-and-taxonomy.md) and [Project integration](12-chatgpt-project.md)
 are separate dependencies. This document specifies boundaries, the first executable report schema/DB API,
@@ -151,7 +151,7 @@ summary and content hash are never changed by a report save.
 | `GET /api/v1/research/reports/:id` | `notes:read` | Owner-filtered report and immutable historical evidence |
 | `GET /api/v1/notes/:id/research` | `notes:read` | Owner-filtered list of up to 100 reports, or 404 for unknown/unowned note |
 
-POST returns `DB_PERSISTED`, report/note IDs, revision,
+**Default disabled:** `PCE_RESEARCH_REPORTS=false` (or unset) does not\nregister these routes. Set `PCE_RESEARCH_REPORTS=true` only with configured\nauthenticated database sessions when deliberately exercising this foundation.\nThis setting does **not** activate GitHub research ingestion, indexing,\nChatGPT capture instructions, or the complete user-facing research workflow.\nInvalid values fail API startup validation.\n\nPOST returns `DB_PERSISTED`, report/note IDs, revision,
 `replayed`, and **`indexing: NOT_INDEXED`**. This explicitly indicates
 report persistence without claiming that a semantic/lexical research
 index exists yet. A document containing PCE context that was not retrieved
