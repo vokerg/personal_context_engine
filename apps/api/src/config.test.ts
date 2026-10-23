@@ -4,12 +4,14 @@ import { loadApiConfig, researchReportsEnabled } from "./config.js";
 describe("API environment validation", () => {
   it("fails closed for research report routes unless explicitly enabled", () => {
     expect(researchReportsEnabled({})).toBe(false);
-    expect(researchReportsEnabled({ PCE_RESEARCH_REPORTS: "false" })).toBe(false);
+    expect(researchReportsEnabled({ PCE_RESEARCH_REPORTS: "false" })).toBe(
+      false,
+    );
     expect(researchReportsEnabled({ PCE_RESEARCH_REPORTS: "true" })).toBe(true);
     for (const bad of ["TRUE", "1", "on", ""]) {
-      expect(() => researchReportsEnabled({ PCE_RESEARCH_REPORTS: bad })).toThrow(
-        /PCE_RESEARCH_REPORTS/,
-      );
+      expect(() =>
+        researchReportsEnabled({ PCE_RESEARCH_REPORTS: bad }),
+      ).toThrow(/PCE_RESEARCH_REPORTS/);
     }
   });
 
