@@ -180,3 +180,16 @@ summary { cursor: pointer; font-weight: 650; margin-top: 16px; }
 
 .approved-catalog h5:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .approved-catalog { min-width: 0; }
+
+.note-tag-add-row { display: flex; align-items: start; gap: 8px; margin: 8px 0; }
+.note-tag-add-row > .secondary { flex-shrink: 0; }
+.note-tag-picker { flex: 1; min-width: 0; position: relative; }
+.note-tag-input { position: relative; }
+.note-tag-input input { padding-right: 36px; }
+.tag-picker-toggle { position: absolute; right: 1px; top: 1px; bottom: 1px; width: 34px; border: 0; border-radius: 0 7px 7px 0; background: var(--surface); color: var(--text-soft); }
+.tag-picker-menu { display: flex; flex-direction: column; max-height: 248px; position: absolute; z-index: 5; top: calc(100% + 4px); width: 100%; background: var(--surface); border: 1px solid var(--field-border); border-radius: 8px; box-shadow: 0 6px 18px var(--shadow); overflow: hidden; }
+.tag-picker-menu [role="listbox"] { min-height: 0; max-height: 210px; overflow-y: auto; }
+.tag-picker-menu [role="option"] { display: block; width: 100%; padding: 8px 12px; border: 0; text-align: left; background: var(--surface); color: var(--text); overflow-wrap: anywhere; }
+.tag-picker-menu [role="option"]:hover, .tag-picker-menu [aria-selected="true"] { background: var(--selected); }
+.tag-picker-menu p { flex-shrink: 0; padding: 8px 12px; margin: 0; color: var(--muted); font-size: .8rem; }
+.tag-picker-menu .tag-picker-hint { border-top: 1px solid var(--divider); }

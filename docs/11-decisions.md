@@ -474,3 +474,7 @@ immediate. Registry changes remain durable and coalesced; snapshot hints may
 lag an hour plus runtime delays. Process restarts reset the cooldown, and
 existing outbox/hash deduplication remains authoritative. See the
 [tag snapshot runbook](21-tag-snapshot.md) for retry and operational limits.
+
+**Owner follow-up under #118:** the note editor suggests approved tags only
+through a compact dropdown (at most six matches), excluding already attached
+tags. Explicit new-tag entry remains available without implicit approval.

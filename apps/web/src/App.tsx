@@ -1,3 +1,4 @@
+import { NoteTagPicker } from "./NoteTagPicker.js";
 import { ResearchPanel } from "./ResearchPanel.js";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
@@ -1536,30 +1537,17 @@ export function App({
                         <label htmlFor="new-note-tag">
                           Add a tag to this note
                         </label>
-                        <div className="tag-chips">
-                          <input
-                            id="new-note-tag"
+                        <div className="note-tag-add-row">
+                          <NoteTagPicker
                             value={tagDraft}
-                            onChange={(event) =>
-                              setTagDraft(event.target.value)
-                            }
-                            maxLength={64}
-                            list="note-tag-options"
-                            placeholder="lowercase-tag"
+                            onChange={setTagDraft}
                             disabled={tagEditBusy}
-                            aria-describedby="tag-edit-help"
+                            attached={detail.tags ?? []}
+                            baseUrl={baseUrl}
+                            token={token}
+                            useSessionCookie={sessionAuthentication}
+                            revision={registry?.revision}
                           />
-                          <datalist id="note-tag-options">
-                            {[
-                              ...new Set([
-                                ...tags.tags.map((tag) => tag.slug),
-                                ...(registry?.approved.map((tag) => tag.slug) ??
-                                  []),
-                              ]),
-                            ].map((slug) => (
-                              <option key={slug} value={slug} />
-                            ))}
-                          </datalist>
                           <button
                             type="button"
                             className="secondary"
@@ -1572,9 +1560,8 @@ export function App({
                           </button>
                         </div>
                         <p className="subtitle" id="tag-edit-help">
-                          Attaching a tag affects only this note. Approve it
-                          separately to add it to your vocabulary; the original
-                          capture is unchanged.
+                          Choose an approved tag or type a new one. New tags
+                          stay candidates until approved.
                         </p>
                         {tagEditError && (
                           <p className="error" role="alert">

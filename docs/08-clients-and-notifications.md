@@ -248,3 +248,12 @@ The timeline starts directly with date-grouped notes, without a Library label,
 title, browsing explanation or visible result-count prelude. Its accessible
 region name, keyboard return focus and screen-reader result announcements
 remain available. Paging controls stay below the notes.
+
+The note tag editor uses a themed, keyboard-accessible combobox instead of a
+browser datalist. It shows at most six approved suggestions and excludes tags
+already attached to the note. Typing searches the full owner-approved catalog
+through the existing authenticated endpoint, so matches are not restricted to
+loaded facets or the first registry page. The dropdown has a bounded height
+and supports arrows, Enter, Escape and focus dismissal. Explicit free-form
+addition remains available; new tags remain candidates until separately
+approved. Suggestion failure does not block that manual entry.
