@@ -171,6 +171,7 @@ afterEach(async () => {
   });
   container.remove();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("interactive observed tag browser", () => {
@@ -291,6 +292,13 @@ describe("interactive observed tag browser", () => {
     expect(requests.at(-1)?.searchParams.has("from")).toBe(false);
     await click("Open note: Synthetic alpha");
     expect(container.textContent).toContain("Synthetic original");
+    const controls = container.querySelector('[aria-label="Browse controls"]')!;
+    const workspace = container.querySelector(".workspace")!;
+    expect(workspace.firstElementChild).toBe(controls);
+    expect(controls.querySelector("#note-query")).not.toBeNull();
+    expect(controls.querySelector("#tags-title")).not.toBeNull();
+    expect(controls.closest(".timeline-panel")).toBeNull();
+    expect(controls.closest(".detail-panel")).toBeNull();
     expect(
       container.querySelector('[aria-label="Note tags"] button')?.textContent,
     ).toContain("focus");
@@ -298,7 +306,7 @@ describe("interactive observed tag browser", () => {
       container.querySelector('[aria-label="Note tags"] .tag-check'),
     ).not.toBeNull();
     await click("← Back to timeline");
-    expect(document.activeElement?.id).toBe("timeline-title");
+    expect(document.activeElement?.id).toBe("timeline");
     expect(
       container.querySelector<HTMLInputElement>("#note-query")?.value,
     ).toBe("alpha");
@@ -340,6 +348,13 @@ describe("interactive observed tag browser", () => {
     });
     await flush();
     expect(container.textContent).toContain("Synthetic original");
+    const controls = container.querySelector('[aria-label="Browse controls"]')!;
+    const workspace = container.querySelector(".workspace")!;
+    expect(workspace.firstElementChild).toBe(controls);
+    expect(controls.querySelector("#note-query")).not.toBeNull();
+    expect(controls.querySelector("#tags-title")).not.toBeNull();
+    expect(controls.closest(".timeline-panel")).toBeNull();
+    expect(controls.closest(".detail-panel")).toBeNull();
     expect(openNote()).not.toBeNull();
   });
   it("keeps notes usable during tag errors, retries, and reports empty and capped catalogs", async () => {
@@ -438,4 +453,109 @@ it("loads a validated shared filter, supports an old untagged DTO and clears met
   expect(container.textContent).not.toContain("Synthetic alpha");
   expect(container.textContent).not.toContain("focus");
   expect(window.location.search).toBe("");
+});
+
+it("refreshes metadata hourly without hiding loaded tags during refresh or a transient failure", async () => {
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+  approvedSlugs = ["focus"];
+  const standardFetch = fetch;
+  let statusPolls = 0;
+  let deferTags = false;
+  let release!: (response: Response) => void;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (target: URL | string, options?: RequestInit) => {
+      const url = new URL(String(target), "https://api.example.test");
+      if (url.pathname === "/__pce/session")
+        return new Response(JSON.stringify({ token: "synthetic-token" }));
+      if (url.pathname === "/__pce/ingestion")
+        return new Response(
+          JSON.stringify({
+            enabled: true,
+            running: false,
+            lastRun: String(++statusPolls),
+            error: null,
+            report: null,
+          }),
+        );
+      if (url.pathname === "/api/v1/browse/facets") {
+        requests.push(url);
+        return new Response(
+          JSON.stringify({ projects: [], kinds: [], truncated: false }),
+        );
+      }
+      if (url.pathname === "/api/v1/browse") {
+        requests.push(url);
+        return new Response(
+          JSON.stringify({ notes: [first, second], nextCursor: null }),
+        );
+      }
+      if (url.pathname === "/api/v1/tags" && deferTags) {
+        requests.push(url);
+        return new Promise<Response>((resolve) => {
+          release = resolve;
+        });
+      }
+      return standardFetch(target, options);
+    }),
+  );
+  await act(async () => {
+    root.render(
+      <App localDevelopment browseEnabled baseUrl="https://api.example.test" />,
+    );
+  });
+  await flush();
+  const chip = container.querySelector(
+    '[aria-label="Filter by approved tag focus, 1 notes"]',
+  )!;
+  expect(chip).not.toBeNull();
+  const count = () =>
+    requests.filter((url) => url.pathname === "/api/v1/tags").length;
+  expect(count()).toBe(1);
+  expect(
+    requests.filter((url) => url.pathname === "/api/v1/browse/facets"),
+  ).toHaveLength(1);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(3_599_999);
+  });
+  expect(statusPolls).toBeGreaterThan(100);
+  expect(count()).toBe(1);
+  expect(
+    requests.filter((url) => url.pathname === "/api/v1/browse/facets"),
+  ).toHaveLength(1);
+  deferTags = true;
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(count()).toBe(2);
+  expect(
+    requests.filter((url) => url.pathname === "/api/v1/browse/facets"),
+  ).toHaveLength(2);
+  expect(container.textContent).not.toContain(
+    "Loading project and kind filters…",
+  );
+  expect(chip.isConnected).toBe(true);
+  expect(container.textContent).not.toContain("Loading tags…");
+  await act(async () => {
+    release(
+      new Response(JSON.stringify({ error: { code: "SERVICE_UNAVAILABLE" } }), {
+        status: 503,
+      }),
+    );
+  });
+  expect(chip.isConnected).toBe(true);
+  expect(container.textContent).toContain(
+    "The API is temporarily unavailable.",
+  );
+  deferTags = false;
+  await click("Refresh notes");
+  expect(count()).toBe(3);
+  expect(chip.isConnected).toBe(true);
+  expect(container.textContent).not.toContain("Loading tags…");
+  await click("Clear session");
+  expect(chip.isConnected).toBe(false);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(3_600_000);
+  });
+  expect(count()).toBe(3);
 });

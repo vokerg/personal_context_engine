@@ -85,7 +85,15 @@ approval, note capture, indexing or search when GitHub is unreachable.
 4. With a reviewed deployment and owner authorization, run a finite
    `WORKER_MODE=db-jobs-once` pass or supervise the **same existing
    worker runtime** in `WORKER_MODE=db-jobs-loop` (~60 second cooldown
-   after each pass). `npm run db-jobs:watch` loads the ignored root
+   after each pass for ordinary DB preparation). In loop mode, the optional
+   tag snapshot check runs on startup and then no more than once per hour,
+   measured from completion (including failures). Registry changes coalesce
+   during that interval; publication can lag an hour plus DB cycle/runtime
+   delays. Outbox retry deadlines remain minimum delays; hourly checks may
+   postpone retries further. Restarting the process resets this in-memory
+   cooldown and checks immediately; durable outbox/hash deduplication still
+   prevents duplicate publications. One-shot mode checks immediately.
+   `npm run db-jobs:watch` loads the ignored root
    `.env`; this is not an always-on schedule by itself. The pass also
    runs normal DB preparation work, with no embedding-provider egress.
    If a production scheduler already launches these DB passes, use

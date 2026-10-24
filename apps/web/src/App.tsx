@@ -1,9 +1,5 @@
-import {
-  applyThemePreference,
-  readThemePreference,
-  saveThemePreference,
-  type ThemePreference,
-} from "./theme.js";
+import { SuggestionPicker } from "./SuggestionPicker.js";
+import { NoteTagPicker } from "./NoteTagPicker.js";
 import { ResearchPanel } from "./ResearchPanel.js";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
@@ -96,10 +92,6 @@ export function App({
       return configuredBaseUrl;
     }
   }, [configuredBaseUrl, localDevelopment]);
-  const [theme, setTheme] = useState<ThemePreference>(readThemePreference);
-  useEffect(() => {
-    applyThemePreference(theme);
-  }, [theme]);
   const sessionAuthentication =
     import.meta.env.VITE_PCE_SESSION_AUTH === "true";
   const [username, setUsername] = useState("");
@@ -141,12 +133,14 @@ export function App({
   const [tagsState, setTagsState] = useState<LoadState>("loading");
   const [tagsError, setTagsError] = useState("");
   const [tagAttempt, setTagAttempt] = useState(0);
+  const [metadataRefresh, setMetadataRefresh] = useState(0);
   const [registry, setRegistry] = useState<TagRegistryResponse | null>(null);
   const [registryError, setRegistryError] = useState("");
   const [registryAttempt, setRegistryAttempt] = useState(0);
   const [registryBusy, setRegistryBusy] = useState<string | null>(null);
   const approvalEpoch = useRef(0);
   const editEpoch = useRef(0);
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
   const [tagEditBusy, setTagEditBusy] = useState(false);
   const [tagEditError, setTagEditError] = useState("");
@@ -223,7 +217,7 @@ export function App({
   const [reloadCount, setReloadCount] = useState(0);
   const [detailAttempt, setDetailAttempt] = useState(0);
   const detailHeading = useRef<HTMLHeadingElement>(null);
-  const timelineHeading = useRef<HTMLHeadingElement>(null);
+  const timelinePanel = useRef<HTMLElement>(null);
   const returnToTimeline = useRef(false);
 
   const filtered = useMemo(
@@ -320,6 +314,10 @@ export function App({
     setNotice(message);
     setNotes([]);
     setTags({ tags: [], truncated: false });
+    setTagsState("loading");
+    setTagsError("");
+    setFacetsState("loading");
+    setFacetsError("");
     setRegistry(null);
     setRegistryError("");
     setRegistryBusy(null);
@@ -581,12 +579,22 @@ export function App({
     browseEnabled ? null : ingestion?.lastRun,
   ]);
 
+  // Facets are slow-changing metadata, independent of ingestion status polling.
+  useEffect(() => {
+    if (!token) return;
+    const timer = setInterval(
+      () => setMetadataRefresh((n) => n + 1),
+      60 * 60 * 1000,
+    );
+    return () => clearInterval(timer);
+  }, [token]);
+
   useEffect(() => {
     if (!browseEnabled || !token) return;
     let active = true;
     const controller = new AbortController();
     setFacetsError("");
-    setFacetsState("loading");
+    setFacetsState((current) => (current === "ready" ? "ready" : "loading"));
     getBrowseFacets({
       baseUrl,
       getAccessToken: () => token,
@@ -611,7 +619,9 @@ export function App({
           signOut(describeNotesError(error));
         else {
           setFacetsError(describeNotesError(error));
-          setFacetsState("error");
+          setFacetsState((current) =>
+            current === "ready" ? "ready" : "error",
+          );
         }
       });
     return () => {
@@ -624,14 +634,14 @@ export function App({
     browseEnabled,
     reloadCount,
     facetAttempt,
-    ingestion?.lastRun,
+    metadataRefresh,
   ]);
 
   useEffect(() => {
     if (!token) return;
     let active = true;
     const controller = new AbortController();
-    setTagsState("loading");
+    setTagsState((current) => (current === "ready" ? "ready" : "loading"));
     setTagsError("");
     getTags({
       baseUrl,
@@ -655,7 +665,7 @@ export function App({
         if (error instanceof ApiRequestError && error.status === 401)
           signOut(describeNotesError(error));
         else {
-          setTagsState("error");
+          setTagsState((current) => (current === "ready" ? "ready" : "error"));
           setTagsError(describeNotesError(error));
         }
       });
@@ -663,7 +673,7 @@ export function App({
       active = false;
       controller.abort();
     };
-  }, [baseUrl, token, tagAttempt, reloadCount, ingestion?.lastRun]);
+  }, [baseUrl, token, tagAttempt, reloadCount, metadataRefresh]);
 
   useEffect(() => {
     if (!token) return;
@@ -684,8 +694,10 @@ export function App({
       })
       .catch((error: unknown) => {
         if (!active) return;
-        setRegistry(null);
-        if (error instanceof ApiRequestError && error.status === 404) {
+        if (error instanceof ApiRequestError && error.status === 401) {
+          signOut(describeNotesError(error));
+        } else if (error instanceof ApiRequestError && error.status === 404) {
+          setRegistry(null);
           setRegistryError("");
         } else {
           setRegistryError(describeNotesError(error));
@@ -695,7 +707,7 @@ export function App({
       active = false;
       controller.abort();
     };
-  }, [baseUrl, token, registryAttempt, reloadCount]);
+  }, [baseUrl, token, registryAttempt, reloadCount, metadataRefresh]);
 
   async function changeApproval(slug: string, approved: boolean) {
     if (!token || registryBusy) return;
@@ -860,7 +872,7 @@ export function App({
     if (selectedId && detailState === "ready") detailHeading.current?.focus();
     if (!selectedId && returnToTimeline.current) {
       returnToTimeline.current = false;
-      timelineHeading.current?.focus();
+      timelinePanel.current?.focus();
     }
   }, [detailState, selectedId]);
 
@@ -911,23 +923,6 @@ export function App({
           </p>
         </div>
         <div className="actions header-actions">
-          <label className="theme-field" htmlFor="theme-preference">
-            Appearance
-            <select
-              id="theme-preference"
-              value={theme}
-              onChange={(event) => {
-                const next = event.target.value as ThemePreference;
-                applyThemePreference(next);
-                setTheme(next);
-                saveThemePreference(next);
-              }}
-            >
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </label>
           {token && (
             <div className="actions">
               <button
@@ -1024,21 +1019,9 @@ export function App({
       ) : (
         <div className={`workspace${selectedId ? " has-selection" : ""}`}>
           <section
-            className="panel timeline-panel"
-            id="timeline"
-            aria-labelledby="timeline-title"
+            className="panel controls-panel"
+            aria-label="Browse controls"
           >
-            <div className="panel-header">
-              <p className="eyebrow">Library</p>
-              <h2 id="timeline-title" ref={timelineHeading} tabIndex={-1}>
-                Note timeline
-              </h2>
-              <p className="subtitle">
-                {browseEnabled
-                  ? "Browse your notes by date, project, kind and tag. Search includes full note text and original input."
-                  : "Browse by approved tags, project and kind. Search titles and summaries within the returned notes."}
-              </p>
-            </div>
             <div className="filters" role="group" aria-label="Timeline filters">
               <div className="filter-field">
                 <label htmlFor="note-query">
@@ -1083,25 +1066,38 @@ export function App({
                 <label htmlFor="project-filter">
                   {browseEnabled ? "Project" : "Project slug"}
                 </label>
-                <input
+                <SuggestionPicker
                   id="project-filter"
                   placeholder="All projects"
-                  list={browseEnabled ? "observed-projects" : undefined}
+                  suggestionsLabel="Project suggestions"
                   value={filters.project}
-                  onChange={(event) =>
-                    changeFilter({ project: event.target.value })
+                  onChange={(project) => changeFilter({ project })}
+                  open={projectPickerOpen}
+                  onOpenChange={setProjectPickerOpen}
+                  options={
+                    browseEnabled
+                      ? [
+                          { value: "", label: "All projects" },
+                          ...facets.projects
+                            .filter((project) =>
+                              project.slug
+                                .toLowerCase()
+                                .includes(filters.project.trim().toLowerCase()),
+                            )
+                            .map((project) => ({
+                              value: project.slug,
+                              label: `${project.slug} (${project.count})`,
+                            })),
+                        ]
+                      : []
+                  }
+                  emptyMessage={
+                    browseEnabled
+                      ? "No matching projects. You can type a project slug."
+                      : "Type a project slug to filter."
                   }
                 />
               </div>
-              {browseEnabled && (
-                <datalist id="observed-projects">
-                  {facets.projects.map((project) => (
-                    <option key={project.slug} value={project.slug}>
-                      {project.count} notes
-                    </option>
-                  ))}
-                </datalist>
-              )}
               <div className="filter-field filter-date">
                 <label htmlFor="kind-filter">Kind</label>
                 <select
@@ -1174,7 +1170,7 @@ export function App({
                 Counts cover all notes available to this session.
               </p>
               {tagsState === "loading" && <p role="status">Loading tags…</p>}
-              {tagsState === "error" && (
+              {tagsError && (
                 <div role="alert">
                   <p>{tagsError}</p>
                   <button
@@ -1277,6 +1273,14 @@ export function App({
                 The start date is later than the end date.
               </p>
             )}
+          </section>
+          <section
+            className="panel timeline-panel"
+            id="timeline"
+            aria-label="Notes"
+            ref={timelinePanel}
+            tabIndex={-1}
+          >
             {listState === "loading" && (
               <p className="notice" role="status">
                 Loading notes…
@@ -1296,7 +1300,7 @@ export function App({
             )}
             {listState === "ready" && (
               <>
-                <p className="list-meta" role="status">
+                <p className="sr-only" role="status">
                   {browseEnabled
                     ? `Showing ${visible.length} ${visible.length === 1 ? "note" : "notes"} · Page ${previousCursors.length + 1}`
                     : `${filtered.length} of ${notes.length} loaded notes match · showing ${visible.length}`}
@@ -1422,7 +1426,7 @@ export function App({
                         onClick={() => {
                           setBrowseCursor(previousCursors.at(-1));
                           setPreviousCursors(previousCursors.slice(0, -1));
-                          timelineHeading.current?.focus();
+                          timelinePanel.current?.focus();
                         }}
                       >
                         Previous page
@@ -1436,7 +1440,7 @@ export function App({
                             browseCursor,
                           ]);
                           setBrowseCursor(nextCursor ?? undefined);
-                          timelineHeading.current?.focus();
+                          timelinePanel.current?.focus();
                         }}
                       >
                         Next page
@@ -1470,7 +1474,7 @@ export function App({
             ) : (
               <>
                 <button
-                  className="ghost"
+                  className="ghost detail-back"
                   type="button"
                   onClick={() => navigateToNote(null)}
                 >
@@ -1567,30 +1571,17 @@ export function App({
                         <label htmlFor="new-note-tag">
                           Add a tag to this note
                         </label>
-                        <div className="tag-chips">
-                          <input
-                            id="new-note-tag"
+                        <div className="note-tag-add-row">
+                          <NoteTagPicker
                             value={tagDraft}
-                            onChange={(event) =>
-                              setTagDraft(event.target.value)
-                            }
-                            maxLength={64}
-                            list="note-tag-options"
-                            placeholder="lowercase-tag"
+                            onChange={setTagDraft}
                             disabled={tagEditBusy}
-                            aria-describedby="tag-edit-help"
+                            attached={detail.tags ?? []}
+                            baseUrl={baseUrl}
+                            token={token}
+                            useSessionCookie={sessionAuthentication}
+                            revision={registry?.revision}
                           />
-                          <datalist id="note-tag-options">
-                            {[
-                              ...new Set([
-                                ...tags.tags.map((tag) => tag.slug),
-                                ...(registry?.approved.map((tag) => tag.slug) ??
-                                  []),
-                              ]),
-                            ].map((slug) => (
-                              <option key={slug} value={slug} />
-                            ))}
-                          </datalist>
                           <button
                             type="button"
                             className="secondary"
@@ -1603,9 +1594,8 @@ export function App({
                           </button>
                         </div>
                         <p className="subtitle" id="tag-edit-help">
-                          Attaching a tag affects only this note. Approve it
-                          separately to add it to your vocabulary; the original
-                          capture is unchanged.
+                          Choose an approved tag or type a new one. New tags
+                          stay candidates until approved.
                         </p>
                         {tagEditError && (
                           <p className="error" role="alert">
