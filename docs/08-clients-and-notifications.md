@@ -243,3 +243,8 @@ changes. There is no appearance selector or browser-stored override; old
 approved tag filters occupy one full-width upper panel above both the note
 timeline and the right-hand note content pane. On narrow screens that panel
 remains available while a selected note replaces the timeline.
+
+The timeline starts directly with date-grouped notes, without a Library label,
+title, browsing explanation or visible result-count prelude. Its accessible
+region name, keyboard return focus and screen-reader result announcements
+remain available. Paging controls stay below the notes.

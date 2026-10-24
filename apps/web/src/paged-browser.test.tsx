@@ -148,7 +148,7 @@ it("fetches bounded pages, preserves page/detail/back and exposes safe original/
   });
   await flush();
   expect(container.textContent).toContain("Page 2");
-  expect(document.activeElement?.id).toBe("timeline-title");
+  expect(document.activeElement?.id).toBe("timeline");
   await act(async () => {
     window.history.forward();
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -157,7 +157,7 @@ it("fetches bounded pages, preserves page/detail/back and exposes safe original/
   expect(container.textContent).toContain("Verbatim <img");
   await click("← Back to timeline");
   expect(container.textContent).toContain("Page 2");
-  expect(document.activeElement?.id).toBe("timeline-title");
+  expect(document.activeElement?.id).toBe("timeline");
   await click("Previous page");
   expect(container.textContent).toContain("Page 1");
   expect(window.location.href).not.toContain("next-synthetic");

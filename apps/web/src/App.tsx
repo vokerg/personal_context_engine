@@ -213,7 +213,7 @@ export function App({
   const [reloadCount, setReloadCount] = useState(0);
   const [detailAttempt, setDetailAttempt] = useState(0);
   const detailHeading = useRef<HTMLHeadingElement>(null);
-  const timelineHeading = useRef<HTMLHeadingElement>(null);
+  const timelinePanel = useRef<HTMLElement>(null);
   const returnToTimeline = useRef(false);
 
   const filtered = useMemo(
@@ -850,7 +850,7 @@ export function App({
     if (selectedId && detailState === "ready") detailHeading.current?.focus();
     if (!selectedId && returnToTimeline.current) {
       returnToTimeline.current = false;
-      timelineHeading.current?.focus();
+      timelinePanel.current?.focus();
     }
   }, [detailState, selectedId]);
 
@@ -1242,19 +1242,10 @@ export function App({
           <section
             className="panel timeline-panel"
             id="timeline"
-            aria-labelledby="timeline-title"
+            aria-label="Notes"
+            ref={timelinePanel}
+            tabIndex={-1}
           >
-            <div className="panel-header">
-              <p className="eyebrow">Library</p>
-              <h2 id="timeline-title" ref={timelineHeading} tabIndex={-1}>
-                Note timeline
-              </h2>
-              <p className="subtitle">
-                {browseEnabled
-                  ? "Browse your notes by date, project, kind and tag. Search includes full note text and original input."
-                  : "Browse by approved tags, project and kind. Search titles and summaries within the returned notes."}
-              </p>
-            </div>
             {listState === "loading" && (
               <p className="notice" role="status">
                 Loading notes…
@@ -1274,7 +1265,7 @@ export function App({
             )}
             {listState === "ready" && (
               <>
-                <p className="list-meta" role="status">
+                <p className="sr-only" role="status">
                   {browseEnabled
                     ? `Showing ${visible.length} ${visible.length === 1 ? "note" : "notes"} · Page ${previousCursors.length + 1}`
                     : `${filtered.length} of ${notes.length} loaded notes match · showing ${visible.length}`}
@@ -1400,7 +1391,7 @@ export function App({
                         onClick={() => {
                           setBrowseCursor(previousCursors.at(-1));
                           setPreviousCursors(previousCursors.slice(0, -1));
-                          timelineHeading.current?.focus();
+                          timelinePanel.current?.focus();
                         }}
                       >
                         Previous page
@@ -1414,7 +1405,7 @@ export function App({
                             browseCursor,
                           ]);
                           setBrowseCursor(nextCursor ?? undefined);
-                          timelineHeading.current?.focus();
+                          timelinePanel.current?.focus();
                         }}
                       >
                         Next page
