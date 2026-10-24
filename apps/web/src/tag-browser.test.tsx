@@ -240,7 +240,9 @@ describe("interactive observed tag browser", () => {
       ),
     ).not.toBeNull();
     expect(container.textContent).not.toContain("Approved vocabulary");
-    expect(container.querySelectorAll('.tag-browser [aria-label="Approved tags"]')).toHaveLength(1);
+    expect(
+      container.querySelectorAll('.tag-browser [aria-label="Approved tags"]'),
+    ).toHaveLength(1);
     expect(container.querySelectorAll(".note-list > li")).toHaveLength(2);
     await click("← Back to timeline");
     await click("Filter by approved tag focus, 1 notes");
