@@ -1,4 +1,5 @@
 import { AuthRequest, ResponseType } from "expo-auth-session";
+import * as Crypto from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
 import { MobileSession, type OAuthPlatform } from "./session";
@@ -8,7 +9,12 @@ const callback = "pce://oauth/callback" as const;
 const refreshKey = "pce.oauth.ios.refresh.v1";
 const platform: OAuthPlatform = {
   async createAuthorization(config) {
+    // SDK54 defaults to a 10-character state; PCE requires >=16. Generate
+    // 256 bits using the platform CSPRNG, never Math.random.
+    const state = Array.from(Crypto.getRandomValues(new Uint8Array(32)))
+      .map((byte) => byte.toString(16).padStart(2, "0")).join("");
     const request = new AuthRequest({
+      state,
       clientId: config.clientId,
       redirectUri: config.callback,
       responseType: ResponseType.Code,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Linking, SafeAreaView, ScrollView, Text, TouchableOpacity, View,
+  AppState, Linking, SafeAreaView, ScrollView, Text, TouchableOpacity, View,
 } from "react-native";
 import {
   ApiRequestError, describeNotesError, getNote, getNotes,
@@ -44,7 +44,6 @@ export default function App() {
   const [auth, setAuth] = useState<SessionView>(
     session?.snapshot ?? { phase: "signed-out", notice: "", revision: 0 },
   );
-  const [notice, setNotice] = useState("");
   const [notes, setNotes] = useState<NotePreview[]>([]);
   const [listState, setListState] = useState<LoadState>("loading");
   const [listError, setListError] = useState("");
@@ -59,6 +58,16 @@ export default function App() {
     const unsubscribe = session.subscribe(setAuth);
     void session.restore();
     return unsubscribe;
+  }, [session]);
+
+  // Recheck the short-lived grant when returning from the background.
+  useEffect(() => {
+    if (!session) return;
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active" && session.snapshot.phase === "signed-in")
+        void session.getAccessToken();
+    });
+    return () => subscription.remove();
   }, [session]);
 
   useEffect(() => {
@@ -162,7 +171,6 @@ export default function App() {
               void session.signOut();
             }} />
             {auth.notice ? <Text accessibilityRole="alert">{auth.notice}</Text> : null}
-            {notice ? <Text accessibilityRole="alert">{notice}</Text> : null}
             <Text style={{ fontSize: 19, fontWeight: "600" }}>Notes</Text>
             <Action label="Refresh notes" onPress={() => setReload((value) => value + 1)} />
             {listState === "loading" ? <Text>Loading notes…</Text> : null}

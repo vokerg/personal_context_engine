@@ -87,7 +87,7 @@ function parseToken(value: unknown, config: MobileOAuthConfig): TokenResponse {
     !token.scope.split(" ").includes("notes:read") ||
     token.scope.split(" ").some((scope) => !config.scopes.includes(scope))
   ) throw new Error("Invalid token response");
-  return token as TokenResponse;
+  return token as unknown as TokenResponse;
 }
 
 export class MobileSession {
