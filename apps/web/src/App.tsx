@@ -1,4 +1,9 @@
-import { ApprovedTagCatalog } from "./ApprovedTagCatalog.js";
+import {
+  applyThemePreference,
+  readThemePreference,
+  saveThemePreference,
+  type ThemePreference,
+} from "./theme.js";
 import { ResearchPanel } from "./ResearchPanel.js";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
@@ -91,6 +96,10 @@ export function App({
       return configuredBaseUrl;
     }
   }, [configuredBaseUrl, localDevelopment]);
+  const [theme, setTheme] = useState<ThemePreference>(readThemePreference);
+  useEffect(() => {
+    applyThemePreference(theme);
+  }, [theme]);
   const sessionAuthentication =
     import.meta.env.VITE_PCE_SESSION_AUTH === "true";
   const [username, setUsername] = useState("");
@@ -901,8 +910,25 @@ export function App({
                 : "Development preview. Production login, editing and reminders are not available."}
           </p>
         </div>
-        {token && (
-          <div className="actions">
+        <div className="actions header-actions">
+          <label className="theme-field" htmlFor="theme-preference">
+            Appearance
+            <select
+              id="theme-preference"
+              value={theme}
+              onChange={(event) => {
+                const next = event.target.value as ThemePreference;
+                setTheme(next);
+                saveThemePreference(next);
+              }}
+            >
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
+          {token && (
+            <div className="actions">
             <button
               className="secondary"
               type="button"
@@ -917,8 +943,9 @@ export function App({
             <button className="ghost" type="button" onClick={() => signOut()}>
               Clear session
             </button>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </header>
 
       {token && searchStatus && <p role="status">{searchStatus}</p>}
@@ -1204,40 +1231,6 @@ export function App({
                         Retry approvals
                       </button>
                     </div>
-                  )}
-                  {registry && (
-                    <section aria-label="Approved tag vocabulary">
-                      <h4>
-                        Approved vocabulary · revision {registry.revision}
-                      </h4>
-                      <p className="subtitle">
-                        Approval is global to your vocabulary; it does not
-                        change original note tags.
-                      </p>
-                      {registry.snapshot && (
-                        <p className="subtitle" role="status">
-                          GitHub tag snapshot:{" "}
-                          {registry.snapshot.stale
-                            ? `not current (published revision ${registry.snapshot.publishedRevision ?? "none"}; database revision ${registry.snapshot.desiredRevision})`
-                            : `current at revision ${registry.snapshot.publishedRevision}`}
-                          {registry.snapshot.state === "FAILED" &&
-                            " · publication failed"}
-                          {registry.snapshot.state === "RETRY" &&
-                            " · retry queued"}
-                          {registry.snapshot.lastErrorCode &&
-                            ` · ${registry.snapshot.lastErrorCode}`}
-                          . Publication is optional and requires an enabled
-                          worker.
-                        </p>
-                      )}
-                      <ApprovedTagCatalog
-                        baseUrl={baseUrl}
-                        token={token}
-                        useSessionCookie={sessionAuthentication}
-                        registry={registry}
-                        selectTag={selectTag}
-                      />
-                    </section>
                   )}
                   {tags.truncated && (
                     <p role="status">
