@@ -45,7 +45,10 @@ export default function App() {
   const [auth, setAuth] = useState<SessionView>(
     session?.snapshot ?? { phase: "signed-out", notice: "", revision: 0 },
   );
-  const [navigation, dispatch] = useReducer(reduceNavigation, initialNavigation);
+  const [navigation, dispatch] = useReducer(
+    reduceNavigation,
+    initialNavigation,
+  );
   const [appearance, setAppearance] = useState<Appearance>("system");
   const systemAppearance = useColorScheme();
   const palette = paletteFor(appearance, systemAppearance);
@@ -90,10 +93,13 @@ export default function App() {
   // back semantics safe without treating Android as an App v1 target.
   useEffect(() => {
     if (!navigation.noteId || navigation.phase !== "signed-in") return;
-    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      dispatch({ type: "back" });
-      return true;
-    });
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        dispatch({ type: "back" });
+        return true;
+      },
+    );
     return () => subscription.remove();
   }, [navigation.noteId, navigation.phase]);
 
@@ -171,7 +177,10 @@ export default function App() {
                   </Text>
                 ) : null}
                 {auth.notice ? (
-                  <Text accessibilityRole="alert" style={{ color: palette.danger }}>
+                  <Text
+                    accessibilityRole="alert"
+                    style={{ color: palette.danger }}
+                  >
                     {auth.notice}
                   </Text>
                 ) : null}
@@ -192,7 +201,10 @@ export default function App() {
             ) : (
               <View style={{ gap: 14 }}>
                 {auth.notice ? (
-                  <Text accessibilityRole="alert" style={{ color: palette.danger }}>
+                  <Text
+                    accessibilityRole="alert"
+                    style={{ color: palette.danger }}
+                  >
                     {auth.notice}
                   </Text>
                 ) : null}

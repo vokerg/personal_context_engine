@@ -1,7 +1,13 @@
 export type RemoteState = "loading" | "ready" | "error";
 export type ListPresentation =
   | { state: "content" }
-  | { state: "message"; heading: string; description?: string; alert: boolean; canRetry: boolean };
+  | {
+      state: "message";
+      heading: string;
+      description?: string;
+      alert: boolean;
+      canRetry: boolean;
+    };
 
 export function describeListState(
   state: RemoteState,
@@ -9,7 +15,12 @@ export function describeListState(
   error: string,
 ): ListPresentation {
   if (state === "loading")
-    return { state: "message", heading: "Loading notes…", alert: false, canRetry: false };
+    return {
+      state: "message",
+      heading: "Loading notes…",
+      alert: false,
+      canRetry: false,
+    };
   if (state === "error")
     return {
       state: "message",
@@ -34,7 +45,12 @@ export function describeDetailState(
   error: string,
 ): ListPresentation {
   if (state === "loading")
-    return { state: "message", heading: "Loading note…", alert: false, canRetry: false };
+    return {
+      state: "message",
+      heading: "Loading note…",
+      alert: false,
+      canRetry: false,
+    };
   if (state === "error")
     return {
       state: "message",

@@ -63,6 +63,8 @@ describe("native navigator authorization boundary", () => {
     expect(detail).toMatchObject({ tab: "notes", noteId: id });
     const out = step(detail, { type: "session", phase: "signed-out" });
     const pending = step(out, { type: "link", url: link });
-    expect(step(pending, { type: "session", phase: "signed-in" }).noteId).toBe(id);
+    expect(step(pending, { type: "session", phase: "signed-in" }).noteId).toBe(
+      id,
+    );
   });
 });

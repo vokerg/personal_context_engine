@@ -97,7 +97,12 @@ export function StatusMessage({
         ) : null}
       </View>
       {retry ? (
-        <ActionButton label="Retry" onPress={retry} palette={palette} secondary />
+        <ActionButton
+          label="Retry"
+          onPress={retry}
+          palette={palette}
+          secondary
+        />
       ) : null}
     </Panel>
   );

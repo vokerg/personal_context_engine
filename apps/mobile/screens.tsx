@@ -8,7 +8,11 @@ import {
   type NoteDetail,
   type NotePreview,
 } from "@pce/api-client";
-import { describeDetailState, describeListState, type RemoteState } from "./screen-state";
+import {
+  describeDetailState,
+  describeListState,
+  type RemoteState,
+} from "./screen-state";
 import type { MobileSession } from "./session";
 import type { Appearance, Palette } from "./theme";
 import { ActionButton, Panel, SectionTitle, StatusMessage } from "./ui";
@@ -20,7 +24,8 @@ async function authorizedRead<T>(
   try {
     return await request();
   } catch (error) {
-    if (!(error instanceof ApiRequestError) || error.status !== 401) throw error;
+    if (!(error instanceof ApiRequestError) || error.status !== 401)
+      throw error;
     const access = await session.forceRefresh();
     if (!access) throw error;
     return request();
@@ -195,7 +200,12 @@ export function NoteDetailScreen({
   const presentation = describeDetailState(status, error);
   return (
     <View style={{ gap: 14 }}>
-      <ActionButton label="Back to notes" palette={palette} secondary onPress={onBack} />
+      <ActionButton
+        label="Back to notes"
+        palette={palette}
+        secondary
+        onPress={onBack}
+      />
       <SectionTitle palette={palette}>Note detail</SectionTitle>
       <ReadState
         state={presentation}
@@ -213,7 +223,10 @@ export function NoteDetailScreen({
           <Text style={{ color: palette.secondary, fontSize: 16 }}>
             {note.summary}
           </Text>
-          <Text selectable style={{ color: palette.text, fontSize: 16, lineHeight: 25 }}>
+          <Text
+            selectable
+            style={{ color: palette.text, fontSize: 16, lineHeight: 25 }}
+          >
             {note.body}
           </Text>
         </Panel>
@@ -266,7 +279,8 @@ export function SettingsScreen({
           Appearance
         </Text>
         <Text style={{ color: palette.secondary }}>
-          Choose system, light or dark. This preference lasts for this app session.
+          Choose system, light or dark. This preference lasts for this app
+          session.
         </Text>
         <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
           {choices.map((choice) => (
@@ -277,7 +291,8 @@ export function SettingsScreen({
               accessibilityState={{ selected: appearance === choice }}
               onPress={() => onAppearance(choice)}
               style={{
-                backgroundColor: appearance === choice ? palette.primary : palette.subtle,
+                backgroundColor:
+                  appearance === choice ? palette.primary : palette.subtle,
                 borderColor: palette.border,
                 borderWidth: 1,
                 borderRadius: 10,
@@ -288,7 +303,8 @@ export function SettingsScreen({
             >
               <Text
                 style={{
-                  color: appearance === choice ? palette.onPrimary : palette.text,
+                  color:
+                    appearance === choice ? palette.onPrimary : palette.text,
                   fontWeight: "600",
                   textTransform: "capitalize",
                 }}
@@ -299,7 +315,12 @@ export function SettingsScreen({
           ))}
         </View>
       </Panel>
-      <ActionButton label="Sign out" palette={palette} secondary onPress={onSignOut} />
+      <ActionButton
+        label="Sign out"
+        palette={palette}
+        secondary
+        onPress={onSignOut}
+      />
     </View>
   );
 }

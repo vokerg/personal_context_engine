@@ -29,10 +29,16 @@ describe("iOS appearance tokens", () => {
   it("maintains readable text, secondary text and button labels", () => {
     for (const mode of ["light", "dark"] as const) {
       const colors = paletteFor(mode, null);
-      expect(contrast(colors.text, colors.background)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(colors.text, colors.background)).toBeGreaterThanOrEqual(
+        4.5,
+      );
       expect(contrast(colors.text, colors.surface)).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(colors.secondary, colors.surface)).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(colors.onPrimary, colors.primary)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(colors.secondary, colors.surface)).toBeGreaterThanOrEqual(
+        4.5,
+      );
+      expect(contrast(colors.onPrimary, colors.primary)).toBeGreaterThanOrEqual(
+        4.5,
+      );
     }
   });
 });

@@ -42,8 +42,7 @@ export function paletteFor(
   appearance: Appearance,
   system: "light" | "dark" | null | undefined,
 ): Palette {
-  return appearance === "dark" ||
-    (appearance === "system" && system === "dark")
+  return appearance === "dark" || (appearance === "system" && system === "dark")
     ? dark
     : light;
 }
