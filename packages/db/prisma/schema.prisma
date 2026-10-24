@@ -238,7 +238,8 @@ model ApiGrant {
   accessHash        String   @unique @db.Char(64)
   refreshHash       String   @unique @db.Char(64)
   expiresAt         DateTime @db.Timestamptz(3)
-  refreshExpiresAt DateTime @db.Timestamptz(3)
+  // Null only for explicitly consented, persistent OAuth connections.
+  refreshExpiresAt DateTime? @db.Timestamptz(3)
   revokedAt         DateTime? @db.Timestamptz(3)
 
   @@index([sessionId])

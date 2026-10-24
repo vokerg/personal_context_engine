@@ -36,7 +36,11 @@ export function createSessionRepository(db: PrismaClient) {
         data: { revokedAt: new Date() },
       });
     },
-    createGrant(data: Prisma.ApiGrantUncheckedCreateInput) {
+    createGrant(
+      data: Omit<Prisma.ApiGrantUncheckedCreateInput, "refreshExpiresAt"> & {
+        refreshExpiresAt: Date | null;
+      },
+    ) {
       return db.apiGrant.create({ data });
     },
     findGrant(
@@ -52,13 +56,17 @@ export function createSessionRepository(db: PrismaClient) {
           audience,
           revokedAt: null,
           expiresAt: { gt: now },
-          session: {
-            ownerSubject,
-            issuer,
-            revokedAt: null,
-            expiresAt: { gt: now },
-            absoluteExpiresAt: { gt: now },
-          },
+          session: { ownerSubject, issuer, audience, revokedAt: null },
+          // Persistent OAuth consent survives browser expiry, never revocation.
+          OR: [
+            { refreshExpiresAt: null },
+            {
+              session: {
+                expiresAt: { gt: now },
+                absoluteExpiresAt: { gt: now },
+              },
+            },
+          ],
         },
         include: { session: true },
       });
@@ -77,14 +85,17 @@ export function createSessionRepository(db: PrismaClient) {
           clientId,
           audience,
           revokedAt: null,
-          refreshExpiresAt: { gt: now },
-          session: {
-            ownerSubject,
-            issuer,
-            revokedAt: null,
-            expiresAt: { gt: now },
-            absoluteExpiresAt: { gt: now },
-          },
+          session: { ownerSubject, issuer, audience, revokedAt: null },
+          OR: [
+            { refreshExpiresAt: null },
+            {
+              refreshExpiresAt: { gt: now },
+              session: {
+                expiresAt: { gt: now },
+                absoluteExpiresAt: { gt: now },
+              },
+            },
+          ],
         },
         include: { session: true },
       });

@@ -251,6 +251,7 @@ export function createSessionAuth(
       sessionId: string,
       scopes: string[],
       clientId = "pce-local",
+      options: { persistent?: boolean } = {},
     ) {
       if (
         !scopes.length ||
@@ -281,7 +282,7 @@ export function createSessionAuth(
         accessHash: secretHash(pair.access_token),
         refreshHash: secretHash(pair.refresh_token),
         expiresAt: new Date(now().getTime() + 900_000),
-        refreshExpiresAt: session.absoluteExpiresAt,
+        refreshExpiresAt: options.persistent ? null : session.absoluteExpiresAt,
       });
       return { ...pair, scope: scopes.join(" ") };
     },

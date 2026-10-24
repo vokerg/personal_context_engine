@@ -47,11 +47,28 @@ a compare-and-set consumes the code. No implicit/password grants, bearer tokens
 in URLs or forwarded provider keys are supported. Token/revocation calls share
 a 30/minute process bound; a single API instance or ingress limit is required.
 
-Access tokens expire in 15 minutes; refresh rotates both credentials, with the
-parent session's seven-day absolute maximum. Logout invalidates every derived
-grant. Only token/code digests persist. The existing 12-hour session idle limit
-also bounds grants. Expired session/code rows may be maintained by a future
-retention job; they never authorize access after expiry.
+Access tokens expire in 15 minutes; refresh rotates both credentials. Under
+D-027 (#116), newly consented OAuth connections have no refresh time expiry and
+survive the authorizing browser session's 12-hour idle / seven-day absolute
+expiry. The client must retain each replacement refresh token and renew access
+automatically. Local `/auth/token` grants retain their browser-session limits.
+Only token/code digests persist; null `refreshExpiresAt` explicitly marks the
+new persistent OAuth grants. Existing finite grants are unchanged by migration;
+reconnect once after deployment to obtain persistent authorization. No expired
+or revoked grant is revived.
+
+Explicit `/oauth/revoke` invalidates a connection using its current access or
+refresh credential and registered client ID. Logout of the authorizing browser
+session invalidates every derived grant, including persistent ones. Once that
+browser session has expired, an operator can revoke its persisted `AuthSession`
+through `createSessionRepository(...).revokeSession(id)`; a new browser login is
+a separate session and does not revoke previous connections. Parent revocation,
+owner/issuer/audience checks and refresh replay protection remain enforced.
+Do not delete expired browser-session rows that anchor persistent connections
+unless intentionally revoking those connections (the FK cascades). There is no
+retention job today. ChatGPT-side credential loss, revocation or deployment
+misconfiguration can still require reconnect; live renewal acceptance must be
+observed separately.
 
 ## Tools and trustworthy acknowledgements
 
