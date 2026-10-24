@@ -167,3 +167,54 @@ in the public blueprint. For explicit operator opt-in, configure the trusted
 Render `PCE_MCP_TRANSPORT_ORIGIN` and exact `PCE_OAUTH_CLIENTS` before enabling
 `PCE_MCP_ENABLED`; see [MCP client setup and verification](18-mcp.md).
 Never send database, GitHub or OpenAI credentials to ChatGPT's client form.
+
+## iOS native OAuth registration (#122)
+
+The existing Vercel issuer `https://personal-context-engine-web.vercel.app`
+must remain identical to the mobile `EXPO_PUBLIC_API_BASE_URL` (an origin,
+without path, username, query or fragment). It forwards `/oauth/*` and
+`/.well-known/*` to Render; session cookies authenticate the *system-browser*
+login/consent page, **not** native fetch requests.
+
+Render operator sets:
+
+```text
+PCE_MOBILE_OAUTH_ENABLED=true
+PCE_MOBILE_OAUTH_CLIENT={"clientId":"pce-ios","redirectUris":["pce://oauth/callback"],"scopes":["notes:read","capture:write","tags:write"]}
+```
+
+The app's **public** build configuration supplies the matching values:
+
+```text
+EXPO_PUBLIC_API_BASE_URL=https://personal-context-engine-web.vercel.app
+EXPO_PUBLIC_OAUTH_CLIENT_ID=pce-ios
+```
+
+Pick an operator-approved unique client ID and register it identically; the
+sample above is not a credential or an authorization. Keep `PCE_AUTH_MODE`,
+the existing owner subject, database connectivity and HTTPS issuer configured.
+**Do not** enable `PCE_MCP_ENABLED` merely to enable the iPhone app; its MCP
+connections, transport, registrations and tool exposure remain independent.
+The OAuth resource remains `<issuer>/mcp` for backward compatibility, and
+the public client uses no client secret. Registration is static and trusted:
+only `pce://oauth/callback` is permitted for this client. Native redirects
+require an iOS custom development build or TestFlight build with `scheme:pce`,
+not Expo Go. Universal-link domain ownership is not claimed.
+
+**Before rollout:** verify configuration loads, discovery and the callback
+consent redirect using synthetic login/PKCE over an actual TLS listener. Then
+verify in an iOS development build that a real system-browser consent returns
+to the owning app and that the app checks expected state, issuer and registered
+URI before exchanging a one-time code. Confirm secure refresh storage and
+rotation, logout revocation, denial, 401/403, offline recovery and cold launch.
+The security model assumes custom URI schemes are not exclusive on iOS; PKCE
+protects code redemption if another app intercepts the code, but does not
+guarantee that the legitimate app receives the callback. Record device
+findings separately; remote synthetic tests do not prove live authorization.
+
+**Rollback:** set `PCE_MOBILE_OAUTH_ENABLED=false`, unset
+`PCE_MOBILE_OAUTH_CLIENT`, and redeploy Render. Already issued grants
+should be revoked by the owner/operator; disabling a client registration
+prevents refresh/revocation through those routes but does not itself erase
+its persisted grants. Never publish signing keys, credentials or refresh
+tokens in Expo public config, screenshots or build logs.

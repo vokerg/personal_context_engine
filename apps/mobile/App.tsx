@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  AppState,
   Linking,
   SafeAreaView,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -17,14 +17,15 @@ import {
   type NotePreview,
 } from "@pce/api-client";
 import { parseNoteDeepLink } from "./links";
+import { createNativeSession } from "./native-auth";
+import type { MobileSession, SessionView } from "./session";
 
-const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
 type LoadState = "loading" | "ready" | "error";
-
 function Action({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <TouchableOpacity
       accessibilityRole="button"
+      accessibilityLabel={label}
       onPress={onPress}
       style={{
         backgroundColor: "#234f85",
@@ -37,12 +38,31 @@ function Action({ label, onPress }: { label: string; onPress: () => void }) {
     </TouchableOpacity>
   );
 }
+async function authorizedRead<T>(
+  session: MobileSession,
+  request: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await request();
+  } catch (error) {
+    if (!(error instanceof ApiRequestError) || error.status !== 401)
+      throw error;
+    const token = await session.forceRefresh();
+    if (!token) throw error;
+    return request();
+  }
+}
+const friendly = (error: unknown, detail = false) =>
+  error instanceof ApiRequestError && error.status === 401
+    ? "Session expired. Sign in again."
+    : describeNotesError(error, detail);
 
-/** Token and note bodies are intentionally memory-only; no credentials in Expo config. */
+/** Token entry is deliberately absent. Authorization uses iOS system browser. */
 export default function App() {
-  const [draft, setDraft] = useState("");
-  const [token, setToken] = useState<string | null>(null);
-  const [notice, setNotice] = useState("");
+  const session = useMemo(() => createNativeSession(), []);
+  const [auth, setAuth] = useState<SessionView>(
+    session?.snapshot ?? { phase: "signed-out", notice: "", revision: 0 },
+  );
   const [notes, setNotes] = useState<NotePreview[]>([]);
   const [listState, setListState] = useState<LoadState>("loading");
   const [listError, setListError] = useState("");
@@ -50,15 +70,24 @@ export default function App() {
   const [detail, setDetail] = useState<NoteDetail | null>(null);
   const [detailState, setDetailState] = useState<LoadState>("loading");
   const [detailError, setDetailError] = useState("");
+  const [reload, setReload] = useState(0);
 
-  function clearSession(message = "") {
-    setToken(null);
-    setDraft("");
-    setNotice(message);
-    setNotes([]);
-    setSelectedId(null);
-    setDetail(null);
-  }
+  useEffect(() => {
+    if (!session) return;
+    const unsubscribe = session.subscribe(setAuth);
+    void session.restore();
+    return unsubscribe;
+  }, [session]);
+
+  // Recheck the short-lived grant when returning from the background.
+  useEffect(() => {
+    if (!session) return;
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active" && session.snapshot.phase === "signed-in")
+        void session.getAccessToken();
+    });
+    return () => subscription.remove();
+  }, [session]);
 
   useEffect(() => {
     let active = true;
@@ -80,71 +109,75 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!token || !apiBaseUrl) return;
+    if (auth.phase === "signed-in") return;
+    setNotes([]);
+    setDetail(null);
+    setListState("loading");
+    setDetailState("loading");
+  }, [auth.phase]);
+
+  useEffect(() => {
+    if (auth.phase !== "signed-in" || !session) return;
     let active = true;
     const controller = new AbortController();
     setListState("loading");
     setListError("");
-    getNotes({
-      baseUrl: apiBaseUrl,
-      getAccessToken: () => token,
+    const options = {
+      baseUrl: session.config.apiOrigin,
+      getAccessToken: () => session.getAccessToken(),
       signal: controller.signal,
       timeoutMs: 12000,
-    })
-      .then((result) => {
-        if (!active) return;
-        setNotes(result.notes);
-        setListState("ready");
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        if (error instanceof ApiRequestError && error.status === 401) {
-          clearSession(describeNotesError(error));
-        } else {
-          setListState("error");
-          setListError(describeNotesError(error));
+    };
+    void authorizedRead(session, () => getNotes(options)).then(
+      (result) => {
+        if (active) {
+          setNotes(result.notes);
+          setListState("ready");
         }
-      });
+      },
+      (error: unknown) => {
+        if (!active) return;
+        setListState("error");
+        setListError(friendly(error));
+      },
+    );
     return () => {
       active = false;
       controller.abort();
     };
-  }, [token]);
+  }, [auth.phase, session, reload]);
 
   useEffect(() => {
-    if (!token || !selectedId || !apiBaseUrl) return;
+    if (auth.phase !== "signed-in" || !selectedId || !session) return;
     let active = true;
     const controller = new AbortController();
     setDetail(null);
     setDetailState("loading");
-    getNote(
-      {
-        baseUrl: apiBaseUrl,
-        getAccessToken: () => token,
-        signal: controller.signal,
-        timeoutMs: 12000,
-      },
-      selectedId,
-    )
-      .then((result) => {
-        if (!active) return;
-        setDetail(result);
-        setDetailState("ready");
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        if (error instanceof ApiRequestError && error.status === 401) {
-          clearSession(describeNotesError(error));
-        } else {
-          setDetailState("error");
-          setDetailError(describeNotesError(error, true));
+    setDetailError("");
+    const options = {
+      baseUrl: session.config.apiOrigin,
+      getAccessToken: () => session.getAccessToken(),
+      signal: controller.signal,
+      timeoutMs: 12000,
+    };
+    void authorizedRead(session, () => getNote(options, selectedId)).then(
+      (result) => {
+        if (active) {
+          setDetail(result);
+          setDetailState("ready");
         }
-      });
+      },
+      (error: unknown) => {
+        if (!active) return;
+        setDetailState("error");
+        setDetailError(friendly(error, true));
+      },
+    );
     return () => {
       active = false;
       controller.abort();
     };
-  }, [token, selectedId]);
+  }, [auth.phase, selectedId, session, reload]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f7f9fc" }}>
@@ -152,58 +185,61 @@ export default function App() {
         <Text style={{ fontSize: 25, fontWeight: "700", color: "#19334e" }}>
           Personal Context Engine
         </Text>
-        <Text>
-          Read-only preview. No login, note editing, push delivery or
-          notifications.
-        </Text>
-        {!apiBaseUrl ? (
+        {!session ? (
           <Text accessibilityRole="alert">
-            Set EXPO_PUBLIC_API_BASE_URL to a device-reachable HTTPS API URL
-            before starting Expo (loopback HTTP is for local development only).
+            Set EXPO_PUBLIC_API_BASE_URL to the canonical HTTPS API origin and
+            EXPO_PUBLIC_OAUTH_CLIENT_ID to the registered iOS public client ID.
+            Use an iOS development build; Expo Go cannot receive the private
+            callback.
           </Text>
-        ) : !token ? (
+        ) : auth.phase === "restoring" ? (
+          <Text accessibilityRole="alert">Restoring secure session…</Text>
+        ) : auth.phase !== "signed-in" ? (
           <View>
             <Text style={{ fontSize: 19, fontWeight: "600" }}>
               Sign-in required
             </Text>
-            {notice ? <Text accessibilityRole="alert">{notice}</Text> : null}
             <Text>
-              Development only: paste a short-lived notes:read JWT from a
-              trusted issuer. It is held in memory until the session is cleared.
+              Sign in through the system browser using your existing PCE
+              account. No access token needs to be pasted into the app.
             </Text>
+            {auth.notice ? (
+              <Text accessibilityRole="alert">{auth.notice}</Text>
+            ) : null}
             {selectedId ? (
               <Text>A note link is pending authentication.</Text>
             ) : null}
-            <TextInput
-              accessibilityLabel="Development access token"
-              placeholder="Development access token"
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={draft}
-              onChangeText={setDraft}
-              style={{
-                borderWidth: 1,
-                borderColor: "#8593a3",
-                padding: 10,
-                marginTop: 10,
+            <Action
+              label="Sign in"
+              onPress={() => {
+                void session.signIn();
               }}
             />
-            {draft.trim() ? (
-              <Action
-                label="Connect"
-                onPress={() => {
-                  setToken(draft.trim());
-                  setDraft("");
-                  setNotice("");
-                }}
-              />
-            ) : null}
+            <Action
+              label="Retry saved session"
+              onPress={() => {
+                void session.restore();
+              }}
+            />
           </View>
         ) : (
           <View>
-            <Action label="Clear session" onPress={() => clearSession()} />
+            <Action
+              label="Sign out"
+              onPress={() => {
+                setNotes([]);
+                setDetail(null);
+                void session.signOut();
+              }}
+            />
+            {auth.notice ? (
+              <Text accessibilityRole="alert">{auth.notice}</Text>
+            ) : null}
             <Text style={{ fontSize: 19, fontWeight: "600" }}>Notes</Text>
+            <Action
+              label="Refresh notes"
+              onPress={() => setReload((value) => value + 1)}
+            />
             {listState === "loading" ? <Text>Loading notes…</Text> : null}
             {listState === "error" ? (
               <Text accessibilityRole="alert">{listError}</Text>
@@ -224,6 +260,10 @@ export default function App() {
               : null}
             {selectedId ? (
               <View style={{ marginTop: 16 }}>
+                <Action
+                  label="Back to notes"
+                  onPress={() => setSelectedId(null)}
+                />
                 <Text style={{ fontSize: 19, fontWeight: "600" }}>
                   Note detail
                 </Text>

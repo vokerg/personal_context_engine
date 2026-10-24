@@ -1,5 +1,7 @@
 import { TagRegistryQuerySchema, type TagRegistryQuery } from "@pce/contracts";
 import { registerMcp, type McpOptions } from "./mcp.js";
+import { registerOAuth, type OAuthClient } from "./oauth.js";
+import type { PrismaClient } from "@pce/db";
 import { SearchRequestSchema, SearchResponseSchema } from "@pce/contracts";
 import {
   ResearchSaveRequestSchema,
@@ -84,6 +86,7 @@ export interface PrivateNoteReader {
 
 export interface ApiDependencies {
   mcp?: McpOptions;
+  oauth?: { db: PrismaClient; clients: OAuthClient[] };
   sessionAuth?: SessionAuth;
   search?: SearchService;
   capture?: {
@@ -183,6 +186,20 @@ export function createApp(options: ApiOptions = {}) {
     ajv: { customOptions: { coerceTypes: false, removeAdditional: false } },
   });
 
+  // Historical MCP callers already supply OAuth registration in McpOptions.
+  // Preserve that contract, but allow a standalone native OAuth registration
+  // when MCP tools must remain entirely disabled.
+  const registeredOAuth =
+    options.dependencies?.oauth ?? options.dependencies?.mcp;
+  if (registeredOAuth) {
+    if (!sessionAuth) throw new Error("OAuth requires sessions");
+    registerOAuth(
+      app,
+      registeredOAuth.db,
+      sessionAuth,
+      registeredOAuth.clients,
+    );
+  }
   if (options.dependencies?.mcp) {
     const { mcp, search, capture } = options.dependencies;
     if (!sessionAuth || !search || !capture)

@@ -28,6 +28,69 @@ describe("trusted MCP deployment configuration", () => {
     expect(() => oauthClients(env([client, client]))).toThrow();
     expect(() => oauthClients(env([]))).toThrow();
   });
+  it("enables an exact native redirect independently of MCP without relaxing other clients", () => {
+    const native = {
+      clientId: "pce-ios",
+      redirectUris: ["pce://oauth/callback"],
+      scopes: ["notes:read", "capture:write", "tags:write"],
+    };
+    const mobile = (overrides: Record<string, string> = {}) => ({
+      PCE_MOBILE_OAUTH_ENABLED: "true",
+      PCE_MOBILE_OAUTH_CLIENT: JSON.stringify(native),
+      ...overrides,
+    });
+    expect(oauthClients(mobile())).toEqual([native]);
+    expect(oauthClients({ PCE_MCP_ENABLED: "false" })).toEqual([]);
+    expect(() =>
+      oauthClients({ PCE_MOBILE_OAUTH_CLIENT: JSON.stringify(native) }),
+    ).toThrow();
+    for (const uri of [
+      "pce://notes/other",
+      "pce://oauth/callback?state=shadow",
+      "pce://other/callback",
+      "pce://oauth/callback#fragment",
+      "http://example.test/callback",
+    ]) {
+      expect(() =>
+        oauthClients(
+          mobile({
+            PCE_MOBILE_OAUTH_CLIENT: JSON.stringify({
+              ...native,
+              redirectUris: [uri],
+            }),
+          }),
+        ),
+      ).toThrow();
+    }
+    expect(() =>
+      oauthClients(
+        mobile({
+          PCE_MCP_ENABLED: "true",
+          PCE_OAUTH_CLIENTS: JSON.stringify([
+            {
+              clientId: "pce-ios",
+              redirectUris: ["https://chatgpt.example/callback"],
+              scopes: ["notes:read"],
+            },
+          ]),
+        }),
+      ),
+    ).toThrow();
+    expect(
+      oauthClients(
+        mobile({
+          PCE_MCP_ENABLED: "true",
+          PCE_OAUTH_CLIENTS: JSON.stringify([
+            {
+              clientId: "chatgpt",
+              redirectUris: ["https://chatgpt.example/callback"],
+              scopes: ["notes:read"],
+            },
+          ]),
+        }),
+      ),
+    ).toHaveLength(2);
+  });
   it("pins only an explicit secure transport origin", () => {
     expect(mcpTransportHost({})).toBeUndefined();
     expect(
