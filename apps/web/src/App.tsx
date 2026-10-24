@@ -918,6 +918,7 @@ export function App({
               value={theme}
               onChange={(event) => {
                 const next = event.target.value as ThemePreference;
+                applyThemePreference(next);
                 setTheme(next);
                 saveThemePreference(next);
               }}
