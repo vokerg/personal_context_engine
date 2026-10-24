@@ -239,7 +239,11 @@ describe("interactive observed tag browser", () => {
         '[aria-label="Filter by approved tag focus, 1 notes"]',
       ),
     ).not.toBeNull();
-    expect(container.textContent).toContain("Approved vocabulary · revision 1");
+    expect(container.textContent).not.toContain("Approved vocabulary");
+    expect(
+      container.querySelectorAll('.tag-browser [aria-label="Approved tags"]'),
+    ).toHaveLength(1);
+    expect(container.querySelectorAll(".note-list > li")).toHaveLength(2);
     await click("← Back to timeline");
     await click("Filter by approved tag focus, 1 notes");
     expect(
@@ -252,7 +256,7 @@ describe("interactive observed tag browser", () => {
         '[aria-label="Filter by approved tag focus, 1 notes"]',
       ),
     ).toBeNull();
-    expect(container.textContent).toContain("Approved vocabulary · revision 2");
+    expect(container.textContent).not.toContain("Approved vocabulary");
     expect(
       requests.filter((r) => r.pathname.startsWith("/api/v1/tag-registry/"))
         .length,
