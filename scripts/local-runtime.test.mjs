@@ -189,12 +189,20 @@ test("local tag facets use the same trusted owner and current checkout SQL restr
   assert.ok(sql.values.includes("synthetic-id"));
 });
 
-test("capture discovery rejects symlinks without following private files", async () => {
+test("capture discovery rejects symlinks without following private files", async (context) => {
   const root = await mkdtemp(join(tmpdir(), "pce-local-test-"));
   try {
     await mkdir(join(root, "inbox"));
     await writeFile(join(root, "outside.md"), "synthetic");
-    await symlink(join(root, "outside.md"), join(root, "inbox", "note.md"));
+    try {
+      await symlink(join(root, "outside.md"), join(root, "inbox", "note.md"));
+    } catch (error) {
+      if (process.platform === "win32" && error.code === "EPERM") {
+        context.skip("Windows requires Developer Mode or symlink privileges");
+        return;
+      }
+      throw error;
+    }
     await assert.rejects(readCaptures(root));
   } finally {
     await rm(root, { recursive: true, force: true });

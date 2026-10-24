@@ -1,0 +1,2 @@
+# Keep Node shebangs portable, including Vite/Vitest transforms on Windows.
+*.mjs text eol=lf

@@ -63,9 +63,12 @@ const initialFilters = emptyFilters;
  * memory and are not stored in browser storage or included in URL parameters.
  */
 export function App({
-  localDevelopment = import.meta.env.VITE_PCE_LOCAL_DEV === "true",
+  localDevelopment = import.meta.env.DEV &&
+    import.meta.env.VITE_PCE_LOCAL_DEV === "true",
   baseUrl: configuredBaseUrl = import.meta.env.VITE_API_BASE_URL ??
-    "http://127.0.0.1:3000",
+    (import.meta.env.PROD && typeof window !== "undefined"
+      ? window.location.origin
+      : "http://127.0.0.1:3000"),
   browseEnabled = import.meta.env.VITE_PCE_LOCAL_BROWSE === "true",
   searchEnabled = import.meta.env.VITE_PCE_DB_SEARCH === "true",
   researchEnabled = import.meta.env.VITE_PCE_RESEARCH_REPORTS === "true",
@@ -93,10 +96,13 @@ export function App({
     }
   }, [configuredBaseUrl, localDevelopment]);
   const sessionAuthentication =
-    import.meta.env.VITE_PCE_SESSION_AUTH === "true";
+    import.meta.env.PROD || import.meta.env.VITE_PCE_SESSION_AUTH === "true";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [authMode, setAuthMode] = useState("dev-single-user");
+  const [authMode, setAuthMode] = useState<string | null>(null);
+  const [authFailed, setAuthFailed] = useState(false);
+  const [authAttempt, setAuthAttempt] = useState(0);
+  const [signingOut, setSigningOut] = useState(false);
   const [draft, setDraft] = useState("");
   const [token, setToken] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
@@ -291,7 +297,9 @@ export function App({
     navigate({ ...filters, tag }, null);
   }
 
-  function signOut(message = "") {
+  async function signOut(message = "") {
+    if (signingOut) return;
+    setSigningOut(true);
     approvalEpoch.current += 1;
     editEpoch.current += 1;
     setTagEditBusy(false);
@@ -303,13 +311,25 @@ export function App({
           .split("; ")
           .find((x) => x.startsWith("pce_csrf="))
           ?.slice(9) ?? "";
-      void fetch(new URL("/auth/logout", baseUrl), {
-        method: "POST",
-        credentials: "include",
-        headers: { "X-PCE-CSRF": csrf },
-      }).catch(() => {});
+      try {
+        const response = await fetch(new URL("/auth/logout", baseUrl), {
+          signal: AbortSignal.timeout(12000),
+          method: "POST",
+          credentials: "include",
+          headers: { "X-PCE-CSRF": csrf },
+        });
+        if (!response.ok && response.status !== 401)
+          throw new Error("Logout unavailable");
+      } catch {
+        setNotice(
+          "Sign-out failed. Your session may still be active. Try again.",
+        );
+        setSigningOut(false);
+        return;
+      }
     }
     setToken(null);
+    setSigningOut(false);
     setDraft("");
     setNotice(message);
     setNotes([]);
@@ -343,31 +363,27 @@ export function App({
     }
   }
 
-  useEffect(() => {
-    if (sessionAuthentication)
-      void fetch(new URL("/auth/config", baseUrl), { credentials: "include" })
-        .then((r) => r.json())
-        .then((v) => setAuthMode(v.mode))
-        .catch(() => setNotice("Sign-in service unavailable."));
-  }, [baseUrl, sessionAuthentication]);
   async function passwordLogin(event: FormEvent) {
     event.preventDefault();
     setNotice("");
     try {
       const response = await fetch(new URL("/auth/password", baseUrl), {
+        signal: AbortSignal.timeout(12000),
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
-      setPassword("");
       if (!response.ok) throw new Error("Sign-in failed");
       setToken("session-cookie");
     } catch {
       setNotice("Sign-in failed. Check your username and password.");
+    } finally {
+      setPassword("");
     }
   }
   async function connectLocal() {
+    if (!import.meta.env.DEV) return;
     try {
       setNotice("");
       const response = await fetch("/__pce/session", {
@@ -382,6 +398,24 @@ export function App({
       setNotice(
         "Local session unavailable. Start the workspace with npm run dev:local.",
       );
+    }
+  }
+
+  async function connectDevelopmentSession() {
+    if (!import.meta.env.DEV) return;
+    try {
+      setNotice("");
+      const response = await fetch(new URL("/auth/dev-session", baseUrl), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      if (!response.ok) throw new Error("Session unavailable");
+      setToken("session-cookie");
+    } catch {
+      setNotice("Local development session unavailable.");
+      setAuthFailed(true);
     }
   }
 
@@ -439,14 +473,58 @@ export function App({
   }, [localDevelopment]);
 
   useEffect(() => {
-    if (sessionAuthentication)
-      void fetch(new URL("/auth/session", baseUrl), { credentials: "include" })
-        .then((r) => {
-          if (r.ok) setToken("session-cookie");
-        })
-        .catch(() => {});
-    if (localDevelopment) void connectLocal();
-  }, [localDevelopment]);
+    if (typeof window === "undefined") return;
+    let active = true;
+    const establishSession = async () => {
+      if (!sessionAuthentication) {
+        if (localDevelopment) await connectLocal();
+        return;
+      }
+      setAuthMode(null);
+      setAuthFailed(false);
+      try {
+        const configResponse = await fetch(new URL("/auth/config", baseUrl), {
+          signal: AbortSignal.timeout(12000),
+          credentials: "include",
+        });
+        if (!configResponse.ok) throw new Error("Auth unavailable");
+        const config = (await configResponse.json()) as { mode?: unknown };
+        if (
+          config.mode !== "single-user" &&
+          !(import.meta.env.DEV && config.mode === "dev-single-user")
+        )
+          throw new Error("Invalid authentication mode");
+        if (!active) return;
+        setAuthMode(config.mode);
+        const current = await fetch(new URL("/auth/session", baseUrl), {
+          signal: AbortSignal.timeout(12000),
+          credentials: "include",
+        });
+        if (current.ok) {
+          if (active) setToken("session-cookie");
+          return;
+        }
+        if (current.status !== 401) throw new Error("Session unavailable");
+        if (!active) return;
+        if (
+          import.meta.env.DEV &&
+          !localDevelopment &&
+          config.mode === "dev-single-user"
+        )
+          await connectDevelopmentSession();
+        else if (localDevelopment) await connectLocal();
+      } catch {
+        if (active) {
+          setAuthFailed(true);
+          setNotice("Sign-in service unavailable.");
+        }
+      }
+    };
+    void establishSession();
+    return () => {
+      active = false;
+    };
+  }, [baseUrl, localDevelopment, sessionAuthentication, authAttempt]);
 
   useEffect(() => {
     if (!token) return;
@@ -936,8 +1014,13 @@ export function App({
               >
                 Refresh notes
               </button>
-              <button className="ghost" type="button" onClick={() => signOut()}>
-                Clear session
+              <button
+                className="ghost"
+                type="button"
+                disabled={signingOut}
+                onClick={() => void signOut()}
+              >
+                {signingOut ? "Signing out…" : "Clear session"}
               </button>
             </div>
           )}
@@ -958,7 +1041,21 @@ export function App({
               {notice}
             </p>
           )}
-          {sessionAuthentication && authMode === "single-user" ? (
+          {sessionAuthentication && (authFailed || authMode === null) ? (
+            authFailed ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setNotice("");
+                  setAuthAttempt((n) => n + 1);
+                }}
+              >
+                Retry sign-in service
+              </button>
+            ) : (
+              <p role="status">Checking sign-in service…</p>
+            )
+          ) : sessionAuthentication && authMode === "single-user" ? (
             <form onSubmit={passwordLogin}>
               <label>
                 Username
@@ -979,7 +1076,7 @@ export function App({
               </label>
               <button type="submit">Sign in</button>
             </form>
-          ) : localDevelopment ? (
+          ) : import.meta.env.DEV && localDevelopment ? (
             <button
               className="primary"
               type="button"
@@ -987,7 +1084,7 @@ export function App({
             >
               Connect local workspace
             </button>
-          ) : (
+          ) : import.meta.env.DEV && !sessionAuthentication ? (
             <>
               <p>
                 For synthetic development only, enter a short-lived notes:read
@@ -1014,6 +1111,8 @@ export function App({
                 </div>
               </form>
             </>
+          ) : (
+            <p role="status">Connecting local development session…</p>
           )}
         </section>
       ) : (

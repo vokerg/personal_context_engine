@@ -127,6 +127,7 @@ describe("observed tags and filtered notes boundary", () => {
 
   it("keeps tag route off without an adapter and redacts exceptions", async () => {
     const app = createApp({
+      config: loadApiConfig({}),
       dependencies: {
         verifyToken: async () => ({
           subject: "alice",

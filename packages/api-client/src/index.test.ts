@@ -260,6 +260,7 @@ describe("transport and privacy safe UI errors", () => {
 });
 
 import { createApp } from "../../../apps/api/src/app.js";
+import { loadApiConfig } from "../../../apps/api/src/config.js";
 
 describe("synthetic API-to-shared-client integration", () => {
   const id = "01K00000000000000000000001";
@@ -273,6 +274,7 @@ describe("synthetic API-to-shared-client integration", () => {
 
   it("enforces verified identity and typed list/detail on an injected reader", async () => {
     const app = createApp({
+      config: loadApiConfig({}),
       dependencies: {
         verifyToken: async (token) =>
           token === "valid"

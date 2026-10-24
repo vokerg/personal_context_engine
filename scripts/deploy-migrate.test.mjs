@@ -14,12 +14,17 @@ describe("hosted migration connection and diagnostic boundary", () => {
     const observed = join(dir, "observed.json");
     try {
       writeFileSync(
-        join(dir, "npm"),
+        join(dir, "npm.mjs"),
         `#!${process.execPath}\nimport('node:fs').then(({writeFileSync}) => {writeFileSync(process.env.OBSERVED, JSON.stringify({args:process.argv.slice(2),url:process.env.DATABASE_URL})); console.error('synthetic-private-provider-diagnostic'); process.exit(Number(process.env.MIGRATION_EXIT ?? '0'));});\n`,
         { mode: 0o700 },
       );
       const result = spawnSync(process.execPath, [script], {
-        env: { PATH: dir, OBSERVED: observed, ...env },
+        env: {
+          PATH: dir,
+          OBSERVED: observed,
+          npm_execpath: join(dir, "npm.mjs"),
+          ...env,
+        },
         encoding: "utf8",
       });
       let invocation;

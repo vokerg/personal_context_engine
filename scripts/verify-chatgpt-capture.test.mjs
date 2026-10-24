@@ -127,10 +127,18 @@ describe("offline ChatGPT Project capture verification", () => {
     await expect(verifyCaptureExperiment(root, manifest)).rejects.toThrow("CAPTURE_GROUP_MISMATCH");
   });
 
-  it("rejects unsafe symlinks instead of opening targets", async () => {
+  it("rejects unsafe symlinks instead of opening targets", async (context) => {
     const { root, manifest } = await fixture();
     await rm(join(root, pathFor(NOTE_A)));
-    await symlink("target-absent.md", join(root, pathFor(NOTE_A)));
+    try {
+      await symlink("target-absent.md", join(root, pathFor(NOTE_A)));
+    } catch (error) {
+      if (process.platform === "win32" && error.code === "EPERM") {
+        context.skip("Windows requires Developer Mode or symlink privileges");
+        return;
+      }
+      throw error;
+    }
     await expect(verifyCaptureExperiment(root, manifest)).rejects.toThrow("UNEXPECTED_INBOX_ENTRY");
   });
 

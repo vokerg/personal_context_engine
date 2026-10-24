@@ -1,6 +1,15 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app.js";
 import { loadApiConfig } from "./config.js";
+
+// Prisma can load an ignored local .env at import time. Public-boundary tests
+// must still exercise an unconfigured API, independent of local credentials.
+beforeEach(() => {
+  for (const key of Object.keys(process.env))
+    if (/^(API_|PCE_|DATABASE_URL$|DIRECT_URL$)/.test(key))
+      vi.stubEnv(key, undefined);
+});
+afterEach(() => vi.unstubAllEnvs());
 
 describe("public API boundary", () => {
   it("returns typed public endpoints and denies private notes", async () => {

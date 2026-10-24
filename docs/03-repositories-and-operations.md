@@ -60,7 +60,7 @@ npm run typecheck
 npm test                 # builds workspaces and exercises synthetic smoke tests
 npm run build
 npm run docs:check
-npm run dev              # API :3000, default-idle worker and Vite web :4200
+npm run dev              # API :3000 and Vite web :4200 by default; API_PORT/PCE_WEB_PORT override
 npm run dev:mobile       # separate Expo/Metro dev session
 ```
 
@@ -299,8 +299,31 @@ stop earlier API/web instances before running. The API and web listen only
 on `127.0.0.1`. Open the printed web URL using either `127.0.0.1` or
 `localhost`; both loopback aliases are accepted by the local session and API
 CORS checks.
-Ctrl-C stops both services. Ordinary `npm run dev`, the worker and Expo
-remain unchanged; they do not acquire local workspace credentials.
+Ctrl-C stops both services. Ordinary `npm run dev` uses the root
+`API_PORT`, `PCE_WEB_PORT` and `VITE_API_BASE_URL` settings and can establish
+the configured local development session, but it does not run local content
+ingestion.
+
+Development serving infers browser auth/search/report flags from root `.env`
+server settings only when the corresponding public `VITE_*` flag is absent.
+Production builds and previews preserve their explicit public flags and never
+infer them from server settings. Use the printed `127.0.0.1` URL for ordinary
+development so the browser matches the configured cookie/CSRF origin; the
+`dev:local` launcher separately supports both loopback hostname aliases.
+
+The npm commands `embeddings:once`, `embeddings:watch`, `db-jobs:once` and
+`db-jobs:watch` use a Node launcher on Windows, macOS and Linux. They load the
+root `.env` and select the named worker mode without shell environment-variable
+syntax. Their existing owner, provider and egress gates still apply. Ordinary
+development does not start these opt-in modes.
+
+CI is configured to run synthetic workspace build/tests and documentation
+checks on Windows/macOS. Database integration stays in the separate Linux
+PostgreSQL job. Windows symlink safety tests explicitly skip only when the OS
+denies creating the fixture; enable Developer Mode or grant symlink privileges
+to exercise them locally. No application symlink checks are disabled. Node
+scripts check out with LF line endings, while formatting accepts the local
+checkout's line-ending convention.
 
 The web obtains a 15-minute `notes:read` session automatically from its
 same-origin development server. Clear session removes it from memory;

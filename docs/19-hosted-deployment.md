@@ -41,6 +41,16 @@ Update the proxy destinations and both configured origins together if the
 providers allocate different domains. No DB URL, provider key, signing secret,
 username or password hash belongs in Vercel or a `VITE_*` variable.
 
+Production builds retain these explicit public `VITE_*` settings; they never
+infer browser features from Render's server-only `PCE_*` settings. Production
+always uses browser session authentication, including when the public session
+flag is missing. Without an explicit API base URL it uses the browser's own
+origin. Authentication discovery shows a loading or retry state, never the
+synthetic JWT form. Development JWT entry and automatic development-session
+bootstrap are limited to Vite development runtime. A failed logout retains the
+session UI and offers a retry; only a successful logout or an already-expired
+session clears it. Password sessions and delegated MCP OAuth remain separate.
+
 ## Render
 
 Create a Node web service `personal-context-engine-api` from this **public code**

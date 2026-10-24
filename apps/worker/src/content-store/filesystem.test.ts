@@ -49,13 +49,24 @@ describe("filesystem adapter safety", () => {
     expect(() => new FilesystemContentStore("./example")).toThrow();
   });
 
-  it("rejects a symlink to a file outside the sandbox", async () => {
+  it("rejects a symlink to a file outside the sandbox", async (context) => {
     const { root, store } = await sandbox();
     try {
       const external = join(root, "external.txt");
       await writeFile(external, "not a sandbox inbox entry");
       await mkdir(join(root, "inbox"));
-      await symlink(external, join(root, "inbox", "link.md"));
+      try {
+        await symlink(external, join(root, "inbox", "link.md"));
+      } catch (error) {
+        if (
+          process.platform === "win32" &&
+          (error as NodeJS.ErrnoException).code === "EPERM"
+        ) {
+          context.skip("Windows requires Developer Mode or symlink privileges");
+          return;
+        }
+        throw error;
+      }
       await expect(store.read("inbox/link.md")).rejects.toMatchObject({
         code: "UNSAFE_ENTRY",
       });
@@ -67,14 +78,25 @@ describe("filesystem adapter safety", () => {
     }
   });
 
-  it("rejects symlinked destination directories", async () => {
+  it("rejects symlinked destination directories", async (context) => {
     const { root, store } = await sandbox();
     try {
       await mkdir(join(root, "inbox"));
       await writeFile(join(root, "inbox", "note.md"), "synthetic");
       const { revision } = await store.read("inbox/note.md");
       await mkdir(join(root, "notes"));
-      await symlink(join(root, "inbox"), join(root, "notes", "2026"));
+      try {
+        await symlink(join(root, "inbox"), join(root, "notes", "2026"), "dir");
+      } catch (error) {
+        if (
+          process.platform === "win32" &&
+          (error as NodeJS.ErrnoException).code === "EPERM"
+        ) {
+          context.skip("Windows requires Developer Mode or symlink privileges");
+          return;
+        }
+        throw error;
+      }
       await expect(
         store.finalize({
           sourcePath: "inbox/note.md",
