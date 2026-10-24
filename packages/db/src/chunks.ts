@@ -15,6 +15,7 @@ type LockedNote = {
   originalInput: string;
   summary: string;
   body: string;
+  removedAt: Date | null;
 };
 
 function validOwner(ownerSubject: string): void {
@@ -36,13 +37,13 @@ export function createNoteChunkRepository(client: PrismaClient) {
         async (tx): Promise<ChunkSyncResult> => {
           const rows = await tx.$queryRaw<LockedNote[]>`
             SELECT "id", "ownerSubject", "sourceRevision", "contentHash",
-                   "originalInput", "summary", "body"
+                   "originalInput", "summary", "body", "removedAt"
             FROM "notes"
             WHERE "id" = ${noteId} AND "ownerSubject" = ${ownerSubject}
             FOR UPDATE
           `;
           const note = rows[0];
-          if (!note) return { status: "missing", count: 0 };
+          if (!note || note.removedAt) return { status: "missing", count: 0 };
 
           let draft;
           try {
@@ -120,7 +121,7 @@ export function createNoteChunkRepository(client: PrismaClient) {
           noteId,
           ownerSubject,
           chunkerVersion: CHUNKER_VERSION,
-          note: { ownerSubject },
+          note: { ownerSubject, removedAt: null },
         },
         orderBy: [{ section: "asc" }, { ordinal: "asc" }],
         take: 512,
@@ -140,6 +141,7 @@ export function createNoteChunkRepository(client: PrismaClient) {
       const notes = await client.note.findMany({
         where: {
           ownerSubject,
+          removedAt: null,
           ...(afterNoteId ? { id: { gt: afterNoteId } } : {}),
         },
         orderBy: { id: "asc" },

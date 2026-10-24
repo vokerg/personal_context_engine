@@ -10,6 +10,7 @@ const preview = {
   title: "Synthetic tag target",
   summary: "Only a synthetic example",
   capturedAt: "2026-10-22T18:00:00Z",
+  status: "active" as const,
 };
 const response = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status });
@@ -21,6 +22,9 @@ let added: string[];
 let removed: string[];
 let rejectNextWrite: boolean;
 let detailReads: number;
+let noteRemoved: boolean;
+let noteArchived: boolean;
+let removalResponse: 200 | 404 | 503;
 const writes: Array<Record<string, unknown>> = [];
 
 function editingState() {
@@ -88,6 +92,9 @@ beforeEach(() => {
   removed = [];
   rejectNextWrite = false;
   detailReads = 0;
+  noteRemoved = false;
+  noteArchived = false;
+  removalResponse = 200;
   writes.length = 0;
   container = document.createElement("div");
   document.body.append(container);
@@ -106,7 +113,19 @@ beforeEach(() => {
         });
       }
       if (url.pathname === "/api/v1/notes") {
-        return response({ notes: [{ ...preview, tags }] });
+        const status = url.searchParams.get("status") ?? "active";
+        return response({
+          notes:
+            noteRemoved || (noteArchived && status === "active")
+              ? []
+              : [
+                  {
+                    ...preview,
+                    tags,
+                    status: noteArchived ? "archived" : "active",
+                  },
+                ],
+        });
       }
       if (url.pathname === `/api/v1/notes/${noteId}/tags`) {
         const data = JSON.parse(String(options?.body)) as {
@@ -136,11 +155,41 @@ beforeEach(() => {
         revision++;
         return response({ tags, tagEditing: editingState(), changed: true });
       }
+      if (
+        url.pathname === `/api/v1/notes/${noteId}` &&
+        options?.method === "DELETE"
+      ) {
+        expect(options?.body).toBeUndefined();
+        if (removalResponse !== 200) {
+          const status = removalResponse;
+          removalResponse = 200;
+          return response(
+            {
+              error: {
+                code: status === 404 ? "NOT_FOUND" : "SERVICE_UNAVAILABLE",
+              },
+            },
+            status,
+          );
+        }
+        noteRemoved = true;
+        return response({ removed: true });
+      }
+      if (
+        url.pathname === `/api/v1/notes/${noteId}/archive` &&
+        options?.method === "PATCH"
+      ) {
+        const data = JSON.parse(String(options.body)) as { archived: boolean };
+        noteArchived = data.archived;
+        return response({ status: noteArchived ? "archived" : "active" });
+      }
       if (url.pathname === `/api/v1/notes/${noteId}`) {
         detailReads++;
+        if (noteRemoved) return response({ error: { code: "NOT_FOUND" } }, 404);
         return response({
           ...preview,
           tags,
+          status: noteArchived ? "archived" : "active",
           body: "Synthetic only",
           tagEditing: editingState(),
         });
@@ -208,5 +257,63 @@ describe("manual note tags", () => {
     expect(tags).toEqual(["source-tag"]);
     expect(detailReads).toBe(2);
     expect(container.textContent).toContain("Tags changed in another tab");
+  });
+
+  it("requires explicit confirmation before removing a note", async () => {
+    await connectAndOpen();
+    await click("Remove note");
+    expect(container.textContent).toContain(
+      "Remove this note from the workspace?",
+    );
+    expect(noteRemoved).toBe(false);
+    await click("Confirm remove note");
+    expect(noteRemoved).toBe(true);
+    expect(container.textContent).toContain(
+      "Note removed from this workspace.",
+    );
+    expect(
+      container.querySelector('[aria-label="Note detail"] article'),
+    ).toBeNull();
+  });
+
+  it("archives a note and removes it from the default active timeline", async () => {
+    await connectAndOpen();
+    await click("Archive note");
+    expect(noteArchived).toBe(true);
+    expect(container.textContent).toContain("Note archived.");
+    expect(
+      container.querySelector('[aria-label="Note detail"] article'),
+    ).toBeNull();
+  });
+
+  it("supports cancellation and keeps the confirmation on a stale or failed removal", async () => {
+    await connectAndOpen();
+    await click("Remove note");
+    await click("Cancel");
+    expect(noteRemoved).toBe(false);
+    expect(container.textContent).not.toContain(
+      "Remove this note from the workspace?",
+    );
+
+    removalResponse = 404;
+    await click("Remove note");
+    await click("Confirm remove note");
+    expect(noteRemoved).toBe(false);
+    expect(container.textContent).toContain("This note is unavailable.");
+
+    removalResponse = 503;
+    await click("Confirm remove note");
+    expect(noteRemoved).toBe(false);
+    expect(container.textContent).toContain(
+      "The API is temporarily unavailable.",
+    );
+  });
+
+  it("clears a pending removal confirmation with the session", async () => {
+    await connectAndOpen();
+    await click("Remove note");
+    await click("Clear session");
+    expect(container.textContent).toContain("Sign-in required");
+    expect(container.textContent).not.toContain("Confirm note removal");
   });
 });

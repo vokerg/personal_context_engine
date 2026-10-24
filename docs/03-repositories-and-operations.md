@@ -188,8 +188,8 @@ development/test, all three may be absent: the normal entry point exposes
 public diagnostics only. Set the variables in a trusted local shell/secret
 manager, **never** in `.env.example`, public CI secrets, mobile or web
 bundles. The issuer must mint standard HS256 JWTs with matching `iss`,
-`aud`, verified `sub`, `scope: "notes:read"`, `iat` and `exp` (at
-most 3600 seconds apart). This API does not issue tokens.
+`aud`, verified `sub`, a supported scope such as `notes:read` or `notes:write`,
+`iat` and `exp` (at most 3600 seconds apart). This API does not issue tokens.
 
 `createApp({ dependencies: { notes, verifyToken } })` enables
 synthetic scoped reads in tests; omitting `notes` disables all private
@@ -534,7 +534,7 @@ copy SportOS database/session keys or provider credentials to PCE.
 
 `GET /auth/session` verifies the current cookie; `POST /auth/logout` revokes it.
 Browser unsafe methods require X-PCE-CSRF. Authenticated `POST /auth/token` with
-`scope` (`notes:read`, `capture:write`) issues a bounded delegated token pair;
+`scope` (`notes:read`, `notes:write`, `capture:write`) issues a bounded delegated token pair;
 Optional MCP authorization-code/PKCE discovery, consent, refresh and revocation
 routes are implemented under #49; see [MCP operation](18-mcp.md).
 A caller cannot specify an owner. Removing the mode restores the prior runtime;

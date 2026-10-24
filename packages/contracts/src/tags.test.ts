@@ -32,6 +32,7 @@ describe("tag and note-filter contracts", () => {
     expect(
       NotesQuerySchema.parse({ tag: "first-tag", from: "2026-10-01" }),
     ).toEqual({ tag: "first-tag", from: "2026-10-01" });
+    expect(NotesQuerySchema.parse({ status: "all" }).status).toBe("all");
     for (const invalid of [
       { tag: "Bad" },
       { project: "with spaces" },

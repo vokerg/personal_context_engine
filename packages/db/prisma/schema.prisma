@@ -60,6 +60,10 @@ model Note {
   contentHash     String       @db.Char(64)
   canonicalPath   String?      @db.Text
   state           ImportState  @default(PERSISTED)
+  removedAt       DateTime?    @db.Timestamptz(3)
+  removedBy       String?      @db.VarChar(128)
+  archivedAt      DateTime?    @db.Timestamptz(3)
+  archivedBy      String?      @db.VarChar(128)
   createdAt       DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime     @updatedAt @db.Timestamptz(3)
   attempts        ProcessingAttempt[]
@@ -73,6 +77,8 @@ model Note {
   @@index([ownerSubject, capturedAt])
   @@index([captureId])
   @@index([state])
+  @@index([ownerSubject, removedAt])
+  @@index([ownerSubject, archivedAt])
   @@map("notes")
 }
 

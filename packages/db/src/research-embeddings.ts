@@ -56,8 +56,11 @@ export function createResearchEmbeddingRepository(db: PrismaClient) {
             sourceRevision: string;
           }>
         >`
-          SELECT "id", "artifact", "contentHash", "sourceRevision" FROM research_reports
-          WHERE "id"=${reportId} AND "ownerSubject"=${ownerSubject} FOR UPDATE`;
+          SELECT r."id", r."artifact", r."contentHash", r."sourceRevision"
+          FROM research_reports r
+          INNER JOIN notes n ON n."id"=r."parentNoteId"
+            AND n."ownerSubject"=r."ownerSubject" AND n."removedAt" IS NULL
+          WHERE r."id"=${reportId} AND r."ownerSubject"=${ownerSubject} FOR UPDATE`;
         const row = rows[0];
         if (!row) return { status: "missing", count: 0 };
         const report = ResearchArtifactSchema.parse(row.artifact);
@@ -100,7 +103,10 @@ export function createResearchEmbeddingRepository(db: PrismaClient) {
     async candidateNotes(ownerSubject: string): Promise<string[]> {
       validOwner(ownerSubject);
       const rows = await db.$queryRaw<Array<{ id: string }>>`
-        SELECT r.id FROM research_reports r WHERE r."ownerSubject"=${ownerSubject}
+        SELECT r.id FROM research_reports r
+        INNER JOIN notes n ON n."id"=r."parentNoteId"
+          AND n."ownerSubject"=r."ownerSubject" AND n."removedAt" IS NULL
+        WHERE r."ownerSubject"=${ownerSubject}
         AND NOT EXISTS(SELECT 1 FROM research_chunks c JOIN research_embeddings e ON e."chunkId"=c.id
           WHERE c."reportId"=r.id AND c."ownerSubject"=r."ownerSubject" AND c."chunkerVersion"=${CHUNKER_VERSION}
             AND e."modelId"=${EMBEDDING_MODEL} AND e.dimensions=${EMBEDDING_DIMENSIONS})
@@ -174,6 +180,8 @@ export function createResearchEmbeddingRepository(db: PrismaClient) {
           INNER JOIN "research_chunks" c ON c."id" = e."chunkId"
           INNER JOIN "research_reports" n ON n."id" = c."reportId"
             AND n."ownerSubject" = c."ownerSubject"
+          INNER JOIN "notes" p ON p."id" = n."parentNoteId"
+            AND p."ownerSubject" = n."ownerSubject" AND p."removedAt" IS NULL
           WHERE c."ownerSubject" = ${ownerSubject}
             AND c."sourceRevision" = n."sourceRevision"
             AND c."reportContentHash" = n."contentHash"
@@ -258,6 +266,8 @@ export function createResearchEmbeddingRepository(db: PrismaClient) {
             "nextRetryAt" = NULL, "lastErrorCode" = NULL, "updatedAt" = ${now}
         FROM "research_chunks" c INNER JOIN "research_reports" n
           ON n."id" = c."reportId" AND n."ownerSubject" = c."ownerSubject"
+        INNER JOIN "notes" p ON p."id" = n."parentNoteId"
+          AND p."ownerSubject" = n."ownerSubject" AND p."removedAt" IS NULL
         WHERE e."id" = ${id} AND e."chunkId" = c."id"
           AND e."status" = 'LEASED' AND e."leaseOwner" = ${workerId}
           AND e."leaseUntil" > ${now}

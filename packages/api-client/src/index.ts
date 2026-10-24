@@ -14,6 +14,7 @@ import {
   BrowseQuerySchema,
   BrowsePageSchema,
   BrowseFacetsSchema,
+  BrowseStatusQuerySchema,
   type BrowseQuery,
   type BrowsePage,
   type BrowseFacets,
@@ -31,12 +32,16 @@ import {
   TagSlugSchema,
   NoteTagEditRequestSchema,
   NoteTagEditResponseSchema,
+  NoteRemovalResponseSchema,
+  NoteArchiveRequestSchema,
+  NoteArchiveResponseSchema,
   type NoteTagEditRequest,
   type NoteTagEditResponse,
   type TagApprovalInput,
   type TagRegistryResponse,
   type TagApprovalMutationResponse,
   type NotesQuery,
+  type BrowseStatus,
   type TagFacetsResponse,
   type ApiErrorResponse,
   type NoteDetail,
@@ -295,9 +300,13 @@ export function getNotes(
 
 export function getTags(
   options: AuthenticatedRequestOptions,
+  status: BrowseStatus = "active",
 ): Promise<TagFacetsResponse> {
-  return authenticatedGet(options, "/api/v1/tags", (data) =>
-    TagFacetsResponseSchema.parse(data),
+  const query = BrowseStatusQuerySchema.parse({ status });
+  return authenticatedGet(
+    options,
+    "/api/v1/tags?status=" + encodeURIComponent(query.status ?? "active"),
+    (data) => TagFacetsResponseSchema.parse(data),
   );
 }
 
@@ -367,6 +376,35 @@ export function changeNoteTag(
 }
 export type { NoteTagEditRequest, NoteTagEditResponse };
 
+export function removeNote(
+  options: AuthenticatedRequestOptions,
+  noteId: string,
+): Promise<{ removed: true }> {
+  return authenticatedGet(
+    options,
+    "/api/v1/notes/" + encodeURIComponent(NoteIdSchema.parse(noteId)),
+    (data) => NoteRemovalResponseSchema.parse(data),
+    undefined,
+    "DELETE",
+  );
+}
+
+export function setNoteArchived(
+  options: AuthenticatedRequestOptions,
+  noteId: string,
+  archived: boolean,
+): Promise<{ status: "active" | "archived" }> {
+  return authenticatedGet(
+    options,
+    "/api/v1/notes/" +
+      encodeURIComponent(NoteIdSchema.parse(noteId)) +
+      "/archive",
+    (data) => NoteArchiveResponseSchema.parse(data),
+    NoteArchiveRequestSchema.parse({ archived }),
+    "PATCH",
+  );
+}
+
 export async function getNote(
   options: AuthenticatedRequestOptions,
   noteId: string,
@@ -383,6 +421,10 @@ export type {
   NotePreview,
   NoteDetail,
   NotesQuery,
+  BrowseStatus,
+  NoteStatus,
+  NoteArchiveRequest,
+  NoteArchiveResponse,
   TagFacetsResponse,
 } from "@pce/contracts";
 
@@ -393,6 +435,7 @@ export function isNoteId(value: string): boolean {
 
 /** Shared validation for browser navigation; never authorizes ownership. */
 export { NotesQuerySchema } from "@pce/contracts";
+export { BrowseStatusQuerySchema } from "@pce/contracts";
 
 export function getBrowsePage(
   options: AuthenticatedRequestOptions,
@@ -409,9 +452,14 @@ export function getBrowsePage(
 }
 export function getBrowseFacets(
   options: AuthenticatedRequestOptions,
+  status: BrowseStatus = "active",
 ): Promise<BrowseFacets> {
-  return authenticatedGet(options, "/api/v1/browse/facets", (data) =>
-    BrowseFacetsSchema.parse(data),
+  const query = BrowseStatusQuerySchema.parse({ status });
+  return authenticatedGet(
+    options,
+    "/api/v1/browse/facets?status=" +
+      encodeURIComponent(query.status ?? "active"),
+    (data) => BrowseFacetsSchema.parse(data),
   );
 }
 export type { BrowseQuery, BrowsePage, BrowseFacets } from "@pce/contracts";

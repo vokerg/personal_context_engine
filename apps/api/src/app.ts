@@ -29,6 +29,7 @@ import {
   BrowseQuerySchema,
   BrowsePageSchema,
   BrowseFacetsSchema,
+  BrowseStatusQuerySchema,
   type BrowseQuery,
   type BrowsePage,
   type BrowseFacets,
@@ -44,6 +45,9 @@ import {
   TagApprovalMutationResponseSchema,
   NoteTagEditRequestSchema,
   NoteTagEditResponseSchema,
+  NoteRemovalResponseSchema,
+  NoteArchiveRequestSchema,
+  NoteArchiveResponseSchema,
   TagSlugSchema,
   type NotesQuery,
   type TagFacetsResponse,
@@ -77,11 +81,24 @@ declare module "fastify" {
 export interface PrivateNoteReader {
   listByOwner(subject: string, filters?: NotesQuery): Promise<NotePreview[]>;
   /** Optional until a trusted owner-filtered facets adapter is attached. */
-  listTagsByOwner?(subject: string): Promise<TagFacetsResponse>;
+  listTagsByOwner?(
+    subject: string,
+    status?: "active" | "archived" | "all",
+  ): Promise<TagFacetsResponse>;
   getByOwner(subject: string, noteId: string): Promise<NoteDetail | null>;
+  /** Explicit owner-scoped removal; preserves the source projection. */
+  removeByOwner?(subject: string, noteId: string): Promise<boolean>;
+  setArchivedByOwner?(
+    subject: string,
+    noteId: string,
+    archived: boolean,
+  ): Promise<"active" | "archived" | null>;
   /** Inject both only behind an explicit trusted browse/search gate. */
   pageByOwner?(subject: string, query: BrowseQuery): Promise<BrowsePage>;
-  facetsByOwner?(subject: string): Promise<BrowseFacets>;
+  facetsByOwner?(
+    subject: string,
+    status?: "active" | "archived" | "all",
+  ): Promise<BrowseFacets>;
 }
 
 export interface ApiDependencies {
@@ -596,12 +613,13 @@ export function createApp(options: ApiOptions = {}) {
   }
 
   if (notes) {
-    const requireNoteRead = async (
+    const requireNoteScope = async (
       request: FastifyRequest,
       reply: FastifyReply,
+      scope: "notes:read" | "notes:write",
     ) => {
       if (sessionAuth)
-        return requireSessionScope(request, reply, sessionAuth, "notes:read");
+        return requireSessionScope(request, reply, sessionAuth, scope);
       const authorization = request.headers.authorization;
       const match = /^Bearer ([A-Za-z0-9._-]{1,4096})$/i.exec(
         authorization ?? "",
@@ -618,11 +636,13 @@ export function createApp(options: ApiOptions = {}) {
         reply.header("WWW-Authenticate", "Bearer");
         return reply.code(401).send(errorResponse("UNAUTHORIZED"));
       }
-      if (!principal.scopes.includes("notes:read")) {
+      if (!principal.scopes.includes(scope)) {
         return reply.code(403).send(errorResponse("FORBIDDEN"));
       }
       request.authenticatedPrincipal = principal;
     };
+    const requireNoteRead = (request: FastifyRequest, reply: FastifyReply) =>
+      requireNoteScope(request, reply, "notes:read");
     if (notes.pageByOwner && notes.facetsByOwner) {
       app.get(
         "/api/v1/browse",
@@ -650,11 +670,19 @@ export function createApp(options: ApiOptions = {}) {
         "/api/v1/browse/facets",
         { preHandler: requireNoteRead },
         async (request, reply) => {
-          if (Object.keys(request.query as object).length)
+          const query = BrowseStatusQuerySchema.safeParse(request.query);
+          if (!query.success)
             return reply.code(400).send(errorResponse("BAD_REQUEST"));
-          return BrowseFacetsSchema.parse(
-            await notes.facetsByOwner!(request.authenticatedPrincipal!.subject),
-          );
+          const facets =
+            query.data.status === undefined
+              ? await notes.facetsByOwner!(
+                  request.authenticatedPrincipal!.subject,
+                )
+              : await notes.facetsByOwner!(
+                  request.authenticatedPrincipal!.subject,
+                  query.data.status,
+                );
+          return BrowseFacetsSchema.parse(facets);
         },
       );
     }
@@ -678,14 +706,20 @@ export function createApp(options: ApiOptions = {}) {
         "/api/v1/tags",
         { preHandler: requireNoteRead },
         async (request, reply) => {
-          if (Object.keys(request.query as Record<string, unknown>).length) {
+          const query = BrowseStatusQuerySchema.safeParse(request.query);
+          if (!query.success) {
             return reply.code(400).send(errorResponse("BAD_REQUEST"));
           }
-          return TagFacetsResponseSchema.parse(
-            await notes.listTagsByOwner!(
-              request.authenticatedPrincipal!.subject,
-            ),
-          );
+          const tags =
+            query.data.status === undefined
+              ? await notes.listTagsByOwner!(
+                  request.authenticatedPrincipal!.subject,
+                )
+              : await notes.listTagsByOwner!(
+                  request.authenticatedPrincipal!.subject,
+                  query.data.status,
+                );
+          return TagFacetsResponseSchema.parse(tags);
         },
       );
     }
@@ -704,6 +738,56 @@ export function createApp(options: ApiOptions = {}) {
         return NoteDetailSchema.parse(record);
       },
     );
+    if (notes.removeByOwner) {
+      app.delete<{ Params: { id: string } }>(
+        "/api/v1/notes/:id",
+        {
+          preHandler: (request, reply) =>
+            requireNoteScope(request, reply, "notes:write"),
+        },
+        async (request, reply) => {
+          const id = NoteIdSchema.safeParse(request.params.id);
+          if (
+            !id.success ||
+            Object.keys(request.query as object).length ||
+            request.body !== undefined
+          )
+            return reply.code(400).send(errorResponse("BAD_REQUEST"));
+          const removed = await notes.removeByOwner!(
+            request.authenticatedPrincipal!.subject,
+            id.data,
+          );
+          if (!removed) return reply.code(404).send(errorResponse("NOT_FOUND"));
+          return NoteRemovalResponseSchema.parse({ removed: true });
+        },
+      );
+    }
+    if (notes.setArchivedByOwner) {
+      app.patch<{ Params: { id: string } }>(
+        "/api/v1/notes/:id/archive",
+        {
+          preHandler: (request, reply) =>
+            requireNoteScope(request, reply, "notes:write"),
+        },
+        async (request, reply) => {
+          const id = NoteIdSchema.safeParse(request.params.id);
+          const input = NoteArchiveRequestSchema.safeParse(request.body);
+          if (
+            !id.success ||
+            !input.success ||
+            Object.keys(request.query as object).length
+          )
+            return reply.code(400).send(errorResponse("BAD_REQUEST"));
+          const status = await notes.setArchivedByOwner!(
+            request.authenticatedPrincipal!.subject,
+            id.data,
+            input.data.archived,
+          );
+          if (!status) return reply.code(404).send(errorResponse("NOT_FOUND"));
+          return NoteArchiveResponseSchema.parse({ status });
+        },
+      );
+    }
   }
   return app;
 }

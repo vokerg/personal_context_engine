@@ -57,7 +57,7 @@ export function createNoteTagRepository(db: PrismaClient) {
           return await db.$transaction(
             async (tx) => {
               const note = await tx.note.findFirst({
-                where: { id, ownerSubject: owner },
+                where: { id, ownerSubject: owner, removedAt: null },
                 select: { tags: true },
               });
               if (!note) return null;

@@ -16,12 +16,14 @@ export interface SearchInput {
   kind?: string | undefined;
   start?: string | undefined;
   end?: string | undefined;
+  status?: "active" | "archived" | "all" | undefined;
 }
 export interface SearchRow {
   id: string;
   title: string;
   snippet: string;
   capturedAt: Date;
+  status: "active" | "archived";
   sourceRevision: string;
   channel: "github" | "api" | "other";
   tags: string[];
@@ -44,7 +46,7 @@ export function createSearchRepository(
     async hasIndex(owner: string) {
       validOwner(owner);
       const [row] = await db.$queryRaw<Array<{ present: boolean }>>(
-        Prisma.sql`SELECT EXISTS(SELECT 1 FROM "chunk_embeddings" e JOIN "note_chunks" c ON c."id"=e."chunkId" JOIN "notes" n ON n."id"=c."noteId" AND n."ownerSubject"=c."ownerSubject" WHERE c."ownerSubject"=${owner} AND ${eligibleEmbedding()}) AS present`,
+        Prisma.sql`SELECT EXISTS(SELECT 1 FROM "chunk_embeddings" e JOIN "note_chunks" c ON c."id"=e."chunkId" JOIN "notes" n ON n."id"=c."noteId" AND n."ownerSubject"=c."ownerSubject" WHERE c."ownerSubject"=${owner} AND n."removedAt" IS NULL AND ${eligibleEmbedding()}) AS present`,
       );
       return (
         row?.present === true ||
@@ -64,7 +66,9 @@ export function createSearchRepository(
      ${searchRanking(owner, input, literal)}
      SELECT f.id,f.title,left(f."originalInput",240) AS snippet,f."capturedAt",f."sourceRevision",
        CASE WHEN f."sourcePath" LIKE 'api/%' THEN 'api' WHEN f."sourcePath" LIKE 'inbox/%' OR f."sourcePath" LIKE 'notes/%' THEN 'github' ELSE 'other' END AS channel,
-       f."effectiveTags" AS tags,f.projects,f.kind,r.lexical,r.semantic,r.score::double precision AS score
+       f."effectiveTags" AS tags,f.projects,f.kind,
+       CASE WHEN f."archivedAt" IS NULL THEN 'active' ELSE 'archived' END AS status,
+       r.lexical,r.semantic,r.score::double precision AS score
      FROM ranked r JOIN filtered f ON f.id=r.id
      ORDER BY r.score DESC,f."capturedAt" DESC,f.id COLLATE "C" ASC LIMIT 201
     `);
@@ -89,7 +93,7 @@ export function createSearchRepository(
     async getByOwner(owner: string, id: string) {
       validOwner(owner);
       const n = await db.note.findFirst({
-        where: { id, ownerSubject: owner },
+        where: { id, ownerSubject: owner, removedAt: null },
         include: { tagOverride: true },
       });
       if (!n) return null;
@@ -97,6 +101,7 @@ export function createSearchRepository(
         id: n.id,
         title: n.title,
         summary: n.summary,
+        status: n.archivedAt ? "archived" : "active",
         tags: effective(
           n.tags,
           n.tagOverride?.added ?? [],

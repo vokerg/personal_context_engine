@@ -82,7 +82,11 @@ export function createResearchRepository(db: PrismaClient) {
         return await db.$transaction(
           async (tx) => {
             const parent = await tx.note.findFirst({
-              where: { id: payload.parentNoteId, ownerSubject: owner },
+              where: {
+                id: payload.parentNoteId,
+                ownerSubject: owner,
+                removedAt: null,
+              },
               select: { captureId: true },
             });
             if (!parent || parent.captureId !== payload.captureId)
@@ -116,7 +120,11 @@ export function createResearchRepository(db: PrismaClient) {
             );
             for (const citation of related) {
               const note = await tx.note.findFirst({
-                where: { id: citation.noteId, ownerSubject: owner },
+                where: {
+                  id: citation.noteId,
+                  ownerSubject: owner,
+                  removedAt: null,
+                },
                 select: { sourceRevision: true },
               });
               if (
@@ -227,7 +235,7 @@ export function createResearchRepository(db: PrismaClient) {
     ): Promise<ResearchRecord | null> {
       if (!validOwner(owner)) throw new TypeError("Invalid owner");
       const row = await db.researchReport.findFirst({
-        where: { id, ownerSubject: owner },
+        where: { id, ownerSubject: owner, note: { removedAt: null } },
         include: indexInclude,
       });
       return row ? toRecord(row) : null;
@@ -235,7 +243,7 @@ export function createResearchRepository(db: PrismaClient) {
     async importsByNote(owner: string, parentNoteId: string) {
       if (!validOwner(owner)) throw new TypeError("Invalid owner");
       const note = await db.note.findFirst({
-        where: { id: parentNoteId, ownerSubject: owner },
+        where: { id: parentNoteId, ownerSubject: owner, removedAt: null },
         select: { id: true },
       });
       if (!note) return [];
@@ -258,7 +266,7 @@ export function createResearchRepository(db: PrismaClient) {
     ): Promise<ResearchRecord[] | null> {
       if (!validOwner(owner)) throw new TypeError("Invalid owner");
       const note = await db.note.findFirst({
-        where: { id: parentNoteId, ownerSubject: owner },
+        where: { id: parentNoteId, ownerSubject: owner, removedAt: null },
         select: { id: true },
       });
       if (!note) return null;

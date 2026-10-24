@@ -114,6 +114,27 @@ Partially supplied credentials fail in every mode. Public synthetic CI can
 inject a fake verifier; it never needs a real signing key or private GitHub
 repository.
 
+## Reversible workspace note removal boundary (#120)
+
+Removal is an authenticated, owner-scoped workspace hide, not a hard delete or
+an erasure workflow. `DELETE /api/v1/notes/:id` requires `notes:write`, derives
+the owner only from the verified principal, accepts no body/query parameters,
+and returns generic 404 for an unknown, foreign or already removed ID. The
+database records `removedAt` and `removedBy` while preserving the original
+body, capture, source path/revision and provenance. Normal browse/detail/search,
+facets, tag edits, research reads and worker/embedding candidates exclude the
+removed row; durable source and derived rows are not logged or sent to GitHub.
+There is no restore endpoint or erasure guarantee in this slice. Any future
+restore or permanent erasure requires a separate issue, authorization and
+privacy review.
+
+Archiving is a separate reversible visibility state, not removal. The same
+verified owner and `notes:write` scope gate `PATCH /api/v1/notes/:id/archive`;
+the body is limited to an `archived` boolean. Archived rows retain their
+original/provenance and remain readable through API/MCP/search with explicit
+`status: "archived"`. The web browse default is active-only, with explicit
+archived/all selection. Removed rows are never revived by archiving.
+
 **Before deploying private reads**, require trusted HTTPS termination,
 request rate-limiting at the ingress, secret-manager-backed key provisioning,
 and an owner-aware DB adapter. Current Fastify hardening (no logs, no-store,

@@ -98,6 +98,7 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
       const notes = await db.$queryRaw<Array<{ id: string }>>`
         SELECT n."id" FROM "notes" n
         WHERE n."ownerSubject" = ${ownerSubject}
+          AND n."removedAt" IS NULL
           AND (${cursor} = '' OR n."id" > ${cursor})
           AND (
             NOT EXISTS (
@@ -199,6 +200,7 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
           INNER JOIN "note_chunks" c ON c."id" = e."chunkId"
           INNER JOIN "notes" n ON n."id" = c."noteId"
             AND n."ownerSubject" = c."ownerSubject"
+            AND n."removedAt" IS NULL
           WHERE c."ownerSubject" = ${ownerSubject}
             AND c."sourceRevision" = n."sourceRevision"
             AND c."noteContentHash" = n."contentHash"
@@ -283,6 +285,7 @@ export function createEmbeddingJobRepository(db: PrismaClient) {
             "nextRetryAt" = NULL, "lastErrorCode" = NULL, "updatedAt" = ${now}
         FROM "note_chunks" c INNER JOIN "notes" n
           ON n."id" = c."noteId" AND n."ownerSubject" = c."ownerSubject"
+          AND n."removedAt" IS NULL
         WHERE e."id" = ${id} AND e."chunkId" = c."id"
           AND e."status" = 'LEASED' AND e."leaseOwner" = ${workerId}
           AND e."leaseUntil" > ${now}

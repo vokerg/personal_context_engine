@@ -29,7 +29,8 @@ export function searchRanking(
   input: SearchInput,
   literal: string | null,
 ) {
-  const filter = Prisma.sql`n."ownerSubject"=${owner}
+  const filter = Prisma.sql`n."ownerSubject"=${owner} AND n."removedAt" IS NULL
+    ${input.status === "active" ? Prisma.sql`AND n."archivedAt" IS NULL` : input.status === "archived" ? Prisma.sql`AND n."archivedAt" IS NOT NULL` : Prisma.empty}
     ${input.tags?.length ? Prisma.sql`AND ${effectiveTagsSql} @> ${input.tags}::text[]` : Prisma.empty}
     ${input.project ? Prisma.sql`AND ${input.project}=ANY(n.projects)` : Prisma.empty}
     ${input.kind ? Prisma.sql`AND n.kind=${input.kind}` : Prisma.empty}

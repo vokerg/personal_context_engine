@@ -42,6 +42,10 @@ export const NoteIdSchema = z
   .regex(
     /^(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/,
   );
+export const NoteStatusSchema = z.enum(["active", "archived"]);
+export type NoteStatus = z.infer<typeof NoteStatusSchema>;
+export const BrowseStatusSchema = NoteStatusSchema.or(z.literal("all"));
+export type BrowseStatus = z.infer<typeof BrowseStatusSchema>;
 /** Markdown v1 tag and project slug syntax; never canonicalize user data. */
 export const TagSlugSchema = z
   .string()
@@ -56,6 +60,7 @@ export const NotePreviewSchema = z
     summary: z.string().min(1),
     tags: z.array(TagSlugSchema).optional(),
     capturedAt: z.string().datetime({ offset: true }),
+    status: NoteStatusSchema.default("active"),
   })
   .strict();
 export type NotePreview = z.infer<typeof NotePreviewSchema>;
@@ -84,6 +89,20 @@ export const NoteTagEditResponseSchema = z
   .strict();
 export type NoteTagEditRequest = z.infer<typeof NoteTagEditRequestSchema>;
 export type NoteTagEditResponse = z.infer<typeof NoteTagEditResponseSchema>;
+
+export const NoteRemovalResponseSchema = z
+  .object({ removed: z.literal(true) })
+  .strict();
+export type NoteRemovalResponse = z.infer<typeof NoteRemovalResponseSchema>;
+
+export const NoteArchiveRequestSchema = z
+  .object({ archived: z.boolean() })
+  .strict();
+export type NoteArchiveRequest = z.infer<typeof NoteArchiveRequestSchema>;
+export const NoteArchiveResponseSchema = z
+  .object({ status: NoteStatusSchema })
+  .strict();
+export type NoteArchiveResponse = z.infer<typeof NoteArchiveResponseSchema>;
 
 export const NoteDetailSchema = NotePreviewSchema.extend({
   tagEditing: NoteTagEditingSchema.optional(),
@@ -149,6 +168,7 @@ export const NotesQuerySchema = z
     kind: NoteKindFilterSchema.optional(),
     from: DateOnlySchema.optional(),
     to: DateOnlySchema.optional(),
+    status: BrowseStatusSchema.optional(),
   })
   .strict()
   .refine(({ from, to }) => !from || !to || from <= to);
@@ -271,12 +291,17 @@ export const BrowseQuerySchema = z
       .max(1200)
       .regex(/^[A-Za-z0-9_-]+$/)
       .optional(),
+    status: BrowseStatusSchema.optional(),
   })
   .strict()
   .refine(
     ({ start, end }) => !start || !end || Date.parse(start) < Date.parse(end),
   );
 export type BrowseQuery = z.infer<typeof BrowseQuerySchema>;
+export const BrowseStatusQuerySchema = z
+  .object({ status: BrowseStatusSchema.optional() })
+  .strict();
+export type BrowseStatusQuery = z.infer<typeof BrowseStatusQuerySchema>;
 export const BrowsePageSchema = z
   .object({
     notes: z
@@ -346,6 +371,7 @@ export const SearchRequestSchema = z
     start: z.string().datetime({ offset: true }).optional(),
     end: z.string().datetime({ offset: true }).optional(),
     limit: z.number().int().min(1).max(50).default(20),
+    status: BrowseStatusSchema.optional(),
     cursor: z
       .string()
       .max(1500)
@@ -360,6 +386,7 @@ export const SearchResultSchema = z
     title: z.string().min(1).max(200),
     snippet: z.string().max(480),
     capturedAt: z.string().datetime({ offset: true }),
+    status: NoteStatusSchema.default("active"),
     sourceRevision: z.string().max(128),
     channel: z.enum(["github", "api", "other"]),
     tags: z.array(TagSlugSchema),

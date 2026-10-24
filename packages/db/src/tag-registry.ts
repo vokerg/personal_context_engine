@@ -164,6 +164,7 @@ export function createTagRegistryRepository(db: PrismaClient) {
               LEFT JOIN note_tag_overrides o ON o."noteId"=n.id AND o."ownerSubject"=n."ownerSubject"
               CROSS JOIN LATERAL unnest(${effectiveTagsSql}) AS t(slug)
               WHERE n."ownerSubject" = ${owner}
+                AND n."removedAt" IS NULL
                 AND t.slug IN (${Prisma.join(slugs)})
               GROUP BY t.slug
             `,
@@ -192,7 +193,7 @@ export function createTagRegistryRepository(db: PrismaClient) {
         WITH observed AS (SELECT t.slug FROM notes n
          LEFT JOIN note_tag_overrides o ON o."noteId"=n.id AND o."ownerSubject"=n."ownerSubject"
          CROSS JOIN LATERAL unnest(${effectiveTagsSql}) AS t(slug)
-         WHERE n."ownerSubject"=${owner} GROUP BY t.slug ORDER BY t.slug COLLATE "C" LIMIT 200)
+         WHERE n."ownerSubject"=${owner} AND n."removedAt" IS NULL GROUP BY t.slug ORDER BY t.slug COLLATE "C" LIMIT 200)
         SELECT o.slug,EXISTS(SELECT 1 FROM tag_approvals a WHERE a."ownerSubject"=${owner} AND a.slug=o.slug) AS approved,
          coalesce((SELECT revision FROM tag_registry_revisions WHERE "ownerSubject"=${owner}),0) AS revision FROM observed o ORDER BY o.slug`);
       return {
@@ -260,7 +261,7 @@ export function createTagRegistryRepository(db: PrismaClient) {
           SELECT t.slug,count(DISTINCT n.id)::bigint AS count FROM notes n
           LEFT JOIN note_tag_overrides o ON o."noteId"=n.id AND o."ownerSubject"=n."ownerSubject"
           CROSS JOIN LATERAL unnest(${effectiveTagsSql}) AS t(slug)
-          WHERE n."ownerSubject"=${owner} AND t.slug IN (${Prisma.join(slugs)}) GROUP BY t.slug`)
+          WHERE n."ownerSubject"=${owner} AND n."removedAt" IS NULL AND t.slug IN (${Prisma.join(slugs)}) GROUP BY t.slug`)
             : [];
           const bySlug = new Map(counts.map((r) => [r.slug, Number(r.count)]));
           return {

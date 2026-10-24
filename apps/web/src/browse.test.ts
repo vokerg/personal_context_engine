@@ -49,12 +49,19 @@ describe("filter navigation privacy and validation", () => {
     expect(
       serverFilters({ ...emptyFilters, tag: "focus", from: "2026-10-17" }),
     ).toEqual({ tag: "focus" });
+    expect(serverFilters({ ...emptyFilters, status: "all" })).toEqual({
+      status: "all",
+    });
     expect(serverFilters({ ...emptyFilters, project: "bad slug" })).toBeNull();
     expect(
       readBrowseUrl(
         new URL("https://example.test/?owner=foreign&token=secret&q=private"),
       ),
     ).toEqual(emptyFilters);
+    expect(readBrowseUrl(new URL("https://example.test/?status=all"))).toEqual({
+      ...emptyFilters,
+      status: "all",
+    });
   });
 });
 

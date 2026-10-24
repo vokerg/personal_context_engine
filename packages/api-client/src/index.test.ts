@@ -46,6 +46,7 @@ describe("typed authenticated notes client", () => {
     title: "Synthetic",
     summary: "Synthetic summary",
     capturedAt: "2026-10-16T10:00:00+02:00",
+    status: "active",
   };
 
   it("injects a bearer token and validates note responses", async () => {
@@ -269,6 +270,7 @@ describe("synthetic API-to-shared-client integration", () => {
     title: "Synthetic",
     summary: "Only test data",
     capturedAt: "2026-10-16T10:00:00+02:00",
+    status: "active",
     body: "Fixture body",
   };
 
@@ -293,6 +295,7 @@ describe("synthetic API-to-shared-client integration", () => {
                     title: note.title,
                     summary: note.summary,
                     capturedAt: note.capturedAt,
+                    status: note.status,
                   },
                 ]
               : [],
@@ -324,6 +327,7 @@ describe("synthetic API-to-shared-client integration", () => {
             title: note.title,
             summary: note.summary,
             capturedAt: note.capturedAt,
+            status: note.status,
           },
         ],
       });

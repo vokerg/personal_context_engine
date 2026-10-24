@@ -8,7 +8,10 @@ const preview = {
 };
 describe("optional observed note tags", () => {
   it("accepts legacy DTOs and validated tags without imposing a vocabulary", () => {
-    expect(NotePreviewSchema.parse(preview)).toEqual(preview);
+    expect(NotePreviewSchema.parse(preview)).toEqual({
+      ...preview,
+      status: "active",
+    });
     expect(
       NotePreviewSchema.parse({ ...preview, tags: ["user-defined-2026"] }).tags,
     ).toEqual(["user-defined-2026"]);
