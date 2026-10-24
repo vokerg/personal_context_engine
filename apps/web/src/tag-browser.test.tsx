@@ -291,6 +291,13 @@ describe("interactive observed tag browser", () => {
     expect(requests.at(-1)?.searchParams.has("from")).toBe(false);
     await click("Open note: Synthetic alpha");
     expect(container.textContent).toContain("Synthetic original");
+    const controls = container.querySelector('[aria-label="Browse controls"]')!;
+    const workspace = container.querySelector(".workspace")!;
+    expect(workspace.firstElementChild).toBe(controls);
+    expect(controls.querySelector("#note-query")).not.toBeNull();
+    expect(controls.querySelector("#tags-title")).not.toBeNull();
+    expect(controls.closest(".timeline-panel")).toBeNull();
+    expect(controls.closest(".detail-panel")).toBeNull();
     expect(
       container.querySelector('[aria-label="Note tags"] button')?.textContent,
     ).toContain("focus");
@@ -340,6 +347,13 @@ describe("interactive observed tag browser", () => {
     });
     await flush();
     expect(container.textContent).toContain("Synthetic original");
+    const controls = container.querySelector('[aria-label="Browse controls"]')!;
+    const workspace = container.querySelector(".workspace")!;
+    expect(workspace.firstElementChild).toBe(controls);
+    expect(controls.querySelector("#note-query")).not.toBeNull();
+    expect(controls.querySelector("#tags-title")).not.toBeNull();
+    expect(controls.closest(".timeline-panel")).toBeNull();
+    expect(controls.closest(".detail-panel")).toBeNull();
     expect(openNote()).not.toBeNull();
   });
   it("keeps notes usable during tag errors, retries, and reports empty and capped catalogs", async () => {

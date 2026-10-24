@@ -1,9 +1,3 @@
-import {
-  applyThemePreference,
-  readThemePreference,
-  saveThemePreference,
-  type ThemePreference,
-} from "./theme.js";
 import { ResearchPanel } from "./ResearchPanel.js";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
@@ -96,10 +90,6 @@ export function App({
       return configuredBaseUrl;
     }
   }, [configuredBaseUrl, localDevelopment]);
-  const [theme, setTheme] = useState<ThemePreference>(readThemePreference);
-  useEffect(() => {
-    applyThemePreference(theme);
-  }, [theme]);
   const sessionAuthentication =
     import.meta.env.VITE_PCE_SESSION_AUTH === "true";
   const [username, setUsername] = useState("");
@@ -911,23 +901,6 @@ export function App({
           </p>
         </div>
         <div className="actions header-actions">
-          <label className="theme-field" htmlFor="theme-preference">
-            Appearance
-            <select
-              id="theme-preference"
-              value={theme}
-              onChange={(event) => {
-                const next = event.target.value as ThemePreference;
-                applyThemePreference(next);
-                setTheme(next);
-                saveThemePreference(next);
-              }}
-            >
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </label>
           {token && (
             <div className="actions">
               <button
@@ -1024,21 +997,9 @@ export function App({
       ) : (
         <div className={`workspace${selectedId ? " has-selection" : ""}`}>
           <section
-            className="panel timeline-panel"
-            id="timeline"
-            aria-labelledby="timeline-title"
+            className="panel controls-panel"
+            aria-label="Browse controls"
           >
-            <div className="panel-header">
-              <p className="eyebrow">Library</p>
-              <h2 id="timeline-title" ref={timelineHeading} tabIndex={-1}>
-                Note timeline
-              </h2>
-              <p className="subtitle">
-                {browseEnabled
-                  ? "Browse your notes by date, project, kind and tag. Search includes full note text and original input."
-                  : "Browse by approved tags, project and kind. Search titles and summaries within the returned notes."}
-              </p>
-            </div>
             <div className="filters" role="group" aria-label="Timeline filters">
               <div className="filter-field">
                 <label htmlFor="note-query">
@@ -1277,6 +1238,23 @@ export function App({
                 The start date is later than the end date.
               </p>
             )}
+          </section>
+          <section
+            className="panel timeline-panel"
+            id="timeline"
+            aria-labelledby="timeline-title"
+          >
+            <div className="panel-header">
+              <p className="eyebrow">Library</p>
+              <h2 id="timeline-title" ref={timelineHeading} tabIndex={-1}>
+                Note timeline
+              </h2>
+              <p className="subtitle">
+                {browseEnabled
+                  ? "Browse your notes by date, project, kind and tag. Search includes full note text and original input."
+                  : "Browse by approved tags, project and kind. Search titles and summaries within the returned notes."}
+              </p>
+            </div>
             {listState === "loading" && (
               <p className="notice" role="status">
                 Loading notes…

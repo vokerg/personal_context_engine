@@ -460,3 +460,17 @@ Persistent authorization requires one reconnect after deployment. It cannot
 guarantee that ChatGPT retains credentials or silently renews them; hosted
 ChatGPT acceptance remains an observed check under #49. See the
 [lifecycle and revocation runbook](18-mcp.md).
+
+### D-028 — System appearance, upper browsing controls and slower tag bridge
+
+**Accepted owner direction (2026-10-24), implementation #118.** Web appearance
+follows the operating system with no manual selector or stored override.
+Search, filters and approved tags belong above both the timeline and the note
+content pane; controls remain available when narrow screens show a selected
+note. The optional approved-tag snapshot bridge checks on DB-worker loop
+startup and then hourly after completion, including failures, while ordinary
+DB preparation retains its existing cadence. One-shot publication stays
+immediate. Registry changes remain durable and coalesced; snapshot hints may
+lag an hour plus runtime delays. Process restarts reset the cooldown, and
+existing outbox/hash deduplication remains authoritative. See the
+[tag snapshot runbook](21-tag-snapshot.md) for retry and operational limits.

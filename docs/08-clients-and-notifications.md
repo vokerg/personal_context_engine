@@ -233,3 +233,13 @@ Only synthetic screenshots are committed:
 Real content screenshots, provider requests and production auth remain outside
 public CI. Roll back by clearing the flag and restarting the launcher; no schema
 migration, content mutation or search-default change is involved.
+
+
+## Browsing controls follow-up (#118)
+
+Appearance follows the operating system through CSS, including live system
+changes. There is no appearance selector or browser-stored override; old
+`pce-appearance` values are ignored. Search, date/project/kind filters and
+approved tag filters occupy one full-width upper panel above both the note
+timeline and the right-hand note content pane. On narrow screens that panel
+remains available while a selected note replaces the timeline.

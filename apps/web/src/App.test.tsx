@@ -13,10 +13,7 @@ describe("web authenticated shell", () => {
   it("renders a sign-in-required state with no private content or token persistence", () => {
     const markup = renderToStaticMarkup(<App baseUrl="https://api.example" />);
     expect(markup).toContain("Sign-in required");
-    expect(markup).toContain('id="theme-preference"');
-    expect(markup).toContain('value="system" selected=""');
-    expect(markup).toContain('<option value="light">Light</option>');
-    expect(markup).toContain('<option value="dark">Dark</option>');
+    expect(markup).not.toContain("Appearance");
     expect(markup).toContain("Development access token");
     expect(markup).toContain('type="password"');
     expect(markup).not.toContain("Synthetic Alice");

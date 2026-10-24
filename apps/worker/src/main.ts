@@ -1,6 +1,7 @@
 import { runEmbeddingLoop } from "./embedding-loop.js";
 import { runDbJobPass } from "./db-jobs.js";
 import { runTagSnapshotPass } from "./tag-snapshot-jobs.js";
+import { scheduleTagSnapshots } from "./tag-snapshot-schedule.js";
 import {
   researchIngressCheckpointKey,
   researchIngressConfig,
@@ -78,17 +79,21 @@ async function start(mode: string): Promise<void> {
     try {
       await db.$connect();
       await checkDatabase(db);
+      const publishTags = async () => {
+        if (!publisher) return;
+        console.log(
+          "Tag snapshot pass complete " +
+            JSON.stringify(await runTagSnapshotPass(db, owner, publisher)),
+        );
+      };
+      const scheduledTags = scheduleTagSnapshots(publishTags);
       const pass = async () => {
         console.log(
           "DB preparation complete " +
             JSON.stringify(await runDbJobPass(db, owner)),
         );
-        if (publisher) {
-          console.log(
-            "Tag snapshot pass complete " +
-              JSON.stringify(await runTagSnapshotPass(db, owner, publisher)),
-          );
-        }
+        if (mode === "db-jobs-loop") await scheduledTags();
+        else await publishTags();
         if (ingress && researchOptions) {
           const checkpointKey = researchIngressCheckpointKey(
             owner,

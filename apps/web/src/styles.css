@@ -34,39 +34,8 @@
   background: var(--canvas);
 }
 
-/* Follow the operating system until a user chooses an explicit appearance. */
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --text: #e8eef6;
-  --canvas: #101820;
-  --surface: #18222e;
-  --surface-alt: #1d2b38;
-  --focus: #94c7ff;
-  --link: #a7d7ff;
-  --muted: #b6c4d1;
-  --text-soft: #c9d5df;
-  --border: #3c4d5e;
-  --divider: #344555;
-  --field-border: #6b8296;
-  --shadow: #00000040;
-  --accent: #8bc8f4;
-  --on-accent: #102331;
-  --soft-accent: #254057;
-  --soft-accent-border: #57718a;
-  --hover: #2b465b;
-  --selected: #27506b;
-  --selected-stroke: #90d0fc;
-  --info-text: #d7efff;
-  --info-bg: #243d50;
-  --error-text: #ffd1cc;
-  --error-bg: #512f35;
-  --success-bg: #274c3a;
-  --success-border: #75c79b;
-  --success-text: #d5f9e3;
-  --success-hover: #30634a;
-}
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root {
     color-scheme: dark;
     --text: #e8eef6;
     --canvas: #101820;
@@ -123,6 +92,8 @@ input[type="date"] { max-width: 220px; }
 .secondary { background: var(--soft-accent); color: var(--accent); border-color: var(--soft-accent-border); }
 .ghost { background: transparent; color: var(--text-soft); border-color: var(--border); }
 .workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, .78fr); gap: 20px; align-items: start; }
+.controls-panel { grid-column: 1 / -1; min-width: 0; }
+.controls-panel .tag-browser { border-bottom: 0; }
 .timeline-panel { min-width: 0; }
 .panel-header { padding: 24px 24px 0; }
 .filters { display: flex; gap: 12px; flex-wrap: wrap; padding: 18px 24px; border-bottom: 1px solid var(--divider); }
@@ -208,8 +179,3 @@ summary { cursor: pointer; font-weight: 650; margin-top: 16px; }
 
 .approved-catalog h5:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .approved-catalog { min-width: 0; }
-
-/* A compact control remains available before or after authentication. */
-.header-actions { align-self: start; }
-.theme-field { display: grid; gap: 4px; color: var(--text-soft); font-size: .8rem; font-weight: 650; }
-.theme-field select { min-width: 112px; padding: 7px 10px; }
