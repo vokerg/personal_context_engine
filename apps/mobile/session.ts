@@ -96,6 +96,7 @@ export class MobileSession {
   private expiresAt = 0;
   private refreshInFlight: Promise<string | null> | null = null;
   private signingIn = false;
+  private signingOut = false;
   private epoch = 0;
   private listeners = new Set<(snapshot: SessionView) => void>();
   private view: SessionView = { phase: "restoring", notice: "", revision: 0 };
@@ -194,6 +195,7 @@ export class MobileSession {
     } finally { this.signingIn = false; }
   }
   async getAccessToken(force = false): Promise<string | null> {
+    if (this.signingOut) return null;
     if (!force && this.access && this.expiresAt - this.clock() > 60000) return this.access;
     if (this.refreshInFlight) return this.refreshInFlight;
     if (!this.refreshToken) return null;
@@ -229,23 +231,26 @@ export class MobileSession {
     return this.getAccessToken(true);
   }
   async signOut(): Promise<void> {
+    this.signingOut = true;
+    // Do not revoke an already-rotated credential: wait for the single flight.
+    try { await this.refreshInFlight; } catch { /* Local sign-out still proceeds. */ }
     const token = this.refreshToken;
     ++this.epoch;
     this.access = null;
     this.refreshToken = null;
     this.expiresAt = 0;
-    // Await an in-flight rotation before wiping storage to avoid stale reappearance.
-    try { await this.refreshInFlight; } catch { /* Local sign-out still proceeds. */ }
-    await this.platform.clearRefresh();
-    this.emit("signed-out");
-    if (token) {
-      try {
-        await this.post("/oauth/revoke", {
-          token, client_id: this.config.clientId, token_type_hint: "refresh_token",
-        });
-      } catch {
-        this.emit("signed-out", "Signed out here; server revocation could not be confirmed.");
+    try {
+      await this.platform.clearRefresh();
+      this.emit("signed-out");
+      if (token) {
+        try {
+          await this.post("/oauth/revoke", {
+            token, client_id: this.config.clientId, token_type_hint: "refresh_token",
+          });
+        } catch {
+          this.emit("signed-out", "Signed out here; server revocation could not be confirmed.");
+        }
       }
-    }
+    } finally { this.signingOut = false; }
   }
 }

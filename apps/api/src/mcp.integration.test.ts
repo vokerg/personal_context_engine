@@ -175,6 +175,17 @@ ${text}
             true,
           ),
           capture: createApiCaptureRepository(db),
+          oauth: {
+            db,
+            clients: oauthClients({
+              PCE_MCP_ENABLED: "true",
+              PCE_OAUTH_CLIENTS: JSON.stringify([{
+                clientId: "synthetic-client",
+                redirectUris: [redirect],
+                scopes: ["notes:read", "capture:write"],
+              }]),
+            }),
+          },
           mcp: {
             db,
             transportHost: "trusted-backend.example",
