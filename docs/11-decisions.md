@@ -441,3 +441,22 @@ privately. The owner waived microphone testing on 2026-10-23, so actual audio
 fidelity/Voice-mode behavior remain untested and non-blocking. Owner go/no-go
 remains a manual gate; installation and tests/self-review do not establish full
 acceptance.
+
+
+### D-027 — Persistent ChatGPT OAuth authorization (2026-10-24)
+
+**Accepted owner direction; implementation #116.** The owner requests that the
+ChatGPT PCE connection not expire. New explicitly consented OAuth connections
+remain renewable until revoked; they do not inherit the browser's idle or
+absolute expiry. This supersedes the session-expiry coupling in D-021/D-022 for
+new OAuth grants only. Access tokens stay short-lived (15 minutes), with hashed,
+single-use rotating refresh credentials, verified owner/issuer/audience/client
+and scopes. Browser cookies, local API grants and existing finite OAuth grants
+retain their limits; migration must not revive old grants. Explicit grant or
+parent-session revocation still disables access and refresh. Logout revokes
+connections derived from that particular browser session.
+
+Persistent authorization requires one reconnect after deployment. It cannot
+guarantee that ChatGPT retains credentials or silently renews them; hosted
+ChatGPT acceptance remains an observed check under #49. See the
+[lifecycle and revocation runbook](18-mcp.md).

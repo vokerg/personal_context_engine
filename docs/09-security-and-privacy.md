@@ -296,8 +296,12 @@ Only SHA-256 session/CSRF/access/refresh digests persist. Browser cookies are
 HttpOnly (session), SameSite=Lax, host-only and Secure on HTTPS. Unsafe cookie
 requests require the matching readable cookie, X-PCE-CSRF and configured Origin.
 Sessions have 12-hour idle and seven-day absolute expiry; logout immediately
-invalidates derived API grants. Grants are issuer/audience/owner bound, expire
-in 15 minutes and have one-use rotating refresh tokens. No credentials enter
+invalidates derived API grants. Grants are issuer/audience/owner bound; access
+expires in 15 minutes and refresh tokens rotate once per use. Under D-027
+(#116), newly consented OAuth connections stay renewable until explicit grant
+or parent-session revocation, independently of browser expiry. Their refresh
+digests therefore remain long-lived credentials; protect DB access accordingly.
+Local API grants and pre-migration OAuth grants retain browser-session limits. No credentials enter
 browser storage. Legacy JWT and explicit single-user modes are separate;
 invalid Authorization headers never fall back to a cookie identity.
 

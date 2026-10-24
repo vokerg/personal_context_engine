@@ -11,7 +11,11 @@ import {
   createResearchRepository,
 } from "@pce/db";
 import { createApp } from "./app.js";
-import { createSessionAuth, type SessionConfig } from "./session-auth.js";
+import {
+  createSessionAuth,
+  secretHash,
+  type SessionConfig,
+} from "./session-auth.js";
 import { createSearchService } from "./search.js";
 import { oauthClients } from "./oauth.js";
 const dbUrl = process.env.PCE_DB_TEST_URL;
@@ -664,6 +668,130 @@ ${text}
       });
       expect(denied.statusCode).toBe(403);
     });
+    it("keeps consented OAuth renewable beyond browser expiry and restarts without extending local grants", async () => {
+      const originalClock = clock;
+      try {
+        const { pair } = await token("notes:read");
+        const stored = await db.apiGrant.findUniqueOrThrow({
+          where: { refreshHash: secretHash(pair.refresh_token) },
+        });
+        expect(stored.refreshExpiresAt).toBeNull();
+        const local = await auth.issueGrant(stored.sessionId, ["notes:read"]);
+        const localStored = await db.apiGrant.findUniqueOrThrow({
+          where: { refreshHash: secretHash(local.refresh_token) },
+        });
+        expect(localStored.refreshExpiresAt).not.toBeNull();
+        // Model a pre-migration OAuth grant: it must retain its finite limits.
+        const legacy = await auth.issueGrant(
+          stored.sessionId,
+          ["notes:read"],
+          "synthetic-client",
+        );
+        const refresh = (refreshToken: string) =>
+          app.inject({
+            method: "POST",
+            url: "/oauth/token",
+            headers: { "content-type": "application/x-www-form-urlencoded" },
+            payload: new URLSearchParams({
+              grant_type: "refresh_token",
+              refresh_token: refreshToken,
+              client_id: "synthetic-client",
+              resource: issuer + "/mcp",
+            }).toString(),
+          });
+        clock += 13 * 60 * 60 * 1000;
+        expect(
+          (await app.inject({ url: "/auth/session", headers: { cookie } }))
+            .statusCode,
+        ).toBe(401);
+        expect(await auth.verifyAccessToken(pair.access_token)).toBeNull();
+        expect(await auth.refresh(local.refresh_token, "pce-local")).toBeNull();
+        expect(
+          await auth.refresh(legacy.refresh_token, "synthetic-client"),
+        ).toBeNull();
+        // Even an otherwise live access token is denied by finite-session expiry.
+        await db.apiGrant.update({
+          where: { id: localStored.id },
+          data: { expiresAt: new Date(clock + 900_000) },
+        });
+        expect(await auth.verifyAccessToken(local.access_token)).toBeNull();
+        const renewed = await refresh(pair.refresh_token);
+        expect(renewed.statusCode).toBe(200);
+        const durable = { pair: renewed.json() };
+        // Read persisted state through a fresh auth instance, as after restart.
+        const restarted = createSessionAuth(
+          db,
+          auth.config,
+          () => new Date(clock),
+        );
+        const current = await db.apiGrant.findUniqueOrThrow({
+          where: { id: stored.id },
+        });
+        expect(current.refreshExpiresAt).toBeNull();
+        expect(
+          await restarted.verifyAccessToken(durable.pair.access_token),
+        ).toEqual({ subject: owner, scopes: ["notes:read"] });
+        clock += 400 * 24 * 60 * 60 * 1000;
+        expect(
+          await restarted.verifyAccessToken(durable.pair.access_token),
+        ).toBeNull();
+        expect(
+          await createSessionAuth(
+            db,
+            { ...auth.config, ownerSubject: "foreign" },
+            () => new Date(clock),
+          ).refresh(durable.pair.refresh_token, "synthetic-client"),
+        ).toBeNull();
+        expect(
+          await createSessionAuth(
+            db,
+            { ...auth.config, issuer: "https://other.example" },
+            () => new Date(clock),
+          ).refresh(durable.pair.refresh_token, "synthetic-client"),
+        ).toBeNull();
+        expect(
+          await createSessionAuth(
+            db,
+            { ...auth.config, audience: "https://other.example/mcp" },
+            () => new Date(clock),
+          ).refresh(durable.pair.refresh_token, "synthetic-client"),
+        ).toBeNull();
+        expect(
+          await restarted.refresh(durable.pair.refresh_token, "wrong-client"),
+        ).toBeNull();
+        const outcomes = await Promise.all([
+          refresh(durable.pair.refresh_token),
+          refresh(durable.pair.refresh_token),
+        ]);
+        expect(outcomes.map((r) => r.statusCode).sort()).toEqual([200, 400]);
+        const replacement = outcomes.find((r) => r.statusCode === 200)!.json();
+        expect(replacement.expires_in).toBe(900);
+        expect(
+          await restarted.verifyAccessToken(replacement.access_token),
+        ).toEqual({ subject: owner, scopes: ["notes:read"] });
+        expect(
+          await restarted.refresh(
+            durable.pair.refresh_token,
+            "synthetic-client",
+          ),
+        ).toBeNull();
+        // Explicit revocation still wins when the browser session has expired.
+        await app.inject({
+          method: "POST",
+          url: "/oauth/revoke",
+          payload: {
+            token: replacement.refresh_token,
+            client_id: "synthetic-client",
+          },
+        });
+        expect(
+          await restarted.verifyAccessToken(replacement.access_token),
+        ).toBeNull();
+        expect((await refresh(replacement.refresh_token)).statusCode).toBe(400);
+      } finally {
+        clock = originalClock;
+      }
+    });
     it("restricts write tools and HTTP scope, rotates refresh and revokes access and parent sessions", async () => {
       const { pair } = await token("notes:read");
       const client = new Client({ name: "read-only", version: "1.0" });
@@ -734,6 +862,9 @@ ${text}
         payload: {},
       });
       expect(await auth.verifyAccessToken(active.pair.access_token)).toBeNull();
+      expect(
+        await auth.refresh(active.pair.refresh_token, "synthetic-client"),
+      ).toBeNull();
     });
   },
 );

@@ -172,7 +172,7 @@ export function registerOAuth(
       `default-src 'none'; form-action 'self' ${callbackOrigin}; base-uri 'none'; frame-ancestors 'none'`,
     );
     return reply.type("text/html; charset=utf-8").send(
-      `<!doctype html><html><head><meta charset="utf-8"><title>Authorize PCE client</title></head><body><h1>Authorize PCE client</h1><p>Client: ${escape(p.client_id)}</p><p>Allow ${escape(p.scope)} for your notes. Read access shares retrieved private text with this client. Capture access stores only explicitly supplied text; it cannot execute actions.</p><form method="post" action="/oauth/authorize">${Object.entries(
+      `<!doctype html><html><head><meta charset="utf-8"><title>Authorize PCE client</title></head><body><h1>Authorize PCE client</h1><p>Client: ${escape(p.client_id)}</p><p>Allow ${escape(p.scope)} for your notes. Read access shares retrieved private text with this client. Capture access stores only explicitly supplied text; it cannot execute actions.</p><p>This connection stays authorized until revoked, even after your browser login expires. Logging out of this authorizing session revokes its connections.</p><form method="post" action="/oauth/authorize">${Object.entries(
         fields,
       )
         .filter(([, v]) => v !== undefined)
@@ -389,7 +389,9 @@ export function registerOAuth(
       return reply.code(400).send({ error: "invalid_grant" });
     }
     try {
-      return await auth.issueGrant(code.sessionId, code.scopes, code.clientId);
+      return await auth.issueGrant(code.sessionId, code.scopes, code.clientId, {
+        persistent: true,
+      });
     } catch {
       tokenDiagnostic("authorization_code", "grant_issue");
       return reply.code(400).send({ error: "invalid_grant" });
