@@ -25,11 +25,13 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-it("switches theme on the sign-in screen and restores it on remount", async () => {
+it("switches and restores appearance from sign-in", async () => {
   await act(async () => {
     root.render(<App baseUrl="https://api.example.test" />);
   });
-  const select = container.querySelector<HTMLSelectElement>("#theme-preference")!;
+  const select = container.querySelector<HTMLSelectElement>(
+    "#theme-preference",
+  )!;
   expect(select.value).toBe("system");
   expect(window.localStorage.length).toBe(0);
 
@@ -45,7 +47,9 @@ it("switches theme on the sign-in screen and restores it on remount", async () =
   await act(async () => {
     root.render(<App baseUrl="https://api.example.test" />);
   });
-  const restored = container.querySelector<HTMLSelectElement>("#theme-preference")!;
+  const restored = container.querySelector<HTMLSelectElement>(
+    "#theme-preference",
+  )!;
   expect(restored.value).toBe("dark");
   expect(document.documentElement.dataset.theme).toBe("dark");
 
