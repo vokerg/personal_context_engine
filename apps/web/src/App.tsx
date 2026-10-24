@@ -1,3 +1,4 @@
+import { SuggestionPicker } from "./SuggestionPicker.js";
 import { NoteTagPicker } from "./NoteTagPicker.js";
 import { ResearchPanel } from "./ResearchPanel.js";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -132,12 +133,14 @@ export function App({
   const [tagsState, setTagsState] = useState<LoadState>("loading");
   const [tagsError, setTagsError] = useState("");
   const [tagAttempt, setTagAttempt] = useState(0);
+  const [metadataRefresh, setMetadataRefresh] = useState(0);
   const [registry, setRegistry] = useState<TagRegistryResponse | null>(null);
   const [registryError, setRegistryError] = useState("");
   const [registryAttempt, setRegistryAttempt] = useState(0);
   const [registryBusy, setRegistryBusy] = useState<string | null>(null);
   const approvalEpoch = useRef(0);
   const editEpoch = useRef(0);
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
   const [tagEditBusy, setTagEditBusy] = useState(false);
   const [tagEditError, setTagEditError] = useState("");
@@ -311,6 +314,10 @@ export function App({
     setNotice(message);
     setNotes([]);
     setTags({ tags: [], truncated: false });
+    setTagsState("loading");
+    setTagsError("");
+    setFacetsState("loading");
+    setFacetsError("");
     setRegistry(null);
     setRegistryError("");
     setRegistryBusy(null);
@@ -572,12 +579,22 @@ export function App({
     browseEnabled ? null : ingestion?.lastRun,
   ]);
 
+  // Facets are slow-changing metadata, independent of ingestion status polling.
+  useEffect(() => {
+    if (!token) return;
+    const timer = setInterval(
+      () => setMetadataRefresh((n) => n + 1),
+      60 * 60 * 1000,
+    );
+    return () => clearInterval(timer);
+  }, [token]);
+
   useEffect(() => {
     if (!browseEnabled || !token) return;
     let active = true;
     const controller = new AbortController();
     setFacetsError("");
-    setFacetsState("loading");
+    setFacetsState((current) => (current === "ready" ? "ready" : "loading"));
     getBrowseFacets({
       baseUrl,
       getAccessToken: () => token,
@@ -602,7 +619,9 @@ export function App({
           signOut(describeNotesError(error));
         else {
           setFacetsError(describeNotesError(error));
-          setFacetsState("error");
+          setFacetsState((current) =>
+            current === "ready" ? "ready" : "error",
+          );
         }
       });
     return () => {
@@ -615,14 +634,14 @@ export function App({
     browseEnabled,
     reloadCount,
     facetAttempt,
-    ingestion?.lastRun,
+    metadataRefresh,
   ]);
 
   useEffect(() => {
     if (!token) return;
     let active = true;
     const controller = new AbortController();
-    setTagsState("loading");
+    setTagsState((current) => (current === "ready" ? "ready" : "loading"));
     setTagsError("");
     getTags({
       baseUrl,
@@ -646,7 +665,7 @@ export function App({
         if (error instanceof ApiRequestError && error.status === 401)
           signOut(describeNotesError(error));
         else {
-          setTagsState("error");
+          setTagsState((current) => (current === "ready" ? "ready" : "error"));
           setTagsError(describeNotesError(error));
         }
       });
@@ -654,7 +673,7 @@ export function App({
       active = false;
       controller.abort();
     };
-  }, [baseUrl, token, tagAttempt, reloadCount, ingestion?.lastRun]);
+  }, [baseUrl, token, tagAttempt, reloadCount, metadataRefresh]);
 
   useEffect(() => {
     if (!token) return;
@@ -675,8 +694,10 @@ export function App({
       })
       .catch((error: unknown) => {
         if (!active) return;
-        setRegistry(null);
-        if (error instanceof ApiRequestError && error.status === 404) {
+        if (error instanceof ApiRequestError && error.status === 401) {
+          signOut(describeNotesError(error));
+        } else if (error instanceof ApiRequestError && error.status === 404) {
+          setRegistry(null);
           setRegistryError("");
         } else {
           setRegistryError(describeNotesError(error));
@@ -686,7 +707,7 @@ export function App({
       active = false;
       controller.abort();
     };
-  }, [baseUrl, token, registryAttempt, reloadCount]);
+  }, [baseUrl, token, registryAttempt, reloadCount, metadataRefresh]);
 
   async function changeApproval(slug: string, approved: boolean) {
     if (!token || registryBusy) return;
@@ -1045,25 +1066,38 @@ export function App({
                 <label htmlFor="project-filter">
                   {browseEnabled ? "Project" : "Project slug"}
                 </label>
-                <input
+                <SuggestionPicker
                   id="project-filter"
                   placeholder="All projects"
-                  list={browseEnabled ? "observed-projects" : undefined}
+                  suggestionsLabel="Project suggestions"
                   value={filters.project}
-                  onChange={(event) =>
-                    changeFilter({ project: event.target.value })
+                  onChange={(project) => changeFilter({ project })}
+                  open={projectPickerOpen}
+                  onOpenChange={setProjectPickerOpen}
+                  options={
+                    browseEnabled
+                      ? [
+                          { value: "", label: "All projects" },
+                          ...facets.projects
+                            .filter((project) =>
+                              project.slug
+                                .toLowerCase()
+                                .includes(filters.project.trim().toLowerCase()),
+                            )
+                            .map((project) => ({
+                              value: project.slug,
+                              label: `${project.slug} (${project.count})`,
+                            })),
+                        ]
+                      : []
+                  }
+                  emptyMessage={
+                    browseEnabled
+                      ? "No matching projects. You can type a project slug."
+                      : "Type a project slug to filter."
                   }
                 />
               </div>
-              {browseEnabled && (
-                <datalist id="observed-projects">
-                  {facets.projects.map((project) => (
-                    <option key={project.slug} value={project.slug}>
-                      {project.count} notes
-                    </option>
-                  ))}
-                </datalist>
-              )}
               <div className="filter-field filter-date">
                 <label htmlFor="kind-filter">Kind</label>
                 <select
@@ -1136,7 +1170,7 @@ export function App({
                 Counts cover all notes available to this session.
               </p>
               {tagsState === "loading" && <p role="status">Loading tags…</p>}
-              {tagsState === "error" && (
+              {tagsError && (
                 <div role="alert">
                   <p>{tagsError}</p>
                   <button
@@ -1440,7 +1474,7 @@ export function App({
             ) : (
               <>
                 <button
-                  className="ghost"
+                  className="ghost detail-back"
                   type="button"
                   onClick={() => navigateToNote(null)}
                 >

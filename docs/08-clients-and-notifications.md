@@ -186,8 +186,8 @@ keyset browsing, not a transactional snapshot across requests: new source data
 can change later results. Next/Previous replaces the rendered page, keeping DOM
 note count bounded rather than accumulating the corpus. Filter changes/reset
 clear cursors. Detail/Back and browser history preserve page/filter context in
-memory; refresh restarts at page one. Reconciliation polling keeps status/facets
-fresh; press Refresh notes to reload the timeline with new captures.
+memory; refresh restarts at page one. Reconciliation polling keeps ingestion status fresh; tag and project/kind
+metadata refresh hourly. Press Refresh notes to reload notes and metadata immediately.
 
 `GET /api/v1/browse/facets` returns observed owner/snapshot-scoped project and
 kind counts, independent of current filters. Project suggestions cap at 200
@@ -257,3 +257,16 @@ loaded facets or the first registry page. The dropdown has a bounded height
 and supports arrows, Enter, Escape and focus dismissal. Explicit free-form
 addition remains available; new tags remain candidates until separately
 approved. Suggestion failure does not block that manual entry.
+
+The Project filter uses the same compact dropdown, including keyboard control,
+six suggestions and a bounded popup height. Suggestions come from observed
+project facets and narrow as the user types; All projects clears the filter.
+Manual project slug entry remains available beyond the facet limit.
+
+Browser tag and project/kind metadata refresh hourly, independently of frequent
+ingestion status updates. Explicit Refresh notes, retries and the current
+user's successful tag edits still refresh immediately. Background refresh
+retains loaded chips and controls without loading placeholders or animation;
+transient failures retain the last successful metadata with a retry message.
+Clearing the session clears metadata and stops its refresh timer. The detail
+Back button has explicit spacing before the captured-note label.

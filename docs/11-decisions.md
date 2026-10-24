@@ -478,3 +478,11 @@ existing outbox/hash deduplication remains authoritative. See the
 **Owner follow-up under #118:** the note editor suggests approved tags only
 through a compact dropdown (at most six matches), excluding already attached
 tags. Explicit new-tag entry remains available without implicit approval.
+
+The same compact dropdown also applies to the Project filter, using observed
+project facets and retaining manual slug entry and All projects reset.
+
+Browser tag and project/kind metadata also refresh hourly instead of on each
+ingestion status change; explicit refresh/retry and own tag edits remain
+immediate. Background refresh preserves visible metadata, including on
+transient failure, while session clearing still removes it.

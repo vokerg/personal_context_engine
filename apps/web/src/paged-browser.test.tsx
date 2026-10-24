@@ -125,9 +125,13 @@ it("fetches bounded pages, preserves page/detail/back and exposes safe original/
   await connect();
   expect(requests.some((r) => r.pathname === "/api/v1/notes")).toBe(false);
   expect(container.querySelectorAll(".note-button").length).toBe(24);
+  await act(async () => {
+    container.querySelector<HTMLInputElement>("#project-filter")!.focus();
+  });
   expect(
-    container.querySelector("#observed-projects option")?.getAttribute("value"),
-  ).toBe("project-local");
+    container.querySelector('[aria-label="Project suggestions"]')?.textContent,
+  ).toContain("project-local (48)");
+  expect(container.querySelector("datalist")).toBeNull();
   expect(container.querySelector("#kind-filter")?.textContent).toContain(
     "memo (48)",
   );
@@ -221,4 +225,74 @@ it("cancels stale page responses and recovers from a cursor invalidated by a cha
   await click("Next page");
   expect(container.textContent).toContain("snapshot changed");
   expect(container.textContent).toContain("Page 1");
+});
+
+it("bounds project suggestions, narrows matches and applies keyboard selection or a typed slug", async () => {
+  const originalFetch = globalThis.fetch;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((target: URL | string, options?: RequestInit) => {
+      if (new URL(String(target)).pathname === "/api/v1/browse/facets")
+        return Promise.resolve(
+          response({
+            projects: Array.from({ length: 20 }, (_, i) => ({
+              slug: `project-${i}`,
+              count: 1,
+            })),
+            kinds: [],
+            truncated: false,
+          }),
+        );
+      return originalFetch(target, options);
+    }),
+  );
+  await connect();
+  const project = container.querySelector<HTMLInputElement>("#project-filter")!;
+  await act(async () => {
+    project.focus();
+  });
+  expect(
+    container.querySelectorAll(
+      '[aria-label="Project suggestions"] [role="option"]',
+    ),
+  ).toHaveLength(6);
+  await input("project-filter", "project-19");
+  expect(
+    container.querySelectorAll(
+      '[aria-label="Project suggestions"] [role="option"]',
+    ),
+  ).toHaveLength(2);
+  await act(async () => {
+    project.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+  });
+  await act(async () => {
+    project.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+  });
+  await act(async () => {
+    project.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+  });
+  await flush();
+  expect(project.value).toBe("project-19");
+  expect(project.getAttribute("aria-expanded")).toBe("false");
+  expect(
+    requests
+      .filter((r) => r.pathname === "/api/v1/browse")
+      .at(-1)
+      ?.searchParams.get("project"),
+  ).toBe("project-19");
+  await input("project-filter", "outside-facets");
+  expect(
+    requests
+      .filter((r) => r.pathname === "/api/v1/browse")
+      .at(-1)
+      ?.searchParams.get("project"),
+  ).toBe("outside-facets");
+  await click("Reset filters");
+  expect(project.value).toBe("");
 });
