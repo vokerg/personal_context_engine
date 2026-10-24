@@ -12,39 +12,46 @@ const clientSchema = z
   })
   .strict();
 export type OAuthClient = z.infer<typeof clientSchema>;
+/** Registration is operator-owned. Native OAuth never implicitly enables MCP. */
 export function oauthClients(env: NodeJS.ProcessEnv): OAuthClient[] {
-  if (env.PCE_MCP_ENABLED && !["true", "false"].includes(env.PCE_MCP_ENABLED))
-    throw new Error("Invalid MCP flag");
-  if (env.PCE_MCP_ENABLED !== "true") return [];
-  const clients = z
-    .array(clientSchema)
-    .min(1)
-    .max(16)
-    .parse(JSON.parse(env.PCE_OAUTH_CLIENTS ?? "[]"));
-  if (new Set(clients.map((c) => c.clientId)).size !== clients.length)
-    throw new Error("Duplicate OAuth client");
-  for (const c of clients)
-    for (const uri of c.redirectUris) {
-      const u = new URL(uri);
-      if (
-        u.hash ||
-        u.username ||
-        u.password ||
-        (u.protocol !== "https:" &&
-          !(
-            u.protocol === "http:" &&
-            ["127.0.0.1", "localhost", "[::1]"].includes(u.hostname)
-          ))
-      )
-        throw new Error("Unsafe OAuth redirect");
-      if (
-        u.searchParams.has("code") ||
-        u.searchParams.has("state") ||
-        u.searchParams.has("error") ||
-        u.searchParams.has("iss")
-      )
-        throw new Error("Reserved redirect parameter");
-    }
+  for (const flag of ["PCE_MCP_ENABLED", "PCE_MOBILE_OAUTH_ENABLED"]) {
+    if (env[flag] !== undefined && !["true", "false"].includes(env[flag]!))
+      throw new Error("Invalid OAuth feature flag");
+  }
+  if (env.PCE_MOBILE_OAUTH_ENABLED !== "true" && env.PCE_MOBILE_OAUTH_CLIENT)
+    throw new Error("Mobile OAuth registration requires explicit enablement");
+
+  const mcpClients =
+    env.PCE_MCP_ENABLED === "true"
+      ? z.array(clientSchema).min(1).max(16).parse(JSON.parse(env.PCE_OAUTH_CLIENTS ?? "[]"))
+      : [];
+  const mobile =
+    env.PCE_MOBILE_OAUTH_ENABLED === "true"
+      ? clientSchema.parse(JSON.parse(env.PCE_MOBILE_OAUTH_CLIENT ?? "{}"))
+      : null;
+  // pce://oauth/callback is a dedicated native return handler, NOT a general
+  // permission to register arbitrary custom schemes or other pce:// routes.
+  if (mobile && (mobile.redirectUris.length !== 1 ||
+    mobile.redirectUris[0] !== "pce://oauth/callback"))
+    throw new Error("Unregistered native OAuth callback");
+  const clients = [...mcpClients, ...(mobile ? [mobile] : [])];
+  if (clients.length > 17 || new Set(clients.map((c) => c.clientId)).size !== clients.length)
+    throw new Error("Duplicate or excess OAuth clients");
+
+  for (const client of clients) for (const uri of client.redirectUris) {
+    const u = new URL(uri);
+    const native = mobile?.clientId === client.clientId &&
+      uri === "pce://oauth/callback";
+    if (
+      u.hash || u.username || u.password ||
+      !(native ||
+        u.protocol === "https:" ||
+        (u.protocol === "http:" &&
+          ["127.0.0.1", "localhost", "[::1]"].includes(u.hostname)))
+    ) throw new Error("Unsafe OAuth redirect");
+    if (["code", "state", "error", "iss"].some((key) => u.searchParams.has(key)))
+      throw new Error("Reserved redirect parameter");
+  }
   return clients;
 }
 const authorizeSchema = z
@@ -166,7 +173,8 @@ export function registerOAuth(
     const fields = { ...p, csrf };
     // Chrome applies form-action to the POST's redirect as well. The callback
     // has already passed the registered client's exact redirect URI check.
-    const callbackOrigin = new URL(p.redirect_uri).origin;
+    const callbackUrl = new URL(p.redirect_uri);
+    const callbackOrigin = callbackUrl.protocol === "pce:" ? "pce:" : callbackUrl.origin;
     reply.header(
       "Content-Security-Policy",
       `default-src 'none'; form-action 'self' ${callbackOrigin}; base-uri 'none'; frame-ancestors 'none'`,

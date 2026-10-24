@@ -1,5 +1,7 @@
 import { TagRegistryQuerySchema, type TagRegistryQuery } from "@pce/contracts";
 import { registerMcp, type McpOptions } from "./mcp.js";
+import { registerOAuth, type OAuthClient } from "./oauth.js";
+import type { PrismaClient } from "@pce/db";
 import { SearchRequestSchema, SearchResponseSchema } from "@pce/contracts";
 import {
   ResearchSaveRequestSchema,
@@ -84,6 +86,7 @@ export interface PrivateNoteReader {
 
 export interface ApiDependencies {
   mcp?: McpOptions;
+  oauth?: { db: PrismaClient; clients: OAuthClient[] };
   sessionAuth?: SessionAuth;
   search?: SearchService;
   capture?: {
@@ -183,10 +186,19 @@ export function createApp(options: ApiOptions = {}) {
     ajv: { customOptions: { coerceTypes: false, removeAdditional: false } },
   });
 
+  if (options.dependencies?.oauth) {
+    if (!sessionAuth) throw new Error("OAuth requires sessions");
+    registerOAuth(
+      app,
+      options.dependencies.oauth.db,
+      sessionAuth,
+      options.dependencies.oauth.clients,
+    );
+  }
   if (options.dependencies?.mcp) {
     const { mcp, search, capture } = options.dependencies;
-    if (!sessionAuth || !search || !capture)
-      throw new Error("MCP requires sessions, search and durable capture");
+    if (!sessionAuth || !search || !capture || !options.dependencies.oauth)
+      throw new Error("MCP requires OAuth, sessions, search and durable capture");
     registerMcp(app, mcp, sessionAuth, search, capture);
   }
 

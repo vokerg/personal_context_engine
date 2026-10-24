@@ -11,7 +11,7 @@ import type { FastifyInstance } from "fastify";
 import type { PrismaClient } from "@pce/db";
 import type { ApiDependencies } from "./app.js";
 import type { SessionAuth } from "./session-auth.js";
-import { registerOAuth, type OAuthClient } from "./oauth.js";
+import type { OAuthClient } from "./oauth.js";
 export interface McpOptions {
   db: PrismaClient;
   clients: OAuthClient[];
@@ -42,7 +42,6 @@ export function registerMcp(
   search: NonNullable<ApiDependencies["search"]>,
   capture: NonNullable<ApiDependencies["capture"]>,
 ) {
-  registerOAuth(app, options.db, auth, options.clients);
   app.route({
     method: ["GET", "POST", "DELETE"],
     url: "/mcp",

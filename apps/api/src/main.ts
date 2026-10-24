@@ -30,10 +30,13 @@ async function start(): Promise<void> {
     }
     const connected = db;
     const clients = oauthClients(process.env);
-    const transportHost = mcpTransportHost(process.env);
-    if (clients.length && (!connected || process.env.PCE_DB_SEARCH !== "true"))
-      throw new Error("MCP requires database search");
+    const mcpEnabled = process.env.PCE_MCP_ENABLED === "true";
+    const transportHost = mcpEnabled ? mcpTransportHost(process.env) : undefined;
     const sessionOptions = sessionConfig(process.env);
+    if (clients.length && (!connected || !sessionOptions))
+      throw new Error("OAuth requires configured database sessions");
+    if (mcpEnabled && process.env.PCE_DB_SEARCH !== "true")
+      throw new Error("MCP requires database search");
     if (
       process.env.PCE_DB_SEARCH &&
       !["true", "false"].includes(process.env.PCE_DB_SEARCH)
@@ -55,6 +58,9 @@ async function start(): Promise<void> {
             dependencies: {
               checkDatabase: () => checkDatabase(connected),
               ...(clients.length
+                ? { oauth: { db: connected, clients } }
+                : {}),
+              ...(mcpEnabled
                 ? {
                     mcp: {
                       db: connected,
