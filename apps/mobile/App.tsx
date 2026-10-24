@@ -1,10 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  AppState, Linking, SafeAreaView, ScrollView, Text, TouchableOpacity, View,
+  AppState,
+  Linking,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import {
-  ApiRequestError, describeNotesError, getNote, getNotes,
-  type NoteDetail, type NotePreview,
+  ApiRequestError,
+  describeNotesError,
+  getNote,
+  getNotes,
+  type NoteDetail,
+  type NotePreview,
 } from "@pce/api-client";
 import { parseNoteDeepLink } from "./links";
 import { createNativeSession } from "./native-auth";
@@ -13,10 +23,17 @@ import type { MobileSession, SessionView } from "./session";
 type LoadState = "loading" | "ready" | "error";
 function Action({ label, onPress }: { label: string; onPress: () => void }) {
   return (
-    <TouchableOpacity accessibilityRole="button" accessibilityLabel={label}
-      onPress={onPress} style={{
-        backgroundColor: "#234f85", padding: 12, marginVertical: 6, borderRadius: 6,
-      }}>
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={{
+        backgroundColor: "#234f85",
+        padding: 12,
+        marginVertical: 6,
+        borderRadius: 6,
+      }}
+    >
       <Text style={{ color: "white", fontWeight: "600" }}>{label}</Text>
     </TouchableOpacity>
   );
@@ -25,9 +42,11 @@ async function authorizedRead<T>(
   session: MobileSession,
   request: () => Promise<T>,
 ): Promise<T> {
-  try { return await request(); }
-  catch (error) {
-    if (!(error instanceof ApiRequestError) || error.status !== 401) throw error;
+  try {
+    return await request();
+  } catch (error) {
+    if (!(error instanceof ApiRequestError) || error.status !== 401)
+      throw error;
     const token = await session.forceRefresh();
     if (!token) throw error;
     return request();
@@ -77,9 +96,16 @@ export default function App() {
       const id = parseNoteDeepLink(value);
       if (id) setSelectedId(id);
     };
-    void Linking.getInitialURL().then(onUrl).catch(() => undefined);
-    const subscription = Linking.addEventListener("url", ({ url }) => onUrl(url));
-    return () => { active = false; subscription.remove(); };
+    void Linking.getInitialURL()
+      .then(onUrl)
+      .catch(() => undefined);
+    const subscription = Linking.addEventListener("url", ({ url }) =>
+      onUrl(url),
+    );
+    return () => {
+      active = false;
+      subscription.remove();
+    };
   }, []);
 
   useEffect(() => {
@@ -103,14 +129,22 @@ export default function App() {
       timeoutMs: 12000,
     };
     void authorizedRead(session, () => getNotes(options)).then(
-      (result) => { if (active) { setNotes(result.notes); setListState("ready"); } },
+      (result) => {
+        if (active) {
+          setNotes(result.notes);
+          setListState("ready");
+        }
+      },
       (error: unknown) => {
         if (!active) return;
         setListState("error");
         setListError(friendly(error));
       },
     );
-    return () => { active = false; controller.abort(); };
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [auth.phase, session, reload]);
 
   useEffect(() => {
@@ -127,14 +161,22 @@ export default function App() {
       timeoutMs: 12000,
     };
     void authorizedRead(session, () => getNote(options, selectedId)).then(
-      (result) => { if (active) { setDetail(result); setDetailState("ready"); } },
+      (result) => {
+        if (active) {
+          setDetail(result);
+          setDetailState("ready");
+        }
+      },
       (error: unknown) => {
         if (!active) return;
         setDetailState("error");
         setDetailError(friendly(error, true));
       },
     );
-    return () => { active = false; controller.abort(); };
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [auth.phase, selectedId, session, reload]);
 
   return (
@@ -147,49 +189,90 @@ export default function App() {
           <Text accessibilityRole="alert">
             Set EXPO_PUBLIC_API_BASE_URL to the canonical HTTPS API origin and
             EXPO_PUBLIC_OAUTH_CLIENT_ID to the registered iOS public client ID.
-            Use an iOS development build; Expo Go cannot receive the private callback.
+            Use an iOS development build; Expo Go cannot receive the private
+            callback.
           </Text>
         ) : auth.phase === "restoring" ? (
           <Text accessibilityRole="alert">Restoring secure session…</Text>
         ) : auth.phase !== "signed-in" ? (
           <View>
-            <Text style={{ fontSize: 19, fontWeight: "600" }}>Sign-in required</Text>
-            <Text>
-              Sign in through the system browser using your existing PCE account.
-              No access token needs to be pasted into the app.
+            <Text style={{ fontSize: 19, fontWeight: "600" }}>
+              Sign-in required
             </Text>
-            {auth.notice ? <Text accessibilityRole="alert">{auth.notice}</Text> : null}
-            {selectedId ? <Text>A note link is pending authentication.</Text> : null}
-            <Action label="Sign in" onPress={() => { void session.signIn(); }} />
-            <Action label="Retry saved session" onPress={() => { void session.restore(); }} />
+            <Text>
+              Sign in through the system browser using your existing PCE
+              account. No access token needs to be pasted into the app.
+            </Text>
+            {auth.notice ? (
+              <Text accessibilityRole="alert">{auth.notice}</Text>
+            ) : null}
+            {selectedId ? (
+              <Text>A note link is pending authentication.</Text>
+            ) : null}
+            <Action
+              label="Sign in"
+              onPress={() => {
+                void session.signIn();
+              }}
+            />
+            <Action
+              label="Retry saved session"
+              onPress={() => {
+                void session.restore();
+              }}
+            />
           </View>
         ) : (
           <View>
-            <Action label="Sign out" onPress={() => {
-              setNotes([]);
-              setDetail(null);
-              void session.signOut();
-            }} />
-            {auth.notice ? <Text accessibilityRole="alert">{auth.notice}</Text> : null}
+            <Action
+              label="Sign out"
+              onPress={() => {
+                setNotes([]);
+                setDetail(null);
+                void session.signOut();
+              }}
+            />
+            {auth.notice ? (
+              <Text accessibilityRole="alert">{auth.notice}</Text>
+            ) : null}
             <Text style={{ fontSize: 19, fontWeight: "600" }}>Notes</Text>
-            <Action label="Refresh notes" onPress={() => setReload((value) => value + 1)} />
+            <Action
+              label="Refresh notes"
+              onPress={() => setReload((value) => value + 1)}
+            />
             {listState === "loading" ? <Text>Loading notes…</Text> : null}
-            {listState === "error" ? <Text accessibilityRole="alert">{listError}</Text> : null}
-            {listState === "ready" && notes.length === 0
-              ? <Text>No notes available for this session.</Text> : null}
-            {listState === "ready" ? notes.map((note) => (
-              <View key={note.id}>
-                <Action label={note.title} onPress={() => setSelectedId(note.id)} />
-                <Text>{note.summary}</Text>
-              </View>
-            )) : null}
+            {listState === "error" ? (
+              <Text accessibilityRole="alert">{listError}</Text>
+            ) : null}
+            {listState === "ready" && notes.length === 0 ? (
+              <Text>No notes available for this session.</Text>
+            ) : null}
+            {listState === "ready"
+              ? notes.map((note) => (
+                  <View key={note.id}>
+                    <Action
+                      label={note.title}
+                      onPress={() => setSelectedId(note.id)}
+                    />
+                    <Text>{note.summary}</Text>
+                  </View>
+                ))
+              : null}
             {selectedId ? (
               <View style={{ marginTop: 16 }}>
-                <Action label="Back to notes" onPress={() => setSelectedId(null)} />
-                <Text style={{ fontSize: 19, fontWeight: "600" }}>Note detail</Text>
-                {detailState === "loading" ? <Text>Loading detail…</Text> : null}
-                {detailState === "error"
-                  ? <Text accessibilityRole="alert">{detailError}</Text> : null}
+                <Action
+                  label="Back to notes"
+                  onPress={() => setSelectedId(null)}
+                />
+                <Text style={{ fontSize: 19, fontWeight: "600" }}>
+                  Note detail
+                </Text>
+                {detailState === "loading" ? (
+                  <Text>Loading detail…</Text>
+                ) : null}
+                {detailState === "error" ? (
+                  <Text accessibilityRole="alert">{detailError}</Text>
+                ) : null}
                 {detailState === "ready" && detail ? (
                   <View>
                     <Text style={{ fontWeight: "700" }}>{detail.title}</Text>

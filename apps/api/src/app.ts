@@ -189,7 +189,8 @@ export function createApp(options: ApiOptions = {}) {
   // Historical MCP callers already supply OAuth registration in McpOptions.
   // Preserve that contract, but allow a standalone native OAuth registration
   // when MCP tools must remain entirely disabled.
-  const registeredOAuth = options.dependencies?.oauth ?? options.dependencies?.mcp;
+  const registeredOAuth =
+    options.dependencies?.oauth ?? options.dependencies?.mcp;
   if (registeredOAuth) {
     if (!sessionAuth) throw new Error("OAuth requires sessions");
     registerOAuth(

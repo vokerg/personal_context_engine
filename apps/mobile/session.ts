@@ -4,7 +4,11 @@
  * This file deliberately has no React Native imports for synthetic testing.
  */
 export type SessionPhase = "restoring" | "signed-out" | "signed-in";
-export type SessionView = { phase: SessionPhase; notice: string; revision: number };
+export type SessionView = {
+  phase: SessionPhase;
+  notice: string;
+  revision: number;
+};
 export type AuthorizationAttempt = {
   url: string;
   state: string;
@@ -37,16 +41,24 @@ const VERIFIER = /^[A-Za-z0-9._~-]{43,128}$/;
 export function verifiedConfig(config: MobileOAuthConfig): MobileOAuthConfig {
   const url = new URL(config.apiOrigin);
   if (
-    url.origin !== config.apiOrigin || url.username || url.password ||
+    url.origin !== config.apiOrigin ||
+    url.username ||
+    url.password ||
     (url.protocol !== "https:" &&
-      !(url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname))) ||
+      !(
+        url.protocol === "http:" &&
+        ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
+      )) ||
     !/^[A-Za-z0-9._:-]{1,128}$/.test(config.clientId) ||
     config.callback !== "pce://oauth/callback" ||
     !config.scopes.length ||
     new Set(config.scopes).size !== config.scopes.length ||
-    config.scopes.some((scope) => !["notes:read", "capture:write", "tags:write"].includes(scope)) ||
+    config.scopes.some(
+      (scope) => !["notes:read", "capture:write", "tags:write"].includes(scope),
+    ) ||
     !config.scopes.includes("notes:read")
-  ) throw new Error("Invalid native OAuth configuration");
+  )
+    throw new Error("Invalid native OAuth configuration");
   return config;
 }
 
@@ -58,20 +70,31 @@ export function parseNativeCallback(
 ): string {
   const url = new URL(input);
   if (
-    url.protocol !== "pce:" || url.hostname !== "oauth" || url.pathname !== "/callback" ||
-    url.username || url.password || url.hash ||
-    !["code", "state", "iss", "error"].every((key) => url.searchParams.getAll(key).length <= 1) ||
-    [...url.searchParams.keys()].some((key) => !["code", "state", "iss", "error"].includes(key)) ||
+    url.protocol !== "pce:" ||
+    url.hostname !== "oauth" ||
+    url.pathname !== "/callback" ||
+    url.username ||
+    url.password ||
+    url.hash ||
+    !["code", "state", "iss", "error"].every(
+      (key) => url.searchParams.getAll(key).length <= 1,
+    ) ||
+    [...url.searchParams.keys()].some(
+      (key) => !["code", "state", "iss", "error"].includes(key),
+    ) ||
     url.searchParams.get("state") !== expectedState ||
     url.searchParams.get("iss") !== config.apiOrigin ||
     input.split("?")[0] !== config.callback
-  ) throw new Error("Invalid authorization response");
+  )
+    throw new Error("Invalid authorization response");
   if (url.searchParams.has("error")) {
-    if (url.searchParams.get("error") === "access_denied") throw new Error("Authorization denied");
+    if (url.searchParams.get("error") === "access_denied")
+      throw new Error("Authorization denied");
     throw new Error("Invalid authorization response");
   }
   const code = url.searchParams.get("code");
-  if (!code || !CODE.test(code)) throw new Error("Invalid authorization response");
+  if (!code || !CODE.test(code))
+    throw new Error("Invalid authorization response");
   return code;
 }
 function parseToken(value: unknown, config: MobileOAuthConfig): TokenResponse {
@@ -79,14 +102,19 @@ function parseToken(value: unknown, config: MobileOAuthConfig): TokenResponse {
     throw new Error("Invalid token response");
   const token = value as Record<string, unknown>;
   if (
-    typeof token.access_token !== "string" || !TOKEN.test(token.access_token) ||
-    typeof token.refresh_token !== "string" || !TOKEN.test(token.refresh_token) ||
+    typeof token.access_token !== "string" ||
+    !TOKEN.test(token.access_token) ||
+    typeof token.refresh_token !== "string" ||
+    !TOKEN.test(token.refresh_token) ||
     token.token_type !== "Bearer" ||
-    typeof token.expires_in !== "number" || token.expires_in < 1 || token.expires_in > 900 ||
+    typeof token.expires_in !== "number" ||
+    token.expires_in < 1 ||
+    token.expires_in > 900 ||
     typeof token.scope !== "string" ||
     !token.scope.split(" ").includes("notes:read") ||
     token.scope.split(" ").some((scope) => !config.scopes.includes(scope))
-  ) throw new Error("Invalid token response");
+  )
+    throw new Error("Invalid token response");
   return token as unknown as TokenResponse;
 }
 
@@ -109,11 +137,15 @@ export class MobileSession {
   ) {
     this.config = verifiedConfig(config);
   }
-  get snapshot(): SessionView { return this.view; }
+  get snapshot(): SessionView {
+    return this.view;
+  }
   subscribe(listener: (snapshot: SessionView) => void): () => void {
     this.listeners.add(listener);
     listener(this.view);
-    return () => { this.listeners.delete(listener); };
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
   private emit(phase: SessionPhase, notice = "") {
     this.view = { phase, notice, revision: this.view.revision + 1 };
@@ -161,12 +193,22 @@ export class MobileSession {
     try {
       const stored = await this.platform.readRefresh();
       if (version !== this.epoch) return;
-      if (!stored) { this.emit("signed-out"); return; }
-      if (!TOKEN.test(stored)) { await this.invalidate("Sign in again."); return; }
+      if (!stored) {
+        this.emit("signed-out");
+        return;
+      }
+      if (!TOKEN.test(stored)) {
+        await this.invalidate("Sign in again.");
+        return;
+      }
       this.refreshToken = stored;
       await this.getAccessToken();
     } catch {
-      if (version === this.epoch) this.emit("signed-out", "Could not restore session. Retry when online.");
+      if (version === this.epoch)
+        this.emit(
+          "signed-out",
+          "Could not restore session. Retry when online.",
+        );
     }
   }
   async signIn(): Promise<void> {
@@ -178,25 +220,41 @@ export class MobileSession {
       if (!VERIFIER.test(attempt.codeVerifier) || attempt.state.length < 16)
         throw new Error("Invalid authorization request");
       // No native URL ever contains access or refresh tokens.
-      const returnUrl = await this.platform.openAuthorization(attempt.url, this.config.callback);
+      const returnUrl = await this.platform.openAuthorization(
+        attempt.url,
+        this.config.callback,
+      );
       if (version !== this.epoch) return;
-      if (!returnUrl) { this.emit("signed-out", "Sign-in cancelled."); return; }
+      if (!returnUrl) {
+        this.emit("signed-out", "Sign-in cancelled.");
+        return;
+      }
       const code = parseNativeCallback(returnUrl, this.config, attempt.state);
       const response = await this.post("/oauth/token", {
         grant_type: "authorization_code",
-        code, client_id: this.config.clientId, redirect_uri: this.config.callback,
-        resource: this.config.apiOrigin + "/mcp", code_verifier: attempt.codeVerifier,
+        code,
+        client_id: this.config.clientId,
+        redirect_uri: this.config.callback,
+        resource: this.config.apiOrigin + "/mcp",
+        code_verifier: attempt.codeVerifier,
       });
       await this.accept(response, version);
     } catch (error) {
       if (version === this.epoch)
-        this.emit("signed-out", error instanceof Error && error.message === "Authorization denied"
-          ? "Access not granted." : "Could not sign in. Check connectivity and configuration.");
-    } finally { this.signingIn = false; }
+        this.emit(
+          "signed-out",
+          error instanceof Error && error.message === "Authorization denied"
+            ? "Access not granted."
+            : "Could not sign in. Check connectivity and configuration.",
+        );
+    } finally {
+      this.signingIn = false;
+    }
   }
   async getAccessToken(force = false): Promise<string | null> {
     if (this.signingOut) return null;
-    if (!force && this.access && this.expiresAt - this.clock() > 60000) return this.access;
+    if (!force && this.access && this.expiresAt - this.clock() > 60000)
+      return this.access;
     if (this.refreshInFlight) return this.refreshInFlight;
     if (!this.refreshToken) return null;
     const version = this.epoch;
@@ -204,8 +262,10 @@ export class MobileSession {
     const task = (async () => {
       try {
         const response = await this.post("/oauth/token", {
-          grant_type: "refresh_token", refresh_token: refresh,
-          client_id: this.config.clientId, resource: this.config.apiOrigin + "/mcp",
+          grant_type: "refresh_token",
+          refresh_token: refresh,
+          client_id: this.config.clientId,
+          resource: this.config.apiOrigin + "/mcp",
         });
         return await this.accept(response, version);
       } catch (error) {
@@ -216,12 +276,17 @@ export class MobileSession {
         }
         // Transient failures must retain the last secure refresh credential.
         this.access = null;
-        this.emit("signed-out", "Unable to refresh session. Retry when online.");
+        this.emit(
+          "signed-out",
+          "Unable to refresh session. Retry when online.",
+        );
         return null;
       }
     })();
     this.refreshInFlight = task;
-    try { return await task; } finally {
+    try {
+      return await task;
+    } finally {
       if (this.refreshInFlight === task) this.refreshInFlight = null;
     }
   }
@@ -233,7 +298,11 @@ export class MobileSession {
   async signOut(): Promise<void> {
     this.signingOut = true;
     // Do not revoke an already-rotated credential: wait for the single flight.
-    try { await this.refreshInFlight; } catch { /* Local sign-out still proceeds. */ }
+    try {
+      await this.refreshInFlight;
+    } catch {
+      /* Local sign-out still proceeds. */
+    }
     const token = this.refreshToken;
     ++this.epoch;
     this.access = null;
@@ -245,12 +314,19 @@ export class MobileSession {
       if (token) {
         try {
           await this.post("/oauth/revoke", {
-            token, client_id: this.config.clientId, token_type_hint: "refresh_token",
+            token,
+            client_id: this.config.clientId,
+            token_type_hint: "refresh_token",
           });
         } catch {
-          this.emit("signed-out", "Signed out here; server revocation could not be confirmed.");
+          this.emit(
+            "signed-out",
+            "Signed out here; server revocation could not be confirmed.",
+          );
         }
       }
-    } finally { this.signingOut = false; }
+    } finally {
+      this.signingOut = false;
+    }
   }
 }

@@ -37,17 +37,25 @@ describe.skipIf(!process.env.PCE_DB_TEST_URL)(
       code_challenge: createHash("sha256").update(verifier).digest("base64url"),
       code_challenge_method: "S256",
     });
-    const exchange = (code: string, codeVerifier = verifier) => form("/oauth/token", {
-      grant_type: "authorization_code",
-      code, client_id: "synthetic-ios", redirect_uri: redirect,
-      resource: issuer + "/mcp", code_verifier: codeVerifier,
-    });
+    const exchange = (code: string, codeVerifier = verifier) =>
+      form("/oauth/token", {
+        grant_type: "authorization_code",
+        code,
+        client_id: "synthetic-ios",
+        redirect_uri: redirect,
+        resource: issuer + "/mcp",
+        code_verifier: codeVerifier,
+      });
 
     beforeAll(async () => {
-      db = new PrismaClient({ datasources: { db: { url: process.env.PCE_DB_TEST_URL! } } });
+      db = new PrismaClient({
+        datasources: { db: { url: process.env.PCE_DB_TEST_URL! } },
+      });
       await db.$connect();
       const probe = createServer();
-      await new Promise<void>((resolve) => probe.listen(0, "127.0.0.1", resolve));
+      await new Promise<void>((resolve) =>
+        probe.listen(0, "127.0.0.1", resolve),
+      );
       const port = (probe.address() as { port: number }).port;
       await new Promise<void>((resolve) => probe.close(() => resolve()));
       issuer = "http://127.0.0.1:" + port;
@@ -62,18 +70,25 @@ describe.skipIf(!process.env.PCE_DB_TEST_URL)(
       const auth = createSessionAuth(db, config);
       app = createApp({
         config: {
-          environment: "development", host: "127.0.0.1", port: 0,
-          requiresDatabase: false, corsOrigin: config.origin,
+          environment: "development",
+          host: "127.0.0.1",
+          port: 0,
+          requiresDatabase: false,
+          corsOrigin: config.origin,
         },
         dependencies: {
           sessionAuth: auth,
-          oauth: { db, clients: oauthClients({
-            PCE_MOBILE_OAUTH_ENABLED: "true",
-            PCE_MOBILE_OAUTH_CLIENT: JSON.stringify({
-              clientId: "synthetic-ios", redirectUris: [redirect],
-              scopes: ["notes:read", "capture:write", "tags:write"],
+          oauth: {
+            db,
+            clients: oauthClients({
+              PCE_MOBILE_OAUTH_ENABLED: "true",
+              PCE_MOBILE_OAUTH_CLIENT: JSON.stringify({
+                clientId: "synthetic-ios",
+                redirectUris: [redirect],
+                scopes: ["notes:read", "capture:write", "tags:write"],
+              }),
             }),
-          }) },
+          },
           notes: {
             listByOwner: async () => [],
             getByOwner: async () => null,
@@ -82,12 +97,18 @@ describe.skipIf(!process.env.PCE_DB_TEST_URL)(
       });
       await app.listen({ host: "127.0.0.1", port });
       const login = await fetch(issuer + "/auth/dev-session", {
-        method: "POST", headers: {
-          origin: config.origin, "content-type": "application/json",
-        }, body: "{}",
+        method: "POST",
+        headers: {
+          origin: config.origin,
+          "content-type": "application/json",
+        },
+        body: "{}",
       });
       expect(login.status).toBe(200);
-      cookie = login.headers.getSetCookie().map((x) => x.split(";")[0]).join("; ");
+      cookie = login.headers
+        .getSetCookie()
+        .map((x) => x.split(";")[0])
+        .join("; ");
       csrf = /pce_csrf=([^;]+)/.exec(cookie)![1]!;
     });
     afterAll(async () => {
@@ -99,30 +120,53 @@ describe.skipIf(!process.env.PCE_DB_TEST_URL)(
     });
 
     it("issues short-lived owner-scoped access via registered iOS PKCE without exposing MCP", async () => {
-      const metadata = await fetch(issuer + "/.well-known/oauth-authorization-server");
+      const metadata = await fetch(
+        issuer + "/.well-known/oauth-authorization-server",
+      );
       expect(metadata.status).toBe(200);
       expect((await metadata.json()).issuer).toBe(issuer);
       expect((await fetch(issuer + "/mcp")).status).toBe(404);
-      const invalid = await fetch(issuer + "/oauth/authorize?" +
-        new URLSearchParams({ ...authorizeParams(), redirect_uri: "pce://notes/other" }), {
+      const invalid = await fetch(
+        issuer +
+          "/oauth/authorize?" +
+          new URLSearchParams({
+            ...authorizeParams(),
+            redirect_uri: "pce://notes/other",
+          }),
+        {
           headers: { cookie },
-        });
+        },
+      );
       expect(invalid.status).toBe(400);
-      const deniedScope = await fetch(issuer + "/oauth/authorize?" +
-        new URLSearchParams({ ...authorizeParams(), scope: "admin" }), {
+      const deniedScope = await fetch(
+        issuer +
+          "/oauth/authorize?" +
+          new URLSearchParams({ ...authorizeParams(), scope: "admin" }),
+        {
           headers: { cookie },
-        });
+        },
+      );
       expect(deniedScope.status).toBe(400);
-      const consent = await fetch(issuer + "/oauth/authorize?" +
-        new URLSearchParams(authorizeParams()), { headers: { cookie } });
+      const consent = await fetch(
+        issuer + "/oauth/authorize?" + new URLSearchParams(authorizeParams()),
+        { headers: { cookie } },
+      );
       expect(consent.status).toBe(200);
-      expect(consent.headers.get("content-security-policy")).toContain("form-action 'self' pce:");
+      expect(consent.headers.get("content-security-policy")).toContain(
+        "form-action 'self' pce:",
+      );
       const allow = await fetch(issuer + "/oauth/authorize", {
-        method: "POST", headers: {
-          cookie, origin: issuer,
+        method: "POST",
+        headers: {
+          cookie,
+          origin: issuer,
           "content-type": "application/x-www-form-urlencoded",
         },
-        body: new URLSearchParams({ ...authorizeParams(), csrf, decision: "allow" }),
+        body: new URLSearchParams({
+          ...authorizeParams(),
+          csrf,
+          decision: "allow",
+        }),
         redirect: "manual",
       });
       expect(allow.status).toBe(303);
@@ -138,13 +182,19 @@ describe.skipIf(!process.env.PCE_DB_TEST_URL)(
       expect(pair.scope).toBe("notes:read");
       expect(pair.expires_in).toBe(900);
       expect((await exchange(code)).status).toBe(400);
-      expect((await fetch(issuer + "/api/v1/notes", {
-        headers: { Authorization: "Bearer " + pair.access_token },
-      })).status).toBe(200);
+      expect(
+        (
+          await fetch(issuer + "/api/v1/notes", {
+            headers: { Authorization: "Bearer " + pair.access_token },
+          })
+        ).status,
+      ).toBe(200);
 
       const refreshFields = {
-        grant_type: "refresh_token", refresh_token: pair.refresh_token,
-        client_id: "synthetic-ios", resource: issuer + "/mcp",
+        grant_type: "refresh_token",
+        refresh_token: pair.refresh_token,
+        client_id: "synthetic-ios",
+        resource: issuer + "/mcp",
       };
       const attempts = await Promise.all([
         form("/oauth/token", refreshFields),
@@ -153,19 +203,36 @@ describe.skipIf(!process.env.PCE_DB_TEST_URL)(
       expect(attempts.map((r) => r.status).sort()).toEqual([200, 400]);
       const rotated = await attempts.find((r) => r.ok)!.json();
       expect(rotated.refresh_token).not.toBe(pair.refresh_token);
-      expect((await fetch(issuer + "/api/v1/notes", {
-        headers: { Authorization: "Bearer " + pair.access_token },
-      })).status).toBe(401);
-      expect((await fetch(issuer + "/api/v1/notes", {
-        headers: { Authorization: "Bearer " + rotated.access_token },
-      })).status).toBe(200);
-      expect((await form("/oauth/revoke", {
-        token: rotated.refresh_token, client_id: "synthetic-ios",
-        token_type_hint: "refresh_token",
-      })).status).toBe(200);
-      expect((await fetch(issuer + "/api/v1/notes", {
-        headers: { Authorization: "Bearer " + rotated.access_token },
-      })).status).toBe(401);
+      expect(
+        (
+          await fetch(issuer + "/api/v1/notes", {
+            headers: { Authorization: "Bearer " + pair.access_token },
+          })
+        ).status,
+      ).toBe(401);
+      expect(
+        (
+          await fetch(issuer + "/api/v1/notes", {
+            headers: { Authorization: "Bearer " + rotated.access_token },
+          })
+        ).status,
+      ).toBe(200);
+      expect(
+        (
+          await form("/oauth/revoke", {
+            token: rotated.refresh_token,
+            client_id: "synthetic-ios",
+            token_type_hint: "refresh_token",
+          })
+        ).status,
+      ).toBe(200);
+      expect(
+        (
+          await fetch(issuer + "/api/v1/notes", {
+            headers: { Authorization: "Bearer " + rotated.access_token },
+          })
+        ).status,
+      ).toBe(401);
     });
   },
 );

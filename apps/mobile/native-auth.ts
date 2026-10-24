@@ -12,7 +12,8 @@ const platform: OAuthPlatform = {
     // SDK54 defaults to a 10-character state; PCE requires >=16. Generate
     // 256 bits using the platform CSPRNG, never Math.random.
     const state = Array.from(Crypto.getRandomValues(new Uint8Array(32)))
-      .map((byte) => byte.toString(16).padStart(2, "0")).join("");
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
     const request = new AuthRequest({
       state,
       clientId: config.clientId,
@@ -33,9 +34,10 @@ const platform: OAuthPlatform = {
     return result.type === "success" ? result.url : null;
   },
   readRefresh: () => SecureStore.getItemAsync(refreshKey),
-  writeRefresh: (value) => SecureStore.setItemAsync(refreshKey, value, {
-    keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-  }),
+  writeRefresh: (value) =>
+    SecureStore.setItemAsync(refreshKey, value, {
+      keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+    }),
   clearRefresh: () => SecureStore.deleteItemAsync(refreshKey),
 };
 export function createNativeSession(): MobileSession | null {
@@ -43,12 +45,15 @@ export function createNativeSession(): MobileSession | null {
   const clientId = process.env.EXPO_PUBLIC_OAUTH_CLIENT_ID;
   if (!baseUrl || !clientId) return null;
   try {
-    return new MobileSession({
-      apiOrigin: baseUrl,
-      clientId,
-      callback,
-      scopes: ["notes:read", "capture:write", "tags:write"],
-    }, platform);
+    return new MobileSession(
+      {
+        apiOrigin: baseUrl,
+        clientId,
+        callback,
+        scopes: ["notes:read", "capture:write", "tags:write"],
+      },
+      platform,
+    );
   } catch {
     return null;
   }

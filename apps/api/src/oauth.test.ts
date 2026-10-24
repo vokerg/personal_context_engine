@@ -41,7 +41,9 @@ describe("trusted MCP deployment configuration", () => {
     });
     expect(oauthClients(mobile())).toEqual([native]);
     expect(oauthClients({ PCE_MCP_ENABLED: "false" })).toEqual([]);
-    expect(() => oauthClients({ PCE_MOBILE_OAUTH_CLIENT: JSON.stringify(native) })).toThrow();
+    expect(() =>
+      oauthClients({ PCE_MOBILE_OAUTH_CLIENT: JSON.stringify(native) }),
+    ).toThrow();
     for (const uri of [
       "pce://notes/other",
       "pce://oauth/callback?state=shadow",
@@ -49,22 +51,45 @@ describe("trusted MCP deployment configuration", () => {
       "pce://oauth/callback#fragment",
       "http://example.test/callback",
     ]) {
-      expect(() => oauthClients(mobile({
-        PCE_MOBILE_OAUTH_CLIENT: JSON.stringify({ ...native, redirectUris: [uri] }),
-      }))).toThrow();
+      expect(() =>
+        oauthClients(
+          mobile({
+            PCE_MOBILE_OAUTH_CLIENT: JSON.stringify({
+              ...native,
+              redirectUris: [uri],
+            }),
+          }),
+        ),
+      ).toThrow();
     }
-    expect(() => oauthClients(mobile({
-      PCE_MCP_ENABLED: "true",
-      PCE_OAUTH_CLIENTS: JSON.stringify([{
-        clientId: "pce-ios", redirectUris: ["https://chatgpt.example/callback"], scopes: ["notes:read"],
-      }]),
-    }))).toThrow();
-    expect(oauthClients(mobile({
-      PCE_MCP_ENABLED: "true",
-      PCE_OAUTH_CLIENTS: JSON.stringify([{
-        clientId: "chatgpt", redirectUris: ["https://chatgpt.example/callback"], scopes: ["notes:read"],
-      }]),
-    }))).toHaveLength(2);
+    expect(() =>
+      oauthClients(
+        mobile({
+          PCE_MCP_ENABLED: "true",
+          PCE_OAUTH_CLIENTS: JSON.stringify([
+            {
+              clientId: "pce-ios",
+              redirectUris: ["https://chatgpt.example/callback"],
+              scopes: ["notes:read"],
+            },
+          ]),
+        }),
+      ),
+    ).toThrow();
+    expect(
+      oauthClients(
+        mobile({
+          PCE_MCP_ENABLED: "true",
+          PCE_OAUTH_CLIENTS: JSON.stringify([
+            {
+              clientId: "chatgpt",
+              redirectUris: ["https://chatgpt.example/callback"],
+              scopes: ["notes:read"],
+            },
+          ]),
+        }),
+      ),
+    ).toHaveLength(2);
   });
   it("pins only an explicit secure transport origin", () => {
     expect(mcpTransportHost({})).toBeUndefined();

@@ -31,7 +31,9 @@ async function start(): Promise<void> {
     const connected = db;
     const clients = oauthClients(process.env);
     const mcpEnabled = process.env.PCE_MCP_ENABLED === "true";
-    const transportHost = mcpEnabled ? mcpTransportHost(process.env) : undefined;
+    const transportHost = mcpEnabled
+      ? mcpTransportHost(process.env)
+      : undefined;
     const sessionOptions = sessionConfig(process.env);
     if (clients.length && (!connected || !sessionOptions))
       throw new Error("OAuth requires configured database sessions");
@@ -57,9 +59,7 @@ async function start(): Promise<void> {
         ? {
             dependencies: {
               checkDatabase: () => checkDatabase(connected),
-              ...(clients.length
-                ? { oauth: { db: connected, clients } }
-                : {}),
+              ...(clients.length ? { oauth: { db: connected, clients } } : {}),
               ...(mcpEnabled
                 ? {
                     mcp: {
