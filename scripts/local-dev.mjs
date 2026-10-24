@@ -15,6 +15,7 @@ import {
 
 process.chdir(fileURLToPath(new URL("..", import.meta.url)));
 let api, web, db, ingestion;
+let startupStage = "initializing";
 async function close() {
   await ingestion?.close();
   await web?.close();
@@ -23,7 +24,19 @@ async function close() {
 }
 function run(args, { env = process.env, quiet = false } = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn("npm", args, { env, stdio: quiet ? "ignore" : "inherit" });
+    const windows = process.platform === "win32";
+    const npmExecPath = env.npm_execpath;
+    const command = npmExecPath
+      ? process.execPath
+      : windows
+        ? "npm.cmd"
+        : "npm";
+    const commandArgs = npmExecPath ? [npmExecPath, ...args] : args;
+    const child = spawn(command, commandArgs, {
+      env,
+      stdio: quiet ? "ignore" : "inherit",
+      ...(windows && !npmExecPath ? { shell: true } : {}),
+    });
     child.once("error", reject);
     child.once("exit", (code) =>
       code === 0 ? resolve() : reject(new Error("Setup command failed.")),
@@ -45,27 +58,34 @@ async function portAvailable(port) {
 }
 try {
   try {
+    startupStage = "loading .env";
     process.loadEnvFile(".env");
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
   }
+  startupStage = "validating local configuration";
   const config = localConfig(process.env);
+  startupStage = "checking local ports";
   await portAvailable(config.apiPort);
   await portAvailable(config.webPort);
+  startupStage = "building workspaces";
   await run(["run", "build"]);
   // Session-level migration locks require the configured direct connection.
   // Runtime API/worker queries keep the pooled DATABASE_URL unchanged.
+  startupStage = "applying database migrations";
   await run(["run", "db:migrate"], {
     env: {...process.env, DATABASE_URL:process.env.DIRECT_URL ?? process.env.DATABASE_URL},
     quiet:true,
   });
   console.log("Database migrations checked.");
+  startupStage = "loading runtime modules";
   const { createDatabaseClient, checkDatabase } = await import("@pce/db");
   const { createSessionAuth, sessionConfig } = await import("../apps/api/dist/session-auth.js");
   const sessionOptions = sessionConfig({...process.env,PCE_WEB_ORIGIN:config.origin,PCE_API_ORIGIN:`http://127.0.0.1:${config.apiPort}`});
   if (sessionOptions) sessionOptions.allowedOrigins = config.origins;
   const { createApp } = await import("../apps/api/dist/app.js");
   const { createServer: createVite } = await import("vite");
+  startupStage = "connecting to database";
   db = createDatabaseClient();
   await db.$connect();
   const sessionAuth = sessionOptions ? createSessionAuth(db,sessionOptions) : undefined;
@@ -88,6 +108,7 @@ try {
     ids,
     env: process.env,
   });
+  startupStage = "importing local content";
   await ingestion.refresh();
   if (ingestion.status.error) throw new Error("Initial ingestion failed");
   const secret = randomBytes(32).toString("hex");
@@ -114,6 +135,7 @@ try {
       }),
     },
   });
+  startupStage = "starting web server";
   web = await createVite({
     root: fileURLToPath(new URL("../apps/web", import.meta.url)),
     server: {
@@ -175,7 +197,9 @@ try {
       },
     ],
   });
+  startupStage = "starting API server";
   await api.listen({ host: "127.0.0.1", port: config.apiPort });
+  startupStage = "starting web server listener";
   await web.listen();
   ingestion.start();
   console.log(
@@ -188,7 +212,7 @@ try {
 } catch (error) {
   // Validation/provider exceptions can contain private content. Print fixed diagnostics only.
   console.error(
-    "Local startup failed. Check root .env, free API_PORT/PCE_WEB_PORT, valid content paths and note ownership.",
+    `Local startup failed during ${startupStage}. Check root .env, free API_PORT/PCE_WEB_PORT, valid content paths and note ownership.`,
   );
   await close();
   process.exitCode = 1;

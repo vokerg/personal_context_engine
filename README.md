@@ -127,10 +127,10 @@ npm run lint
 npm run typecheck
 npm test              # also builds compiled packages and Vite web bundle
 npm run docs:check
-npm run dev           # API :3000, worker (idle until explicit opt-in), Vite web :4200
+npm run dev           # API :3000 and Vite web :4200 by default; API_PORT/PCE_WEB_PORT override
 ```
 
-Alternatively run `npm run dev:api`, `npm run dev:worker`, or `npm run dev:web` separately. `API_HOST` and `API_PORT` configure the local bind address (see `.env.example`; values are not auto-loaded). Public `GET /health`, `GET /ready` and `GET /api/v1` expose liveness, mandatory-dependency readiness and API version. There are **no private note routes**; the worker deliberately does no ingestion. Configuring `API_REQUIRE_DB=true` or `DATABASE_URL` intentionally prevents startup until a trusted DB readiness adapter is integrated (#8).
+Alternatively run `npm run dev:api`, `npm run dev:worker`, or `npm run dev:web` separately. `API_HOST` and `API_PORT` configure the API bind address, while `PCE_WEB_PORT` configures the Vite web port; the root `.env` supplies these local settings. Public `GET /health`, `GET /ready` and `GET /api/v1` expose liveness, mandatory-dependency readiness and API version. There are **no private note routes**; the worker deliberately does no ingestion. Configuring `API_REQUIRE_DB=true` or `DATABASE_URL` intentionally prevents startup until a trusted DB readiness adapter is integrated (#8).
 
 For Expo, set a device-reachable `EXPO_PUBLIC_API_BASE_URL` and run `npm run dev:mobile` with a separately configured simulator/device development environment. Expo Go/native device launch and bundle compatibility must be verified on the target platform; the bootstrap CI only runs TypeScript checking, not an emulator or a production mobile bundle. Authenticated remote client calls require HTTPS; device `localhost` does not reach the host PC. See [client runbook](docs/03-repositories-and-operations.md#minimal-web-and-expo-read-only-clients-14). PostgreSQL/Prisma migration and disposable local DB commands are available through `packages/db/README.md` (issue #8); production note browsing still needs an owner-aware data reader and trusted token issuer. See [repository operations](docs/03-repositories-and-operations.md).
 

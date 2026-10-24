@@ -60,7 +60,7 @@ npm run typecheck
 npm test                 # builds workspaces and exercises synthetic smoke tests
 npm run build
 npm run docs:check
-npm run dev              # API :3000, default-idle worker and Vite web :4200
+npm run dev              # API :3000 and Vite web :4200 by default; API_PORT/PCE_WEB_PORT override
 npm run dev:mobile       # separate Expo/Metro dev session
 ```
 
@@ -299,8 +299,10 @@ stop earlier API/web instances before running. The API and web listen only
 on `127.0.0.1`. Open the printed web URL using either `127.0.0.1` or
 `localhost`; both loopback aliases are accepted by the local session and API
 CORS checks.
-Ctrl-C stops both services. Ordinary `npm run dev`, the worker and Expo
-remain unchanged; they do not acquire local workspace credentials.
+Ctrl-C stops both services. Ordinary `npm run dev` uses the root
+`API_PORT`, `PCE_WEB_PORT` and `VITE_API_BASE_URL` settings and can establish
+the configured local development session, but it does not run local content
+ingestion.
 
 The web obtains a 15-minute `notes:read` session automatically from its
 same-origin development server. Clear session removes it from memory;

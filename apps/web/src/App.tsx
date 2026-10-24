@@ -343,13 +343,6 @@ export function App({
     }
   }
 
-  useEffect(() => {
-    if (sessionAuthentication)
-      void fetch(new URL("/auth/config", baseUrl), { credentials: "include" })
-        .then((r) => r.json())
-        .then((v) => setAuthMode(v.mode))
-        .catch(() => setNotice("Sign-in service unavailable."));
-  }, [baseUrl, sessionAuthentication]);
   async function passwordLogin(event: FormEvent) {
     event.preventDefault();
     setNotice("");
@@ -382,6 +375,22 @@ export function App({
       setNotice(
         "Local session unavailable. Start the workspace with npm run dev:local.",
       );
+    }
+  }
+
+  async function connectDevelopmentSession() {
+    try {
+      setNotice("");
+      const response = await fetch(new URL("/auth/dev-session", baseUrl), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      if (!response.ok) throw new Error("Session unavailable");
+      setToken("session-cookie");
+    } catch {
+      setNotice("Local development session unavailable.");
     }
   }
 
@@ -439,14 +448,39 @@ export function App({
   }, [localDevelopment]);
 
   useEffect(() => {
-    if (sessionAuthentication)
-      void fetch(new URL("/auth/session", baseUrl), { credentials: "include" })
-        .then((r) => {
-          if (r.ok) setToken("session-cookie");
-        })
-        .catch(() => {});
-    if (localDevelopment) void connectLocal();
-  }, [localDevelopment]);
+    if (typeof window === "undefined") return;
+    let active = true;
+    const establishSession = async () => {
+      if (!sessionAuthentication) {
+        if (localDevelopment) await connectLocal();
+        return;
+      }
+      try {
+        const configResponse = await fetch(new URL("/auth/config", baseUrl), {
+          credentials: "include",
+        });
+        if (!configResponse.ok) throw new Error("Auth unavailable");
+        const config = (await configResponse.json()) as { mode?: unknown };
+        if (active && typeof config.mode === "string") setAuthMode(config.mode);
+        const current = await fetch(new URL("/auth/session", baseUrl), {
+          credentials: "include",
+        });
+        if (current.ok) {
+          if (active) setToken("session-cookie");
+          return;
+        }
+        if (!localDevelopment && config.mode === "dev-single-user")
+          await connectDevelopmentSession();
+        else if (localDevelopment) await connectLocal();
+      } catch {
+        if (active) setNotice("Sign-in service unavailable.");
+      }
+    };
+    void establishSession();
+    return () => {
+      active = false;
+    };
+  }, [baseUrl, localDevelopment, sessionAuthentication]);
 
   useEffect(() => {
     if (!token) return;
