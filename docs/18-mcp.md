@@ -1,5 +1,25 @@
 # 18 — Optional MCP and same-login OAuth (#49)
 
+## Independent iOS public client (#122)
+
+OAuth authorization/refresh/revoke routes and metadata can now be registered
+without enabling the `/mcp` tools endpoint. The trusted
+`PCE_MOBILE_OAUTH_ENABLED=true` gate reads a **single**
+`PCE_MOBILE_OAUTH_CLIENT` JSON registration with an exact
+`pce://oauth/callback` URI and scopes; the legacy
+`PCE_MCP_ENABLED` / `PCE_OAUTH_CLIENTS` remain separate.
+Client IDs must be unique across both lists. Unregistered custom scheme
+callbacks, arbitrary native routes and reserved redirect parameters fail
+startup/authorization. The mobile client continues to use the canonical
+`<issuer>/mcp` resource identifier even if the MCP transport is disabled.
+This is an OAuth audience name, not permission to use MCP tools.
+
+The S256 PKCE consent flow, browser-session ownership, rotation and token
+revocation are unchanged for ChatGPT clients. The consent CSP explicitly
+allows only the registered `pce:` return scheme for this native client.
+See [iOS operator runbook](19-hosted-deployment.md#ios-native-oauth-registration-122)
+and [mobile acceptance limits](08-clients-and-notifications.md).
+
 ## Local delivery and deployment boundary
 
 Set `PCE_MCP_ENABLED=true` only with the explicit single-user session mode and

@@ -1,10 +1,35 @@
 # 08 — Clients, reminders and notifications
 
+## App v1 iOS authentication slice (#122; remote implementation in progress)
+
+App v1 is **iOS only**, based on the existing Expo SDK54 / React Native workspace.
+The security foundation is the same public OAuth authorization-code + S256 PKCE
+server as the ChatGPT MCP client, but native OAuth enablement is **independent**
+of the MCP transport flag. The app uses an exact registered
+`pce://oauth/callback` return URI, iOS system browser and browser consent.
+The callback carries only a short-lived single-use code, state and issuer,
+**never** access or refresh tokens. Do not treat the URI as access control.
+
+The native app keeps short-lived bearer access in memory and the rotating
+refresh token in Expo SecureStore (this-device-only keychain). Concurrent
+refreshes are single-flight; 401 forces one renewal, 403 remains a scope
+error, and transient failures retain the encrypted refresh credential. Log
+out wipes the local credential and tries to revoke on the server; an offline
+revoke is explicitly reported as unconfirmed. No note text or credentials
+go to AsyncStorage, Expo public environment variables, or deep links.
+
+These changes do **not** deliver verified on-device sign-in: Expo Go cannot
+test a custom-scheme OAuth callback. Local Codex must validate in a custom iOS
+development build and confirm issuer/state checking, browser cookies/consent,
+restore, logout, concurrent refresh, offline behavior, keychain retention and
+external-app redirect handling. Navigation and full read/write UX are separate
+#123–#127 slices; the list/detail remains intentionally basic here.
+
 ## Product surfaces
 
 **Web** (React + Vite): search, browse the timeline, inspect original and summarized notes, filter by project/type/tag/date, review action candidates, inspect ledgers, and manage task/reminder state as those features ship.
 
-**Mobile** (React Native + Expo): a required product surface, not merely an optional companion. Its first value is **notifications plus browsing**; later it adds text/voice capture, searching, triage, and potentially offline reading.
+**Mobile** (React Native + Expo): iOS-only App v1 starts with secure sign-in, browsing/search, direct text capture and note management (#121–#127). Approved reminders and opt-in push follow; voice and offline replication are out of initial scope.
 
 Both clients share typed HTTP contracts and an API client, but platform-specific UI remains independent. Keep any shared React hooks free from DOM/native assumptions.
 
