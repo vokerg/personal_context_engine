@@ -304,6 +304,27 @@ Ctrl-C stops both services. Ordinary `npm run dev` uses the root
 the configured local development session, but it does not run local content
 ingestion.
 
+Development serving infers browser auth/search/report flags from root `.env`
+server settings only when the corresponding public `VITE_*` flag is absent.
+Production builds and previews preserve their explicit public flags and never
+infer them from server settings. Use the printed `127.0.0.1` URL for ordinary
+development so the browser matches the configured cookie/CSRF origin; the
+`dev:local` launcher separately supports both loopback hostname aliases.
+
+The npm commands `embeddings:once`, `embeddings:watch`, `db-jobs:once` and
+`db-jobs:watch` use a Node launcher on Windows, macOS and Linux. They load the
+root `.env` and select the named worker mode without shell environment-variable
+syntax. Their existing owner, provider and egress gates still apply. Ordinary
+development does not start these opt-in modes.
+
+CI is configured to run synthetic workspace build/tests and documentation
+checks on Windows/macOS. Database integration stays in the separate Linux
+PostgreSQL job. Windows symlink safety tests explicitly skip only when the OS
+denies creating the fixture; enable Developer Mode or grant symlink privileges
+to exercise them locally. No application symlink checks are disabled. Node
+scripts check out with LF line endings, while formatting accepts the local
+checkout's line-ending convention.
+
 The web obtains a 15-minute `notes:read` session automatically from its
 same-origin development server. Clear session removes it from memory;
 Connect local workspace obtains another. No token or signing key is

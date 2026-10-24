@@ -5,7 +5,7 @@
  * Does not read or contact the private content repository.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const required = [
@@ -61,7 +61,8 @@ for (const filename of markdownFiles(root)) {
     }
     const decoded = decodeURIComponent(target);
     const local = resolve(dirname(filename), decoded);
-    if (!local.startsWith(root + '/') && local !== root) {
+    const withinRoot = relative(root, local);
+    if (withinRoot === '..' || withinRoot.startsWith('..' + sep) || isAbsolute(withinRoot)) {
       errors.push(`Link escapes repository in ${relative(root, filename)}: ${destination}`);
     } else if (!existsSync(local)) {
       errors.push(`Broken link in ${relative(root, filename)}: ${destination}`);

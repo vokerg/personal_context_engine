@@ -19,7 +19,7 @@
   ],
   "scripts": {
     "dev:local": "node scripts/local-dev.mjs",
-    "embeddings:once": "WORKER_MODE=embeddings-once node --env-file=.env apps/worker/dist/main.js",
+    "embeddings:once": "node scripts/run-worker.mjs embeddings-once",
     "dev": "npm run dev:prepare && concurrently -k -n api,worker,web \"npm run dev:api:serve\" \"npm run dev:worker:serve\" \"npm run dev:web:serve\"",
     "dev:prepare": "npm run prisma:generate && npm run build -w @pce/core && npm run build -w @pce/contracts && npm run build -w @pce/api-client && npm run build -w @pce/db",
     "dev:api": "npm run dev:prepare && npm run dev:api:serve",
@@ -43,9 +43,9 @@
     "openai:check": "node scripts/check-openai-setup.mjs",
     "capture:validate": "npm run build -w @pce/core && node scripts/validate-capture.mjs",
     "capture:verify": "npm run build -w @pce/core && node scripts/verify-chatgpt-capture.mjs",
-    "embeddings:watch": "WORKER_MODE=embeddings-loop node --env-file=.env apps/worker/dist/main.js",
-    "db-jobs:watch": "WORKER_MODE=db-jobs-loop node --env-file=.env apps/worker/dist/main.js",
-    "db-jobs:once": "WORKER_MODE=db-jobs-once node --env-file=.env apps/worker/dist/main.js"
+    "embeddings:watch": "node scripts/run-worker.mjs embeddings-loop",
+    "db-jobs:watch": "node scripts/run-worker.mjs db-jobs-loop",
+    "db-jobs:once": "node scripts/run-worker.mjs db-jobs-once"
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",

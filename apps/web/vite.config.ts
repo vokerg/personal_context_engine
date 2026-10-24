@@ -1,12 +1,15 @@
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vite";
-import { loadEnv } from "vite";
+import { defineConfig, loadEnv, type ConfigEnv, type UserConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 const repositoryRoot = fileURLToPath(new URL("../../", import.meta.url));
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, repositoryRoot, "");
+export function webConfig(
+  { command, mode, isPreview }: ConfigEnv,
+  env: Record<string, string>,
+): UserConfig {
+  if (command !== "serve" || mode === "production" || isPreview)
+    return { envDir: repositoryRoot, plugins: [react()] };
   const port = Number(env.PCE_WEB_PORT ?? "4200");
   if (!Number.isInteger(port) || port < 1024 || port > 65535)
     throw new Error("PCE_WEB_PORT must be a valid TCP port");
@@ -20,15 +23,19 @@ export default defineConfig(({ mode }) => {
       "import.meta.env.VITE_API_BASE_URL": JSON.stringify(
         env.VITE_API_BASE_URL ?? `http://127.0.0.1:${env.API_PORT ?? "3000"}`,
       ),
-      "import.meta.env.VITE_PCE_DB_SEARCH": JSON.stringify(String(dbSearch)),
+      "import.meta.env.VITE_PCE_DB_SEARCH": JSON.stringify(
+        env.VITE_PCE_DB_SEARCH ?? String(dbSearch),
+      ),
       "import.meta.env.VITE_PCE_LOCAL_BROWSE": JSON.stringify(
-        String(dbSearch || env.PCE_LOCAL_BROWSE === "true"),
+        env.VITE_PCE_LOCAL_BROWSE ??
+          String(dbSearch || env.PCE_LOCAL_BROWSE === "true"),
       ),
       "import.meta.env.VITE_PCE_RESEARCH_REPORTS": JSON.stringify(
-        String(env.PCE_RESEARCH_REPORTS === "true"),
+        env.VITE_PCE_RESEARCH_REPORTS ??
+          String(env.PCE_RESEARCH_REPORTS === "true"),
       ),
       "import.meta.env.VITE_PCE_SESSION_AUTH": JSON.stringify(
-        String(sessionAuth),
+        env.VITE_PCE_SESSION_AUTH ?? String(sessionAuth),
       ),
     },
     plugins: [react()],
@@ -38,4 +45,8 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
     },
   };
-});
+}
+
+export default defineConfig((context) =>
+  webConfig(context, loadEnv(context.mode, repositoryRoot, "")),
+);

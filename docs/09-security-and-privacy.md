@@ -311,6 +311,14 @@ production login bypass. Public startup remains content-free unless trusted
 adapters and a session/auth verifier are explicitly injected. Deployment and
 MCP connector compatibility are verified separately from synthetic CI.
 
+The production browser always selects session authentication. Pending, failed
+or invalid authentication discovery never exposes the synthetic JWT form;
+that form and development-session bootstrap are restricted to development
+runtime. Public frontend flags remain independent of server-only configuration.
+The browser confirms logout before clearing the signed-in UI and reports
+revocation failures for retry. Real hosted password/cookie/logout and MCP
+acceptance still require separate authenticated deployment verification.
+
 ## Optional same-login MCP/OAuth (#49)
 
 The gated local MCP implementation uses the same single-user session for OAuth
