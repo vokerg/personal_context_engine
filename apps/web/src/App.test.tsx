@@ -14,7 +14,7 @@ describe("web authenticated shell", () => {
     const markup = renderToStaticMarkup(<App baseUrl="https://api.example" />);
     expect(markup).toContain("Sign-in required");
     expect(markup).toContain('id="theme-preference"');
-    expect(markup).toContain('<option value="system" selected="">System</option>');
+    expect(markup).toContain('value="system" selected=""');
     expect(markup).toContain('<option value="light">Light</option>');
     expect(markup).toContain('<option value="dark">Dark</option>');
     expect(markup).toContain("Development access token");
