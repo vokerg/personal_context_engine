@@ -929,20 +929,20 @@ export function App({
           </label>
           {token && (
             <div className="actions">
-            <button
-              className="secondary"
-              type="button"
-              onClick={() => {
-                setBrowseCursor(undefined);
-                setPreviousCursors([]);
-                setReloadCount((n) => n + 1);
-              }}
-            >
-              Refresh notes
-            </button>
-            <button className="ghost" type="button" onClick={() => signOut()}>
-              Clear session
-            </button>
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => {
+                  setBrowseCursor(undefined);
+                  setPreviousCursors([]);
+                  setReloadCount((n) => n + 1);
+                }}
+              >
+                Refresh notes
+              </button>
+              <button className="ghost" type="button" onClick={() => signOut()}>
+                Clear session
+              </button>
             </div>
           )}
         </div>
