@@ -186,19 +186,23 @@ export function createApp(options: ApiOptions = {}) {
     ajv: { customOptions: { coerceTypes: false, removeAdditional: false } },
   });
 
-  if (options.dependencies?.oauth) {
+  // Historical MCP callers already supply OAuth registration in McpOptions.
+  // Preserve that contract, but allow a standalone native OAuth registration
+  // when MCP tools must remain entirely disabled.
+  const registeredOAuth = options.dependencies?.oauth ?? options.dependencies?.mcp;
+  if (registeredOAuth) {
     if (!sessionAuth) throw new Error("OAuth requires sessions");
     registerOAuth(
       app,
-      options.dependencies.oauth.db,
+      registeredOAuth.db,
       sessionAuth,
-      options.dependencies.oauth.clients,
+      registeredOAuth.clients,
     );
   }
   if (options.dependencies?.mcp) {
     const { mcp, search, capture } = options.dependencies;
-    if (!sessionAuth || !search || !capture || !options.dependencies.oauth)
-      throw new Error("MCP requires OAuth, sessions, search and durable capture");
+    if (!sessionAuth || !search || !capture)
+      throw new Error("MCP requires sessions, search and durable capture");
     registerMcp(app, mcp, sessionAuth, search, capture);
   }
 
