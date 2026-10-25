@@ -19,7 +19,8 @@ import {
   type MobileTab,
 } from "./navigation";
 import { createNativeSession } from "./native-auth";
-import { NoteDetailScreen, SettingsScreen, UpcomingScreen } from "./screens";
+import { SettingsScreen, UpcomingScreen } from "./screens";
+import { NoteDetailScreen } from "./detail-screen";
 import type { SessionView } from "./session";
 import { SearchScreen, TimelineScreen } from "./feed-screens";
 import { paletteFor, type Appearance, type Palette } from "./theme";
@@ -271,6 +272,7 @@ export default function App() {
                       session={session}
                       palette={palette}
                       onBack={() => dispatch({ type: "back" })}
+                      onOpenSource={(id) => dispatch({ type: "open-source", id })}
                     />
                   </ScrollView>
                 ) : null}
