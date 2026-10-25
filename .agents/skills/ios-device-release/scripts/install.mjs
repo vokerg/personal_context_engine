@@ -77,7 +77,9 @@ export function parseConnectedIphones(raw) {
   if (!Array.isArray(devices)) fail("Unexpected xcdevice inventory format.");
   return devices
     .filter((item) => item && item.simulator === false && item.available === true &&
-      (item.platform === "com.apple.platform.iphoneos" || item.platform === "iOS"))
+      (item.platform === "com.apple.platform.iphoneos" || item.platform === "iOS") &&
+      [item.modelCode, item.modelName, item.name].some((value) =>
+        typeof value === "string" && /iphone/i.test(value)))
     .map((item) => ({ id: item.identifier, name: item.name }))
     .filter((item) => typeof item.id === "string" && item.id.length > 0);
 }
