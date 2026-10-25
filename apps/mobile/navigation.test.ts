@@ -67,4 +67,54 @@ describe("native navigator authorization boundary", () => {
       id,
     );
   });
+
+  it("opens cited source notes as authorization-gated IDs and returns through the parent chain", () => {
+    const parent = "01K00000000000000000000001";
+    const source = "01K00000000000000000000002";
+    const related = "01K00000000000000000000003";
+    const ready = step(initialNavigation, {
+      type: "session",
+      phase: "signed-in",
+    });
+    const search = step(ready, { type: "tab", tab: "search" });
+    const detail = step(search, { type: "open-note", id: parent });
+    const firstSource = step(detail, { type: "open-source", id: source });
+    const secondSource = step(firstSource, {
+      type: "open-source",
+      id: related,
+    });
+    expect(secondSource).toMatchObject({
+      noteId: related,
+      noteTrail: [parent, source],
+      tab: "search",
+    });
+    expect(
+      step(secondSource, { type: "open-source", id: "not-an-id" }),
+    ).toEqual(secondSource);
+    expect(step(secondSource, { type: "open-source", id: related })).toEqual(
+      secondSource,
+    );
+    expect(step(secondSource, { type: "back" }).noteId).toBe(source);
+    expect(
+      step(step(secondSource, { type: "back" }), { type: "back" }).noteId,
+    ).toBe(parent);
+    const restored = step(
+      step(step(secondSource, { type: "back" }), { type: "back" }),
+      { type: "back" },
+    );
+    expect(restored).toMatchObject({
+      tab: "search",
+      noteId: null,
+      noteTrail: [],
+    });
+    expect(
+      step(secondSource, { type: "session", phase: "signed-out" }),
+    ).toEqual({
+      ...initialNavigation,
+      phase: "signed-out",
+    });
+    expect(
+      step(detail, { type: "link", url: "pce://notes/" + source }).noteTrail,
+    ).toEqual([]);
+  });
 });

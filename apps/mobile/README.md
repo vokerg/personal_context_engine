@@ -18,7 +18,7 @@ deliberate migration, not an unreviewed mix of navigators.
   external links. No `react-dom` or cookies.
 - `navigation.ts`: typed Notes / Search / Capture / Settings tabs, note route,
   signed-out link intent, auth transition and private-state reset.
-- `screens.tsx`: first-pass read-only note detail and Settings. Capture (#126)
+- `screens.tsx`: Settings and legacy read-only notes preview. `detail-screen.tsx` provides owner-gated originals/research detail (#125). Capture (#126)
   is explicitly unavailable until integrated; no fabricated saves or results.
 - `feed-screens.tsx` / `feed-model.ts`: owner-scoped server-backed native
   timeline and search (#124). Both FlatLists remain mounted behind a note
@@ -53,6 +53,45 @@ Theme selection is currently in-memory for the running app session and does
 not persist note content or tokens. Text scales with iOS accessibility settings.
 Safe-area and visual/VoiceOver behavior are pending actual device inspection.
 
+## Native note and research detail (#125)
+
+Opening a note from the timeline, search or a canonical `pce://notes/<id>`
+link makes an owner-scoped `getNote` request. It displays the API's
+`originalInput` **verbatim as plain native text** when available; a missing
+original is explicitly labelled missing, never reconstructed from `body`
+or the derived `summary`. The stored body is displayed separately.
+Capture metadata, source, kind, project and effective tags are shown only
+when supplied by the note DTO. No web rendering or executable Markdown.
+
+After the note is authorized, the screen independently requests
+`getResearchForNote`. If enabled, saved report revisions and statuses are
+listed, sorted newest first; selecting one invokes `getResearchReport` and
+checks report ID, series, revision, parent-note ID and content hash against
+the selected history entry. Only verified persisted report contents are
+shown: findings, limitations, status, retrieval/degradation, sourced claims,
+external URLs, source note IDs and **recorded** source revisions. A draft
+remains labelled a draft; indexing state is distinct from research status.
+Missing/disabled research, no saved reports, 403, transport errors and stale
+revisions have separate visible states, with explicit reload. Research is
+never generated from this view.
+
+Source-note navigation is **ID-only and authorization-gated** by the same
+notes API. Back returns through up to 20 cited notes before restoring the
+previous timeline or search selection. An incoming deep link starts a fresh
+stack. Logout and session expiry unmount private screens, cancel in-flight
+requests and erase the navigation stack. No private content is cached in
+device storage. External HTTP(S) sources are not automatically launched:
+the user must confirm a third-party URL first, and unsafe schemes or
+credentialed URLs are rejected.
+
+Synthetic coverage: `detail-model.test.ts`,
+`detail-contract.test.ts`, `detail-screen.render.test.tsx` and source
+navigation cases in `navigation.test.ts`. These exercise typed contract
+parsing, original-vs-derived fidelity, reported source revisions, report
+identity, safe links, initial unauthorized loading and reset behavior.
+Real iOS/device, VoiceOver, link-opening UI, offline and Dynamic Type
+checks are **still pending local #131**.
+
 ## Developer validation
 
 From the repository root, use `npm ci`, then `npm run typecheck`,
@@ -72,5 +111,5 @@ native callback delivery, VoiceOver, keyboard/safe-area sizing, high Dynamic
 Type, color appearance in-device, performance and offline networking. These
 belong to the local #131 release gate.
 
-Next screen owners: #125 note and research detail, #126 capture, #127 tags/removal;
+Next screen owners: #126 capture, #127 tags/removal;
 add Reminders navigation only after #128–#130.

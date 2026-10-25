@@ -3,16 +3,10 @@ import { Pressable, Text, View } from "react-native";
 import {
   ApiRequestError,
   describeNotesError,
-  getNote,
   getNotes,
-  type NoteDetail,
   type NotePreview,
 } from "@pce/api-client";
-import {
-  describeDetailState,
-  describeListState,
-  type RemoteState,
-} from "./screen-state";
+import { describeListState, type RemoteState } from "./screen-state";
 import type { MobileSession } from "./session";
 import type { Appearance, Palette } from "./theme";
 import { ActionButton, Panel, SectionTitle, StatusMessage } from "./ui";
@@ -146,91 +140,6 @@ export function NotesScreen({
             </Pressable>
           ))
         : null}
-    </View>
-  );
-}
-
-/** API authorization, not the route ID, determines whether a note is visible. */
-export function NoteDetailScreen({
-  session,
-  noteId,
-  palette,
-  onBack,
-}: {
-  session: MobileSession;
-  noteId: string;
-  palette: Palette;
-  onBack: () => void;
-}) {
-  const [note, setNote] = useState<NoteDetail | null>(null);
-  const [status, setStatus] = useState<RemoteState>("loading");
-  const [error, setError] = useState("");
-  const [revision, setRevision] = useState(0);
-
-  useEffect(() => {
-    let mounted = true;
-    const controller = new AbortController();
-    setNote(null);
-    setStatus("loading");
-    setError("");
-    const options = {
-      baseUrl: session.config.apiOrigin,
-      getAccessToken: () => session.getAccessToken(),
-      signal: controller.signal,
-      timeoutMs: 12000,
-    };
-    void authorizedRead(session, () => getNote(options, noteId)).then(
-      (result) => {
-        if (!mounted) return;
-        setNote(result);
-        setStatus("ready");
-      },
-      (reason: unknown) => {
-        if (!mounted) return;
-        setStatus("error");
-        setError(friendly(reason, true));
-      },
-    );
-    return () => {
-      mounted = false;
-      controller.abort();
-    };
-  }, [session, noteId, revision]);
-
-  const presentation = describeDetailState(status, error);
-  return (
-    <View style={{ gap: 14 }}>
-      <ActionButton
-        label="Back to notes"
-        palette={palette}
-        secondary
-        onPress={onBack}
-      />
-      <SectionTitle palette={palette}>Note detail</SectionTitle>
-      <ReadState
-        state={presentation}
-        palette={palette}
-        retry={() => setRevision((value) => value + 1)}
-      />
-      {presentation.state === "content" && note ? (
-        <Panel palette={palette}>
-          <Text
-            accessibilityRole="header"
-            style={{ color: palette.text, fontSize: 21, fontWeight: "700" }}
-          >
-            {note.title}
-          </Text>
-          <Text style={{ color: palette.secondary, fontSize: 16 }}>
-            {note.summary}
-          </Text>
-          <Text
-            selectable
-            style={{ color: palette.text, fontSize: 16, lineHeight: 25 }}
-          >
-            {note.body}
-          </Text>
-        </Panel>
-      ) : null}
     </View>
   );
 }
