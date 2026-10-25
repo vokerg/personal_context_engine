@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { ApiRequestError, ApiTransportError, type NoteDetail, type ResearchRecord } from "@pce/api-client";
+import {
+  ApiRequestError,
+  ApiTransportError,
+  type NoteDetail,
+  type ResearchRecord,
+} from "@pce/api-client";
 import {
   matchingReport,
   noteMetadata,
@@ -68,13 +73,23 @@ const base: ResearchRecord = {
 describe("immutable note versus derived evidence presentation", () => {
   it("keeps original raw capture distinct from summary and stored note body", () => {
     expect(originalLabel(note)).toBe(note.originalInput);
-    expect(noteMetadata(note)).toEqual(expect.arrayContaining([
-      "Kind: memo", "Projects: garden", "Effective tags: derived-tag",
-    ]));
-    expect(originalLabel({ ...note, originalInput: undefined })).toContain("not returned");
+    expect(noteMetadata(note)).toEqual(
+      expect.arrayContaining([
+        "Kind: memo",
+        "Projects: garden",
+        "Effective tags: derived-tag",
+      ]),
+    );
+    expect(originalLabel({ ...note, originalInput: undefined })).toContain(
+      "not returned",
+    );
     expect(originalLabel({ ...note, originalInput: "" })).toContain("empty");
-    expect(originalLabel({ ...note, originalInput: undefined })).not.toContain("Stored body");
-    expect(noteMetadata({ ...note, metadata: undefined })).not.toContain("Kind: memo");
+    expect(originalLabel({ ...note, originalInput: undefined })).not.toContain(
+      "Stored body",
+    );
+    expect(noteMetadata({ ...note, metadata: undefined })).not.toContain(
+      "Kind: memo",
+    );
   });
 
   it("keeps persisted version identity and detects substituted/mismatched report", () => {
@@ -87,24 +102,39 @@ describe("immutable note versus derived evidence presentation", () => {
       researchedAt: "2026-10-25T10:00:00+01:00",
       status: "COMPLETE" as const,
     };
-    expect(orderReports([base, newer]).map((r) => r.reportId)).toEqual([reportB, reportA]);
+    expect(orderReports([base, newer]).map((r) => r.reportId)).toEqual([
+      reportB,
+      reportA,
+    ]);
     expect(matchingReport(newer, { ...newer }, noteId)).toBe(true);
-    expect(matchingReport(newer, { ...newer, contentHash: "b".repeat(64) }, noteId)).toBe(false);
-    expect(matchingReport(newer, { ...newer, parentNoteId: base.captureId }, noteId)).toBe(false);
+    expect(
+      matchingReport(newer, { ...newer, contentHash: "b".repeat(64) }, noteId),
+    ).toBe(false);
+    expect(
+      matchingReport(newer, { ...newer, parentNoteId: base.captureId }, noteId),
+    ).toBe(false);
     expect(matchingReport(newer, base, noteId)).toBe(false);
   });
 });
 
 describe("safe source navigation and research error distinctions", () => {
   it("only opens supported, credential-free web URLs after explicit confirmation in the UI", () => {
-    expect(safeExternalUrl("https://example.org/facts?q=1")).toBe("https://example.org/facts?q=1");
+    expect(safeExternalUrl("https://example.org/facts?q=1")).toBe(
+      "https://example.org/facts?q=1",
+    );
     expect(safeExternalUrl("http://example.org")).toBe("http://example.org/");
     for (const url of [
-      "javascript:alert(1)", "data:text/html,attack", "file:///etc/passwd",
-      "https://user:password@example.org/", "https://example.org\nattack",
-      " https://example.org", "https://example.org/path here",
-      "https://", "",
-    ]) expect(safeExternalUrl(url)).toBeNull();
+      "javascript:alert(1)",
+      "data:text/html,attack",
+      "file:///etc/passwd",
+      "https://user:password@example.org/",
+      "https://example.org\nattack",
+      " https://example.org",
+      "https://example.org/path here",
+      "https://",
+      "",
+    ])
+      expect(safeExternalUrl(url)).toBeNull();
   });
 
   it("refuses invalid source IDs without treating a link as authorization", () => {
@@ -113,18 +143,32 @@ describe("safe source navigation and research error distinctions", () => {
   });
 
   it("distinguishes disabled endpoint, forbidden access and transport failures", () => {
-    expect(researchFailure(new ApiRequestError(404, "NOT_FOUND")).kind).toBe("disabled");
-    expect(researchFailure(new ApiRequestError(403, "FORBIDDEN"))).toMatchObject({
-      kind: "error", message: expect.stringContaining("cannot read"),
+    expect(researchFailure(new ApiRequestError(404, "NOT_FOUND")).kind).toBe(
+      "disabled",
+    );
+    expect(
+      researchFailure(new ApiRequestError(403, "FORBIDDEN")),
+    ).toMatchObject({
+      kind: "error",
+      message: expect.stringContaining("cannot read"),
     });
-    expect(researchFailure(new ApiRequestError(401, "UNAUTHORIZED"))).toMatchObject({
-      kind: "error", message: expect.stringContaining("Sign in"),
+    expect(
+      researchFailure(new ApiRequestError(401, "UNAUTHORIZED")),
+    ).toMatchObject({
+      kind: "error",
+      message: expect.stringContaining("Sign in"),
     });
-    expect(researchFailure(new ApiTransportError("NETWORK_ERROR"))).toMatchObject({
-      kind: "error", message: expect.stringContaining("connection"),
+    expect(
+      researchFailure(new ApiTransportError("NETWORK_ERROR")),
+    ).toMatchObject({
+      kind: "error",
+      message: expect.stringContaining("connection"),
     });
-    expect(researchFailure(new ApiTransportError("INVALID_RESPONSE"))).toMatchObject({
-      kind: "error", message: expect.stringContaining("invalid response"),
+    expect(
+      researchFailure(new ApiTransportError("INVALID_RESPONSE")),
+    ).toMatchObject({
+      kind: "error",
+      message: expect.stringContaining("invalid response"),
     });
   });
 });
