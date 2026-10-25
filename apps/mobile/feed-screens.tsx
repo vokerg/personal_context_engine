@@ -218,7 +218,6 @@ function useFeed<T extends { id: string }>(
     feed.restart();
     return () => { feed.cancel(); if (current.current === feed) current.current = null; };
     // 'key' represents the immutable, validated query and invalidates earlier network work.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, key]);
   return {
     state, refresh: () => current.current?.restart(true), loadMore: () => current.current?.loadMore(),
