@@ -268,3 +268,10 @@ seek pagination, including unapproval beyond 200 entries. The legacy no-query
 registry and optional GitHub snapshot retain their documented bounds. A bounded
 window cannot establish candidate status for an omitted tag; show unverified
 until its approval is known. See [integration and catalog operation](12-chatgpt-project.md).
+## First-class Task implementation (#148)
+
+Tasks now have independent PostgreSQL records, lifecycle and source links behind
+an explicit API gate. Markdown v1 `kind: task` and tags still classify Notes and
+never create a Task. Completion/reopen changes only the Task; reminders retain
+their separate authorization. See [the Task contract](23-tasks.md) for implemented
+limits and the remaining extraction/search/UI rollout under #147.

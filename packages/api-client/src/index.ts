@@ -1,3 +1,19 @@
+import {
+  TaskCreateSchema,
+  TaskIdSchema,
+  TaskSchema,
+  TaskListQuerySchema,
+  TaskPageSchema,
+  TaskReceiptSchema,
+  TaskMutationSchema,
+  TaskMutationResponseSchema,
+  TaskHistoryQuerySchema,
+  TaskHistorySchema,
+  type TaskCreate,
+  type TaskListQuery,
+  type TaskMutation,
+  type TaskHistoryQuery,
+} from "@pce/contracts";
 import { TagRegistryQuerySchema, type TagRegistryQuery } from "@pce/contracts";
 import {
   ResearchListSchema,
@@ -509,3 +525,75 @@ export function getResearchReport(
   );
 }
 export type { ResearchRecord };
+
+export function getTasks(
+  options: AuthenticatedRequestOptions,
+  query: TaskListQuery = {},
+) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(TaskListQuerySchema.parse(query)))
+    if (value !== undefined) params.set(key, String(value));
+  return authenticatedGet(
+    options,
+    "/api/v1/tasks?" + params.toString(),
+    TaskPageSchema.parse,
+  );
+}
+export function getTask(options: AuthenticatedRequestOptions, id: string) {
+  return authenticatedGet(
+    options,
+    "/api/v1/tasks/" + TaskIdSchema.parse(id),
+    TaskSchema.parse,
+  );
+}
+export function createTask(
+  options: AuthenticatedRequestOptions,
+  input: TaskCreate,
+) {
+  return authenticatedGet(
+    options,
+    "/api/v1/tasks",
+    TaskReceiptSchema.parse,
+    TaskCreateSchema.parse(input),
+  );
+}
+export function changeTask(
+  options: AuthenticatedRequestOptions,
+  id: string,
+  input: TaskMutation,
+) {
+  return authenticatedGet(
+    options,
+    "/api/v1/tasks/" + TaskIdSchema.parse(id),
+    TaskMutationResponseSchema.parse,
+    TaskMutationSchema.parse(input),
+    "PATCH",
+  );
+}
+export function getTaskHistory(
+  options: AuthenticatedRequestOptions,
+  id: string,
+  query: TaskHistoryQuery = {},
+) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(
+    TaskHistoryQuerySchema.parse(query),
+  ))
+    params.set(key, String(value));
+  return authenticatedGet(
+    options,
+    "/api/v1/tasks/" + TaskIdSchema.parse(id) + "/events?" + params.toString(),
+    TaskHistorySchema.parse,
+  );
+}
+export type {
+  Task,
+  TaskCreate,
+  TaskListQuery,
+  TaskPage,
+  TaskMutation,
+  TaskMutationResponse,
+  TaskReceipt,
+  TaskHistory,
+  TaskHistoryQuery,
+} from "@pce/contracts";

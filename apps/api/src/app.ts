@@ -1,4 +1,5 @@
 import { TagRegistryQuerySchema, type TagRegistryQuery } from "@pce/contracts";
+import { registerTaskRoutes, type TaskService } from "./tasks.js";
 import { registerMcp, type McpOptions } from "./mcp.js";
 import { registerOAuth, type OAuthClient } from "./oauth.js";
 import type { PrismaClient } from "@pce/db";
@@ -102,6 +103,7 @@ export interface PrivateNoteReader {
 }
 
 export interface ApiDependencies {
+  tasks?: TaskService;
   mcp?: McpOptions;
   oauth?: { db: PrismaClient; clients: OAuthClient[] };
   sessionAuth?: SessionAuth;
@@ -317,6 +319,10 @@ export function createApp(options: ApiOptions = {}) {
   );
 
   if (sessionAuth) registerSessionRoutes(app, sessionAuth);
+  if (options.dependencies?.tasks) {
+    if (!sessionAuth) throw new Error("Tasks require scoped sessions");
+    registerTaskRoutes(app, sessionAuth, options.dependencies.tasks);
+  }
   if (options.dependencies?.search) {
     if (!sessionAuth) throw new Error("DB search requires scoped sessions");
     const search = options.dependencies.search;

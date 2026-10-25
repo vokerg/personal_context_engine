@@ -262,6 +262,8 @@ export function createSessionAuth(
               "notes:write",
               "capture:write",
               "tags:write",
+              "tasks:read",
+              "tasks:write",
             ].includes(x),
         )
       )
@@ -345,7 +347,14 @@ export async function requireSessionScope(
         return reply.code(403).send({ error: { code: "FORBIDDEN" } });
       principal = {
         subject: session.ownerSubject,
-        scopes: ["notes:read", "notes:write", "capture:write", "tags:write"],
+        scopes: [
+          "notes:read",
+          "notes:write",
+          "capture:write",
+          "tags:write",
+          "tasks:read",
+          "tasks:write",
+        ],
       };
     }
   }
