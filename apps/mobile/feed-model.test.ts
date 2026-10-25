@@ -1,14 +1,26 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiRequestError } from "@pce/api-client";
 import {
-  browseQuery, localDateBounds, localDayKey, PagedFeed, searchQuality, searchQuery,
-  type FeedPage, type FeedState,
+  browseQuery,
+  localDateBounds,
+  localDayKey,
+  PagedFeed,
+  searchQuality,
+  searchQuery,
+  type FeedPage,
+  type FeedState,
 } from "./feed-model";
 
 const id1 = "01K00000000000000000000001";
 const id2 = "01K00000000000000000000002";
 const id3 = "01K00000000000000000000003";
-const filter = { project: "alpha", kind: "memo", tag: "approved", from: "2026-10-20", to: "2026-10-21" };
+const filter = {
+  project: "alpha",
+  kind: "memo",
+  tag: "approved",
+  from: "2026-10-20",
+  to: "2026-10-21",
+};
 afterEach(() => vi.restoreAllMocks());
 
 describe("device-local day and server predicates", () => {
@@ -26,42 +38,67 @@ describe("device-local day and server predicates", () => {
         end: "2026-11-02T05:00:00.000Z",
       });
     } finally {
-      if (previous === undefined) delete process.env.TZ; else process.env.TZ = previous;
+      if (previous === undefined) delete process.env.TZ;
+      else process.env.TZ = previous;
     }
   });
 
   it("rejects invalid, reversed, impossible and noncanonical dates", () => {
     for (const [from, to] of [
-      ["2026-02-30", ""], ["2026-13-01", ""], ["2026-2-1", ""],
-      ["2026-10-25", "2026-10-24"], ["2026-01-01", "not-a-date"],
-    ]) expect(() => localDateBounds(from, to)).toThrow();
+      ["2026-02-30", ""],
+      ["2026-13-01", ""],
+      ["2026-2-1", ""],
+      ["2026-10-25", "2026-10-24"],
+      ["2026-01-01", "not-a-date"],
+    ])
+      expect(() => localDateBounds(from, to)).toThrow();
   });
 
   it("combines project/kind/approved tag/date on server, never by slicing client pages", () => {
     const browse = browseQuery(filter);
-    expect(browse).toMatchObject({ project: "alpha", kind: "memo", tag: "approved" });
+    expect(browse).toMatchObject({
+      project: "alpha",
+      kind: "memo",
+      tag: "approved",
+    });
     expect(browse.start).toMatch(/^2026-10-20T/);
     expect(browse.end).toMatch(/^2026-10-22T/);
     const search = searchQuery(filter, "   home connection  ", "valid_CURSOR");
     expect(search).toMatchObject({
-      query: "home connection", tags: ["approved"], project: "alpha", kind: "memo",
-      limit: 20, cursor: "valid_CURSOR", start: browse.start, end: browse.end,
+      query: "home connection",
+      tags: ["approved"],
+      project: "alpha",
+      kind: "memo",
+      limit: 20,
+      cursor: "valid_CURSOR",
+      start: browse.start,
+      end: browse.end,
     });
     expect(() => searchQuery(filter, "  ")).toThrow();
   });
   it("does not label degraded retrieval as semantic success", () => {
     expect(searchQuality("hybrid", null)).toContain("semantic");
-    expect(searchQuality("lexical", "provider_unavailable")).toContain("provider unavailable");
-    expect(searchQuality("lexical", "budget_exhausted")).toContain("budget exhausted");
+    expect(searchQuality("lexical", "provider_unavailable")).toContain(
+      "provider unavailable",
+    );
+    expect(searchQuality("lexical", "budget_exhausted")).toContain(
+      "budget exhausted",
+    );
     expect(searchQuality("lexical", "disabled")).toContain("disabled");
   });
 });
 
 type Item = { id: string };
 const page = (ids: string[], nextCursor: string | null): FeedPage<Item> => ({
-  items: ids.map((id) => ({ id })), nextCursor,
+  items: ids.map((id) => ({ id })),
+  nextCursor,
 });
-function makeFeed(fetchPage: (cursor: string | undefined, signal: AbortSignal) => Promise<FeedPage<Item>>) {
+function makeFeed(
+  fetchPage: (
+    cursor: string | undefined,
+    signal: AbortSignal,
+  ) => Promise<FeedPage<Item>>,
+) {
   const snapshots: FeedState<Item>[] = [];
   const feed = new PagedFeed(fetchPage, (value) => snapshots.push(value));
   return { feed, snapshots, last: () => snapshots[snapshots.length - 1]! };
@@ -75,7 +112,9 @@ describe("paged native feed lifecycle", () => {
     const calls: (string | undefined)[] = [];
     const { feed, last } = makeFeed(async (cursor) => {
       calls.push(cursor);
-      return cursor === undefined ? page([id1, id2], "cursor_1") : page([id2, id3], null);
+      return cursor === undefined
+        ? page([id1, id2], "cursor_1")
+        : page([id2, id3], null);
     });
     feed.restart();
     await settled(() => last().items.length === 2);
@@ -89,7 +128,12 @@ describe("paged native feed lifecycle", () => {
 
   it("cancels stale responses on rapid filter/query changes or logout", async () => {
     let complete!: (value: FeedPage<Item>) => void;
-    const old = makeFeed(() => new Promise((resolve) => { complete = resolve; }));
+    const old = makeFeed(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+    );
     old.feed.restart();
     old.feed.cancel(); // session logout or filter changed
     complete(page([id1], null));
@@ -137,7 +181,9 @@ describe("paged native feed lifecycle", () => {
     let finish!: (value: FeedPage<Item>) => void;
     const { feed, last } = makeFeed(async () => {
       if (++call === 1) return page([id1], null);
-      return new Promise((resolve) => { finish = resolve; });
+      return new Promise((resolve) => {
+        finish = resolve;
+      });
     });
     feed.restart();
     await settled(() => last().items.length === 1);
