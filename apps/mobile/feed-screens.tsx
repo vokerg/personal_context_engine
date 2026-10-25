@@ -748,7 +748,7 @@ export function TimelineScreen({
                   Loading next page…
                 </Text>
               ) : null}
-              {feed.state.nextCursor ? (
+              {feed.state.nextCursor && !feed.state.error ? (
                 <ActionButton
                   label="Load more notes"
                   palette={palette}
@@ -802,6 +802,7 @@ export function SearchScreen({
     }
   }, [filters, query]);
   const key = JSON.stringify(prepared.valid);
+  const queryIsCurrent = input.trim() === query;
   useEffect(() => setMeta(null), [key]);
   const feed = useFeed<SearchHit>(
     prepared.valid !== null,
@@ -879,7 +880,7 @@ export function SearchScreen({
           palette={palette}
           facets={facets}
         />
-        {meta?.key === key && prepared.valid ? (
+        {queryIsCurrent && !feed.state.error && meta?.key === key && prepared.valid ? (
           <Text
             accessibilityRole="text"
             style={{ color: palette.secondary, fontSize: 14 }}
@@ -898,7 +899,7 @@ export function SearchScreen({
       ) : null}
       <FlatList
         style={{ flex: 1 }}
-        data={prepared.valid ? feed.state.items : []}
+        data={prepared.valid && queryIsCurrent ? feed.state.items : []}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <Pressable
@@ -957,7 +958,7 @@ export function SearchScreen({
           flexGrow: 1,
         }}
         onEndReached={() => {
-          if (!hidden) feed.loadMore();
+          if (!hidden && queryIsCurrent) feed.loadMore();
         }}
         onEndReachedThreshold={0.4}
         refreshControl={
@@ -967,7 +968,9 @@ export function SearchScreen({
           />
         }
         ListEmptyComponent={
-          !query ? (
+          !queryIsCurrent ? (
+            <StatusMessage palette={palette} heading="Updating search…" />
+          ) : !query ? (
             <StatusMessage
               palette={palette}
               heading="Enter a search"
@@ -983,7 +986,7 @@ export function SearchScreen({
           ) : null
         }
         ListFooterComponent={
-          feed.state.items.length ? (
+          queryIsCurrent && feed.state.items.length ? (
             <View style={{ gap: 8 }}>
               {feed.state.error ? (
                 <FeedStatus
@@ -998,7 +1001,7 @@ export function SearchScreen({
                   Loading more matches…
                 </Text>
               ) : null}
-              {feed.state.nextCursor ? (
+              {feed.state.nextCursor && !feed.state.error ? (
                 <ActionButton
                   label="Load more results"
                   palette={palette}
