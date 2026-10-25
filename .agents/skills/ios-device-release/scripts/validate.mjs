@@ -42,7 +42,7 @@ test("public OAuth configuration must be an HTTPS origin and a nonempty client I
 
 test("device inventory excludes simulator, unavailable device and non-iPhone platform", () => {
   assert.deepEqual(
-    parseConnectedIphones(JSON.stringify([iphone, simulator, { ...iphone, available: false, identifier: "locked" }, { ...iphone, platform: "com.apple.platform.macos", identifier: "mac" }])),
+    parseConnectedIphones(JSON.stringify([iphone, simulator, { ...iphone, available: false, identifier: "locked" }, { ...iphone, platform: "com.apple.platform.macos", identifier: "mac" }, { ...iphone, identifier: "ipad", name: "My iPad", modelCode: "iPad16,5" }])),
     [{ id: iphone.identifier, name: iphone.name }],
   );
   assert.throws(() => parseConnectedIphones("not JSON"), /parse/);
