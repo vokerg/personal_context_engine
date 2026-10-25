@@ -1,3 +1,8 @@
+import {
+  taskIngressConfig,
+  taskIngressCheckpointKey,
+  runTaskImportPass,
+} from "./task-ingress.js";
 import { runEmbeddingLoop } from "./embedding-loop.js";
 import { runDbJobPass } from "./db-jobs.js";
 import { runTagSnapshotPass } from "./tag-snapshot-jobs.js";
@@ -60,6 +65,11 @@ async function start(mode: string): Promise<void> {
     const owner = process.env.PCE_OWNER_SUBJECT;
     if (!owner || !process.env.DATABASE_URL)
       throw new Error("DB jobs require trusted owner and DB");
+    const taskOptions = taskIngressConfig(process.env);
+    const taskIngress = taskOptions
+      ? new GitHubContentStore(taskOptions)
+      : null;
+    if (taskIngress) await taskIngress.verifyPrivateRepository();
     const researchOptions = researchIngressConfig(process.env);
     const ingress = researchOptions
       ? new GitHubContentStore(researchOptions)
@@ -92,6 +102,19 @@ async function start(mode: string): Promise<void> {
           "DB preparation complete " +
             JSON.stringify(await runDbJobPass(db, owner)),
         );
+        if (taskIngress && taskOptions) {
+          const report = await runTaskImportPass({
+            db,
+            store: taskIngress,
+            ownerSubject: owner,
+            checkpointKey: taskIngressCheckpointKey(
+              owner,
+              taskOptions.repository,
+              taskOptions.branch,
+            ),
+          });
+          console.log("Task import pass complete " + JSON.stringify(report));
+        }
         if (mode === "db-jobs-loop") await scheduledTags();
         else await publishTags();
         if (ingress && researchOptions) {

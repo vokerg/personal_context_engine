@@ -2,9 +2,9 @@
 
 Epic [#147](https://github.com/vokerg/personal_context_engine/issues/147) defines
 first-class Tasks. The #148 slice implements durable creation, lifecycle, API,
-history and shared client contracts. Extraction, private GitHub task artifacts,
-task search/MCP, web/iOS views and live acceptance belong to #149–#154; they are
-not delivered by the foundation.
+history and shared client contracts. The #149 slice adds extraction contracts
+and gated private GitHub artifact import. Task search/MCP, web/iOS views, prompt
+activation and live acceptance remain #150–#154.
 
 ## Record and source boundaries
 
@@ -94,3 +94,84 @@ Disable the flag to withdraw HTTP routes; existing records/history stay durable.
 The additive migration does not backfill or alter Note content. Retain the
 tables on rollback: dropping them would destroy Tasks and audit history. Future
 artifact/import recovery and cross-surface acceptance are separate child issues.
+
+## Complete extraction and dual ingress (#149)
+
+`TaskExtractionBatchSchema` is a **separate JSON v1** contract, at most 65,536
+UTF-8 bytes. It has `schemaVersion: 1`, stable `batchId`, verified `captureId`,
+1–20 distinct `sourceNoteIds`, truthful `classifier` metadata (`method: llm` or
+`explicit`, `policyVersion: tasks-v1`, bounded agent/optional model), and 0–20
+distinct Tasks using the foundation creation schema. Every extracted Task must
+have at least one source quote that occurs literally in the original input;
+all source IDs must belong to the listed Notes and capture. A zero-Task batch
+is valid and may explain unclear task intent with `zeroTasksReason` (<=500
+characters). Unknown fields, reminders/dates, duplicate Task/source IDs,
+missing evidence, foreign capture references and oversized artifacts fail.
+
+One immutable complete batch is allowed per owner/capture. Retain exact batch,
+Task IDs and full extraction across retries; do not rerun classification to
+repair a transport failure. Reordered file arrival is safe. Changed payloads
+(including reordered extraction arrays), a replacement batch ID for the same
+capture or a conflicting Task ID return a conflict and require reconciliation.
+No new batch silently replaces a zero-Task result. Re-extraction/revisions are
+not supported by v1. Provenance/model fields are descriptive, never execution
+policy. The deterministic worker does not classify text or call an LLM.
+
+`POST /api/v1/task-batches` is enabled with the same default-off HTTP Task gate.
+It requires both `tasks:write` and `notes:read`, uses verified owner/CSRF checks,
+and accepts only the batch body. `saveTaskBatch` is the shared typed client.
+The receipt returns `DB_PERSISTED`, `batchId`, `taskIds` and `replayed` (plus a
+zero-Task reason where supplied); it is independent from the Note receipt.
+All Tasks, source links/events and the immutable batch receipt commit in **one
+serializable transaction**. A late collision rolls everything back. Replaying
+through either ingress returns the same identity without resetting completion.
+Source Notes must already be visible to that owner with the matching capture;
+missing, removed or foreign sources return the same generic source-unavailable
+response. A committed receipt can still replay after source removal.
+
+### Optional private GitHub inbox
+
+The only Task artifact path is `tasks/inbox/<batch-id>.json`. The filename must
+match the validated batch ID. No ordinary Markdown v1 finalization, historical
+Note edit, completion-file write, export or GitHub outbox is added. The private
+contract is a separate reviewed documentation PR; its inline examples are
+synthetic and are not actual inbox files. Prompt activation remains #153.
+
+The **existing** `db-jobs-once` / `db-jobs-loop` worker accepts an independent
+`PCE_TASK_INGRESS_ENABLED=true` gate plus `PCE_TASK_INGRESS_REPOSITORY`,
+`PCE_TASK_INGRESS_BRANCH`, `PCE_TASK_INGRESS_TOKEN`, trusted `PCE_OWNER_SUBJECT`
+and `DATABASE_URL`. Prefer a separate Contents:read token. The Task adapter
+verifies private visibility at discovery/read, makes GET requests only, pins
+reads to the observed commit, rejects symlinks/truncated trees/unsafe paths,
+and bounds raw bytes. Research ingress enablement does not enable Task ingress.
+The default worker remains idle; the HTTP gate does not start this reader.
+
+Each pass scans up to 50 artifacts (configurable test/service limit 1–100).
+Repository/branch/owner-scoped checkpoints advance after each visited page and
+wrap after a full sweep, recovering missed events, restarts and delayed source
+Notes. Durable per-path/revision observations distinguish `IMPORTED`, `RETRY`
+and terminal `INVALID`. Backoff grows from 10 seconds to one hour. Missing
+sources, changed/unavailable reads and DB failures retry; malformed/unsafe or
+conflicting artifacts are preserved and marked invalid. Changed file revisions
+are revalidated. The DB batch/Task transaction is authoritative if a process
+crashes before recording the import observation; retry only replays it. Logs
+contain counts and fixed codes, never source text, paths, credentials or errors.
+
+### Non-atomic capture and rollout
+
+A GitHub Note and its Task artifact are two separate writes. Validate/create/read
+back Note(s) first; verify exact source/capture IDs and original evidence, then
+validate/create/read back the complete Task batch. Report Note success, Task-file
+success and DB receipt separately. If the batch fails, retain the Note and the
+unsaved batch's IDs: “Note saved; Tasks not saved”. On uncertainty inspect the
+same path; matching content reuses the receipt, differing content conflicts.
+Never create replacement IDs or a duplicate Note to bypass a failed write.
+A file receipt means “Task batch saved; DB import pending”; only DB evidence
+proves Task persistence. A batch arriving first defers without creating Tasks.
+
+Rollout requires public and private PR review, explicit worker/API configuration,
+and the later owner-approved prompt. No real content migration or provider spend
+was performed. Disable either independent gate to withdraw that path; keep
+batch receipts, Tasks and events. Prompt rollback or ingress disablement cannot
+remove Tasks or erase completion history. Live hosted/Project acceptance is
+separate from synthetic PostgreSQL and fake-GitHub tests.

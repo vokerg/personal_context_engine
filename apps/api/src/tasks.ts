@@ -1,5 +1,8 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import type { createTaskRepository } from "@pce/db";
+import type {
+  createTaskRepository,
+  createTaskExtractionRepository,
+} from "@pce/db";
 import {
   TaskCreateSchema,
   TaskSchema,
@@ -11,10 +14,53 @@ import {
   TaskMutationResponseSchema,
   TaskHistoryQuerySchema,
   TaskHistorySchema,
+  TaskExtractionBatchSchema,
+  TaskBatchReceiptSchema,
+  TASK_BATCH_MAX_BYTES,
 } from "@pce/contracts";
 import { requireSessionScope, type SessionAuth } from "./session-auth.js";
 
 export type TaskService = ReturnType<typeof createTaskRepository>;
+export type TaskExtractionService = ReturnType<
+  typeof createTaskExtractionRepository
+>;
+export function registerTaskBatchRoutes(
+  app: FastifyInstance,
+  auth: SessionAuth,
+  batches: TaskExtractionService,
+) {
+  app.post(
+    "/api/v1/task-batches",
+    {
+      bodyLimit: TASK_BATCH_MAX_BYTES,
+      preHandler: (request, reply) =>
+        requireSessionScope(request, reply, auth, "tasks:write"),
+    },
+    async (request, reply) => {
+      if (!request.authenticatedPrincipal!.scopes.includes("notes:read"))
+        return reply.code(403).send({ error: { code: "FORBIDDEN" } });
+      const input = TaskExtractionBatchSchema.safeParse(request.body);
+      if (!input.success || Object.keys(request.query as object).length)
+        return reply.code(400).send({ error: { code: "BAD_REQUEST" } });
+      try {
+        return TaskBatchReceiptSchema.parse(
+          await batches.persistByOwner(
+            request.authenticatedPrincipal!.subject,
+            input.data,
+          ),
+        );
+      } catch (error) {
+        if (error instanceof Error && error.name === "TaskConflict")
+          return reply.code(409).send({ error: { code: "CONFLICT" } });
+        if (error instanceof Error && error.name === "TaskSourceUnavailable")
+          return reply.code(404).send({ error: { code: "NOT_FOUND" } });
+        if (error instanceof TypeError)
+          return reply.code(400).send({ error: { code: "BAD_REQUEST" } });
+        throw error;
+      }
+    },
+  );
+}
 export function tasksEnabled(env: NodeJS.ProcessEnv): boolean {
   if (
     env.PCE_TASKS_ENABLED !== undefined &&

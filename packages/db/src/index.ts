@@ -274,3 +274,4 @@ export {
   TaskSourceUnavailable,
   TaskCursorError,
 } from "./tasks.js";
+export { createTaskExtractionRepository } from "./task-extraction.js";

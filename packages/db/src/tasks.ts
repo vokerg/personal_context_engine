@@ -67,7 +67,7 @@ function toTask(row: Row, canReadSources: boolean): Task {
     unavailableSourceCount: row.sources.length - visible.length,
   });
 }
-async function transaction<T>(
+export async function taskTransaction<T>(
   db: PrismaClient,
   run: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
@@ -89,100 +89,109 @@ async function transaction<T>(
   throw new TaskConflict();
 }
 
+export async function createTaskRecords(
+  tx: Prisma.TransactionClient,
+  owner: string,
+  inputs: TaskCreate[],
+  origin: "api" | "github" = "api",
+  canReadSources = true,
+) {
+  ownerCheck(owner);
+  if (inputs.length > 20 || !["api", "github"].includes(origin))
+    throw new TypeError("Invalid task batch");
+  const tasks = inputs.map((v) => TaskCreateSchema.parse(v));
+  if (new Set(tasks.map((t) => t.taskId)).size !== tasks.length)
+    throw new TypeError("Duplicate task ID");
+  const receipts = [];
+  for (const input of tasks) {
+    // Sort source relationships for a canonical request hash, never alter text.
+    const sources = [...input.sources].sort((a, b) =>
+      a.noteId.localeCompare(b.noteId),
+    );
+    const creationHash = digest({ ...input, sources });
+    let row = await tx.task.findFirst({
+      where: { id: input.taskId, ownerSubject: owner },
+      include,
+    });
+    if (row) {
+      if (row.creationHash !== creationHash) throw new TaskConflict();
+      receipts.push({
+        status: "DB_PERSISTED" as const,
+        task: toTask(row, canReadSources),
+        replayed: true,
+      });
+      continue;
+    }
+    // A global stable ID collision never adopts a task from another owner.
+    if (await tx.task.count({ where: { id: input.taskId } }))
+      throw new TaskConflict();
+    for (const source of sources) {
+      const note = await tx.note.findFirst({
+        where: {
+          id: source.noteId,
+          ownerSubject: owner,
+          captureId: source.captureId,
+          removedAt: null,
+        },
+        select: { originalInput: true },
+      });
+      if (!note) throw new TaskSourceUnavailable();
+      if (source.evidence && !note.originalInput.includes(source.evidence))
+        throw new TypeError("Ungrounded task evidence");
+    }
+    await tx.task.create({
+      data: {
+        id: input.taskId,
+        ownerSubject: owner,
+        title: input.title,
+        description: input.description ?? null,
+        origin,
+        creationHash,
+      },
+    });
+    if (sources.length)
+      await tx.taskSource.createMany({
+        data: sources.map((s) => ({
+          taskId: input.taskId,
+          noteId: s.noteId,
+          captureId: s.captureId,
+          ownerSubject: owner,
+          evidence: s.evidence ?? null,
+        })),
+      });
+    await tx.taskEvent.create({
+      data: {
+        taskId: input.taskId,
+        ownerSubject: owner,
+        revision: 1,
+        type: "CREATED",
+        status: "OPEN",
+      },
+    });
+    row = await tx.task.findFirstOrThrow({
+      where: { id: input.taskId, ownerSubject: owner },
+      include,
+    });
+    receipts.push({
+      status: "DB_PERSISTED" as const,
+      task: toTask(row, canReadSources),
+      replayed: false,
+    });
+  }
+  return receipts;
+}
+
 /** Shared bounded, all-or-nothing creation used by independent ingress adapters. */
 export function createTaskRepository(db: PrismaClient) {
-  async function createManyByOwner(
+  const createManyByOwner = (
     owner: string,
     inputs: TaskCreate[],
     origin: "api" | "github" = "api",
     canReadSources = true,
-  ) {
-    ownerCheck(owner);
-    if (inputs.length > 20 || !["api", "github"].includes(origin))
-      throw new TypeError("Invalid task batch");
-    const tasks = inputs.map((v) => TaskCreateSchema.parse(v));
-    if (new Set(tasks.map((t) => t.taskId)).size !== tasks.length)
-      throw new TypeError("Duplicate task ID");
-    return transaction(db, async (tx) => {
-      const receipts = [];
-      for (const input of tasks) {
-        // Sort source relationships for a canonical request hash, never alter text.
-        const sources = [...input.sources].sort((a, b) =>
-          a.noteId.localeCompare(b.noteId),
-        );
-        const creationHash = digest({ ...input, sources });
-        let row = await tx.task.findFirst({
-          where: { id: input.taskId, ownerSubject: owner },
-          include,
-        });
-        if (row) {
-          if (row.creationHash !== creationHash) throw new TaskConflict();
-          receipts.push({
-            status: "DB_PERSISTED" as const,
-            task: toTask(row, canReadSources),
-            replayed: true,
-          });
-          continue;
-        }
-        // A global stable ID collision never adopts a task from another owner.
-        if (await tx.task.count({ where: { id: input.taskId } }))
-          throw new TaskConflict();
-        for (const source of sources) {
-          const note = await tx.note.findFirst({
-            where: {
-              id: source.noteId,
-              ownerSubject: owner,
-              captureId: source.captureId,
-              removedAt: null,
-            },
-            select: { originalInput: true },
-          });
-          if (!note) throw new TaskSourceUnavailable();
-          if (source.evidence && !note.originalInput.includes(source.evidence))
-            throw new TypeError("Ungrounded task evidence");
-        }
-        await tx.task.create({
-          data: {
-            id: input.taskId,
-            ownerSubject: owner,
-            title: input.title,
-            description: input.description ?? null,
-            origin,
-            creationHash,
-          },
-        });
-        if (sources.length)
-          await tx.taskSource.createMany({
-            data: sources.map((s) => ({
-              taskId: input.taskId,
-              noteId: s.noteId,
-              captureId: s.captureId,
-              ownerSubject: owner,
-              evidence: s.evidence ?? null,
-            })),
-          });
-        await tx.taskEvent.create({
-          data: {
-            taskId: input.taskId,
-            ownerSubject: owner,
-            revision: 1,
-            type: "CREATED",
-            status: "OPEN",
-          },
-        });
-        row = await tx.task.findFirstOrThrow({
-          where: { id: input.taskId, ownerSubject: owner },
-          include,
-        });
-        receipts.push({
-          status: "DB_PERSISTED" as const,
-          task: toTask(row, canReadSources),
-          replayed: false,
-        });
-      }
-      return receipts;
-    });
-  }
+  ) =>
+    taskTransaction(db, (tx) =>
+      createTaskRecords(tx, owner, inputs, origin, canReadSources),
+    );
   return {
     createManyByOwner,
     async createByOwner(
@@ -257,7 +266,7 @@ export function createTaskRepository(db: PrismaClient) {
       TaskIdSchema.parse(id);
       const input = TaskMutationSchema.parse(raw);
       const payloadHash = digest({ taskId: id, ...input });
-      return transaction(db, async (tx) => {
+      return taskTransaction(db, async (tx) => {
         const task = await tx.task.findFirst({
           where: { id, ownerSubject: owner },
           include,

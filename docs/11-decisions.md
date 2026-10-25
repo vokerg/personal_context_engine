@@ -560,3 +560,15 @@ Note grants gain no privileges. Source text/links additionally require Note
 read permission. Private extraction artifacts, importer, MCP/search, web/iOS,
 prompt activation and actual cross-surface acceptance remain #149–#154. See
 [Task contracts and operation](23-tasks.md).
+
+### Task extraction implementation checkpoint (#149; D-031)
+
+A strict complete TaskExtractionBatch v1 and atomic DB projection now share the
+Task creation operation across scoped HTTP and a separately gated read-only
+private GitHub adapter. One immutable batch per owner/capture bounds extraction
+to 0..20 grounded Tasks and preserves original Notes and later lifecycle changes.
+Missing source Notes defer durably; invalid/conflicting artifacts remain
+preserved with sanitized status. Private contract changes are reviewed separately;
+this implementation does not activate the Project prompt, infer commitments in
+a worker, grant existing OAuth clients new scopes or authorize deployment. See
+[extraction operation](23-tasks.md#complete-extraction-and-dual-ingress-149).

@@ -1,9 +1,11 @@
+import { TASK_BATCH_MAX_BYTES } from "@pce/contracts";
 import { TextDecoder } from "node:util";
 import type {
   ContentFile,
   ContentRef,
   ContentStore,
   ResearchIngressStore,
+  TaskIngressStore,
   FinalizeRequest,
   ListPendingOptions,
   PendingPage,
@@ -19,6 +21,8 @@ const NOTES = new RegExp(`^notes/[0-9]{4}/(0[1-9]|1[0-2])/(${FILE_NAME})$`);
 // Research JSON is not Markdown v1 and is never finalized or rejected as a note.
 const RESEARCH =
   /^research\/inbox\/(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\.json$/;
+const TASK_BATCH =
+  /^tasks\/inbox\/(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\.json$/;
 const MAX_RESEARCH_BYTES = 250_000;
 const BLOB_SHA = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
 const MAX_FILE_BYTES = 1024 * 1024;
@@ -112,8 +116,11 @@ function decodeContent(base64: string, advertisedSize: number): string {
 
 class BranchMoved extends Error {}
 
-export class GitHubContentStore implements ContentStore, ResearchIngressStore {
+export class GitHubContentStore
+  implements ContentStore, ResearchIngressStore, TaskIngressStore
+{
   private researchSnapshot: Snapshot | undefined;
+  private taskSnapshot: Snapshot | undefined;
   private readonly root: string;
   private readonly branch: string;
   private readonly token: string;
@@ -352,6 +359,63 @@ export class GitHubContentStore implements ContentStore, ResearchIngressStore {
       fail("INVALID_CONTENT");
     const content = decodeContent(file.content.replace(/\s/g, ""), file.size);
     if (Buffer.byteLength(content, "utf8") > MAX_RESEARCH_BYTES)
+      fail("INVALID_CONTENT");
+    return { path, revision: file.sha, content };
+  }
+
+  /** Read-only, independently allowlisted task inbox. No content moves. */
+  async listTaskBatches(
+    options: ListPendingOptions = {},
+  ): Promise<PendingPage> {
+    const limit = options.limit ?? 50;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)
+      fail("INVALID_LIMIT");
+    if (options.cursor !== undefined && !TASK_BATCH.test(options.cursor))
+      fail("INVALID_CURSOR");
+    await this.verifyPrivateRepository();
+    const snapshot = await this.snapshot();
+    this.taskSnapshot = snapshot;
+    const paths = [...snapshot.entries.keys()]
+      .filter((path) => TASK_BATCH.test(path))
+      .sort()
+      .filter((path) => options.cursor === undefined || path > options.cursor);
+    const selected = paths.slice(0, limit);
+    const files = selected.map((path) => ({
+      path,
+      revision: snapshot.entries.get(path)!.sha,
+    }));
+    return paths.length > selected.length && selected.length > 0
+      ? { files, nextCursor: selected[selected.length - 1]! }
+      : { files };
+  }
+
+  async readTaskBatch(path: string): Promise<ContentFile> {
+    if (!TASK_BATCH.test(path)) fail("INVALID_PATH");
+    await this.verifyPrivateRepository();
+    // Pin Contents to the scan commit and validate mode before GitHub can
+    // dereference a symlink. One bad object must not block later scan entries.
+    const snapshot = this.taskSnapshot ?? (await this.snapshot());
+    const entry = this.entry(snapshot, path);
+    if (!entry) fail("NOT_FOUND");
+    const file = await this.request(
+      `/contents/${path}?ref=${encodeURIComponent(snapshot.head)}`,
+    );
+    if (file.sha !== entry.sha) fail("REVISION_CONFLICT");
+    if (
+      file.type !== "file" ||
+      typeof file.sha !== "string" ||
+      !BLOB_SHA.test(file.sha)
+    )
+      fail("UNSAFE_ENTRY");
+    if (
+      file.encoding !== "base64" ||
+      typeof file.content !== "string" ||
+      typeof file.size !== "number" ||
+      file.size > TASK_BATCH_MAX_BYTES
+    )
+      fail("INVALID_CONTENT");
+    const content = decodeContent(file.content.replace(/\s/g, ""), file.size);
+    if (Buffer.byteLength(content, "utf8") > TASK_BATCH_MAX_BYTES)
       fail("INVALID_CONTENT");
     return { path, revision: file.sha, content };
   }
