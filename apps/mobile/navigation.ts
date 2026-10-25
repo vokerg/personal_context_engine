@@ -14,6 +14,7 @@ export type NavigationState = {
   phase: SessionPhase;
   tab: MobileTab;
   noteId: string | null;
+  noteTrail: string[];
   pendingNoteId: string | null;
 };
 
@@ -21,6 +22,7 @@ export type NavigationAction =
   | { type: "session"; phase: SessionPhase }
   | { type: "link"; url: string }
   | { type: "open-note"; id: string }
+  | { type: "open-source"; id: string }
   | { type: "tab"; tab: MobileTab }
   | { type: "back" }
   | { type: "reset" };
@@ -29,6 +31,7 @@ export const initialNavigation: NavigationState = {
   phase: "restoring",
   tab: "notes",
   noteId: null,
+  noteTrail: [],
   pendingNoteId: null,
 };
 
@@ -49,6 +52,7 @@ export function reduceNavigation(
           phase: "signed-in",
           tab: state.pendingNoteId ? "notes" : state.tab,
           noteId: state.pendingNoteId ?? state.noteId,
+          noteTrail: state.pendingNoteId ? [] : state.noteTrail,
           pendingNoteId: null,
         };
       }
@@ -56,25 +60,32 @@ export function reduceNavigation(
       if (state.phase === "signed-in") {
         return { ...initialNavigation, phase: action.phase };
       }
-      return { ...state, phase: action.phase, noteId: null };
+      return { ...state, phase: action.phase, noteId: null, noteTrail: [] };
     case "link": {
       const id = parseNoteDeepLink(action.url);
       if (!id) return state;
       if (state.phase !== "signed-in") {
         return { ...state, pendingNoteId: id };
       }
-      return { ...state, tab: "notes", noteId: id, pendingNoteId: null };
+      return { ...state, tab: "notes", noteId: id, noteTrail: [], pendingNoteId: null };
     }
     case "open-note":
       return state.phase === "signed-in" && isNoteId(action.id)
-        ? { ...state, noteId: action.id }
+        ? { ...state, noteId: action.id, noteTrail: [] }
+        : state;
+    case "open-source":
+      return state.phase === "signed-in" && state.noteId && isNoteId(action.id) &&
+        action.id !== state.noteId && state.noteTrail.length < 20
+        ? { ...state, noteId: action.id, noteTrail: [...state.noteTrail, state.noteId] }
         : state;
     case "tab":
       return state.phase === "signed-in"
-        ? { ...state, tab: action.tab, noteId: null }
+        ? { ...state, tab: action.tab, noteId: null, noteTrail: [] }
         : state;
     case "back":
-      return state.noteId ? { ...state, noteId: null } : state;
+      return state.noteId
+        ? { ...state, noteId: state.noteTrail.at(-1) ?? null, noteTrail: state.noteTrail.slice(0, -1) }
+        : state;
     case "reset":
       return { ...initialNavigation, phase: "signed-out" };
   }
