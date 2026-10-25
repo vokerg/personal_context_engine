@@ -4,6 +4,7 @@ import {
   Keyboard,
   Pressable,
   RefreshControl,
+  ScrollView,
   Text,
   TextInput,
   View,
@@ -253,6 +254,7 @@ function FilterControls({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [allTags, setAllTags] = useState(false);
+  const [allProjects, setAllProjects] = useState(false);
   const active = Object.values(filters).filter(Boolean).length;
   const { state } = facets;
   const set = (key: keyof Filters, value: string) =>
@@ -295,8 +297,10 @@ function FilterControls({
         ) : null}
       </View>
       {expanded ? (
-        <View
-          style={{
+        <ScrollView
+          style={{ maxHeight: 350, borderRadius: 14 }}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
             backgroundColor: palette.surface,
             borderColor: palette.border,
             borderWidth: 1,
@@ -327,7 +331,7 @@ function FilterControls({
           </Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7 }}>
             {state.values?.projects.length ? (
-              state.values.projects.map(({ slug, count }) => (
+              state.values.projects.filter((project, index) => allProjects || index < 12 || project.slug === filters.project).map(({ slug, count }) => (
                 <Chip
                   key={slug}
                   label={slug + " (" + count + ")"}
@@ -342,6 +346,14 @@ function FilterControls({
               </Text>
             )}
           </View>
+          {(state.values?.projects.length ?? 0) > 12 ? (
+            <Chip
+              label={allProjects ? "Show fewer projects" : "Show all project facets"}
+              selected={false}
+              onPress={() => setAllProjects((v) => !v)}
+              palette={palette}
+            />
+          ) : null}
           <Text
             accessibilityRole="header"
             style={{ color: palette.text, fontWeight: "700" }}
@@ -452,7 +464,7 @@ function FilterControls({
             Dates follow this device's timezone, including daylight-saving
             changes.
           </Text>
-        </View>
+        </ScrollView>
       ) : null}
     </View>
   );
