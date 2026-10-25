@@ -513,3 +513,19 @@ unsupported builds and Reduce Transparency. No router migration or platform
 system tab-bar behavior is implied. This changes presentation and scroll insets
 only, with no API, storage, session or content contract changes. See the
 [mobile documentation](../apps/mobile/README.md#floating-ios-menu-142).
+
+### D-030 — Measured multilingual lexical evidence in shared retrieval (#145)
+
+**Accepted owner-requested implementation scope (2026-10-25).** Tune the gated
+shared Web/MCP/iOS backend using frozen corpus judgments and synthetic
+confirmation, keeping personal evaluation artifacts outside the public code
+repository. Built-in English/Russian stemming and title weighting complement
+exact `simple` matching. Complete lexical evidence receives a hybrid RRF vote;
+partial OR candidates remain retrievable without that extra vote, and keep
+normal votes in lexical fallback. Explicit alphanumeric identifiers constrain
+both branches with literal token boundaries. Saved reports share these rules.
+Keep equal RRF k=60, strict cosine >0.15 and existing budgets/eligibility/filters;
+reject higher/relative cutoffs after observed recall losses. No schema migration,
+reindex, reranker service, deployment or ChatGPT cutover. Small-sample results,
+regressions, diagnostic changes and reproduction are documented in the
+[evaluation runbook](22-search-evaluation.md).

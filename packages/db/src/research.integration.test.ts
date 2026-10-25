@@ -136,6 +136,47 @@ describe.skipIf(!url)("versioned research report persistence", () => {
     await db.capture.deleteMany({ where: { id: { in: captures } } });
     await db.$disconnect();
   });
+  it("shares multilingual and identifier matching with note retrieval", async () => {
+    const parent = await note(),
+      reports = createResearchRepository(db);
+    const report = {
+      ...artifact(parent),
+      title: "Observatory AX-912",
+      findings: "Renew observatory permits. Починить театральные костюмы.",
+    };
+    await reports.persistByOwner(owner, { artifact: report });
+    const search = createSearchRepository(db, true);
+    for (const query of [
+      "observatories permit",
+      "театральными костюмами",
+      "AX-912",
+    ]) {
+      expect(
+        (await search.searchByOwner(owner, { query })).map((r) => r.id),
+      ).toContain(report.reportId);
+    }
+    const vector = Array.from({ length: 1536 }, (_, i) => (i === 0 ? 1 : 0));
+    await createResearchEmbeddingRepository(db).prepareNote(
+      report.reportId,
+      owner,
+    );
+    const literal = JSON.stringify(vector);
+    await db.$executeRaw`UPDATE research_embeddings e SET vector=${literal}::vector,status='READY' FROM research_chunks c WHERE c.id=e."chunkId" AND c."reportId"=${report.reportId} AND c."ownerSubject"=${owner}`;
+    expect(
+      (
+        await search.searchByOwner(
+          owner,
+          { query: "celestial access permission" },
+          vector,
+        )
+      ).map((r) => r.id),
+    ).toContain(report.reportId);
+    expect(
+      (await search.searchByOwner(owner, { query: "AX-9120" }, vector)).map(
+        (r) => r.id,
+      ),
+    ).not.toContain(report.reportId);
+  });
   it("persists a report without changing Markdown, replays, and keeps successive versions", async () => {
     const parent = await note(),
       repo = createResearchRepository(db),

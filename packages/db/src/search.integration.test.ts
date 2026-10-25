@@ -19,7 +19,12 @@ describe.skipIf(!url)(
     const owners: string[] = [],
       notes: string[] = [],
       captures: string[] = [];
-    async function seed(owner: string, original: string, vector?: number[]) {
+    async function seed(
+      owner: string,
+      original: string,
+      vector?: number[],
+      title = "Synthetic source",
+    ) {
       owners.push(owner);
       const id = randomUUID(),
         capture = randomUUID();
@@ -37,10 +42,10 @@ projects: [synthetic]
 tags: [finance]
 action_hint: none
 review_required: false
-title: Synthetic source
+title: ${JSON.stringify(title)}
 ---
 
-# Synthetic source
+# ${title}
 
 ## Summary
 
@@ -82,6 +87,143 @@ ${original}
       }
     });
 
+    const similarity = (cosine: number) =>
+      Array.from({ length: 1536 }, (_, i) =>
+        i === 0 ? cosine : i === 1 ? Math.sqrt(1 - cosine ** 2) : 0,
+      );
+
+    it("stems Russian and English, prioritizes titles and retains partial lexical fallback", async () => {
+      const owner = "multilingual-" + randomUUID();
+      const russian = await seed(owner, "Починить театральные костюмы.");
+      const english = await seed(owner, "Renew observatory permits.");
+      const title = await seed(
+        owner,
+        "Check the harvest plan.",
+        undefined,
+        "Orchard apples",
+      );
+      await seed(
+        owner,
+        "orchard orchard orchard orchard",
+        undefined,
+        "Other task",
+      );
+      const repo = createSearchRepository(db);
+      expect(
+        (
+          await repo.searchByOwner(owner, { query: "театральными костюмами" })
+        ).map((r) => r.id),
+      ).toContain(russian);
+      expect(
+        (
+          await repo.searchByOwner(owner, { query: "observatories permit" })
+        ).map((r) => r.id),
+      ).toContain(english);
+      expect(
+        (await repo.searchByOwner(owner, { query: "orchard" }))[0]?.id,
+      ).toBe(title);
+      expect(
+        (await repo.searchByOwner(owner, { query: "unmentioned harvest" })).map(
+          (r) => r.id,
+        ),
+      ).toContain(title);
+    });
+
+    it("does not award incidental lexical overlap an extra hybrid fusion vote", async () => {
+      const owner = "fusion-" + randomUUID();
+      const relevant = await seed(
+        owner,
+        "Renew the access permit for the telescope dome.",
+        similarity(0.55),
+      );
+      const incidental = await seed(
+        owner,
+        "The facility has the the the the museum brochures.",
+        similarity(0.2),
+      );
+      const query =
+        "How do I keep permission to enter the stargazing facility?";
+      const repo = createSearchRepository(db);
+      const rows = await repo.searchByOwner(owner, { query }, basis(0));
+      expect(rows[0]?.id).toBe(relevant);
+      const diagnostic = await repo.inspectByOwner(
+        owner,
+        { query, limit: 20 },
+        basis(0),
+      );
+      const weak = diagnostic.rankings.find((r) => r.id === incidental)!;
+      expect(weak.lexicalRank).not.toBeNull();
+      expect(weak.lexicalVote).toBe(false);
+      expect(weak.rrfScore).toBeCloseTo(1 / (60 + weak.semanticRank!), 10);
+      expect(
+        diagnostic.rankings
+          .filter((r) => r.finalRank !== null)
+          .map((r) => r.id),
+      ).toEqual(rows.map((r) => r.id));
+    });
+
+    it("requires complete identifier tokens in both branches and explains exclusions without text", async () => {
+      const owner = "identifier-" + randomUUID();
+      const exact = await seed(
+        owner,
+        "Replace encoder AX-912.",
+        similarity(0.3),
+      );
+      const prefix = await seed(owner, "Replace encoder AX-9120.", basis(0));
+      await seed(owner, "Replace encoder AX-913.", basis(0));
+      const repo = createSearchRepository(db);
+      for (const vector of [undefined, basis(0)])
+        expect(
+          (await repo.searchByOwner(owner, { query: "AX-912" }, vector)).map(
+            (r) => r.id,
+          ),
+        ).toEqual([exact]);
+      expect(
+        await repo.searchByOwner(owner, { query: "AX-999" }, basis(0)),
+      ).toEqual([]);
+      const service = createSearchService(
+        repo,
+        "s".repeat(32),
+        { embed: async () => ({ vector: basis(0), usageTokens: 1 }) },
+        undefined,
+        true,
+      );
+      const diagnostic = await service.diagnoseByOwner(owner, {
+        query: "AX-912",
+        noteId: prefix,
+        limit: 20,
+      });
+      expect(diagnostic.note).toMatchObject({
+        reason: "identifier_mismatch",
+        semanticReason: "identifier_mismatch",
+        matchesIdentifiers: false,
+      });
+      expect(JSON.stringify(diagnostic)).not.toContain("Replace encoder");
+    });
+
+    it("retains weak semantic and unindexed partial matches behind stronger candidates", async () => {
+      const owner = "recall-" + randomUUID();
+      await seed(owner, "A stronger semantic source", similarity(0.9));
+      const weak = await seed(
+        owner,
+        "A useful distant paraphrase",
+        similarity(0.274),
+      );
+      const partial = await seed(owner, "permission to enter a facility");
+      const query =
+        "How do I keep permission to enter the stargazing facility?";
+      const rows = await createSearchRepository(db).searchByOwner(
+        owner,
+        { query },
+        basis(0),
+      );
+      expect(rows.map((r) => r.id)).toContain(weak);
+      expect(rows.map((r) => r.id)).toContain(partial);
+      expect(rows.findIndex((r) => r.id === weak)).toBeLessThan(
+        rows.findIndex((r) => r.id === partial),
+      );
+    });
+
     it("diagnoses coverage, exact cosine, below-threshold candidates and RRF without exposing foreign data or vectors", async () => {
       const owner = "diagnostics-" + randomUUID();
       const relevant = await seed(owner, "synthetic needle", basis(0));
@@ -109,6 +251,16 @@ ${original}
         query: "needle",
         noteId: missing,
         limit: 20,
+      });
+      expect(diagnostic.execution).toMatchObject({
+        rankingVersion: "multilingual-complete-v2",
+        rankingScope: "notes",
+        lexicalConfiguration: "simple+english+russian",
+        lexicalOperator: "OR",
+        lexicalVotePolicy: "complete_query_only",
+        identifierPolicy: "literal_alphanumeric_tokens",
+        cosineThreshold: 0.15,
+        rrfK: 60,
       });
       expect(diagnostic.index).toMatchObject({
         totalNotes: 3,

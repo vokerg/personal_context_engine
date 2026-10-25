@@ -23,8 +23,14 @@ The server obtains owner only from a verified session/grant; unknown fields are
 rejected. Cookie requests require session-bound CSRF. Queries stay out of URLs,
 logs, shared links and browser storage.
 
-PostgreSQL `simple` full-text ranking matches query terms, with literal substring
-support for punctuation/identifiers. Exact current-owner/model/chunker/revision
+PostgreSQL `simple` full-text matching is complemented by English/Russian stemming,
+literal substring matching and weighted title/summary/body ranking. Explicit
+alphanumeric identifiers constrain both branches with token boundaries.
+Complete-query lexical candidates receive a hybrid RRF vote; partial OR matches
+remain retrievable at zero fusion score behind positive-score candidates.
+Lexical-only fallback gives all lexical candidates a vote. See the
+[relevance evaluation](22-search-evaluation.md) for measured tradeoffs and limits.
+Exact current-owner/model/chunker/revision
 1536-dimensional vectors provide cosine candidates (distance <0.85); reciprocal
 rank fusion uses k=60 and deduplicates per note. Each branch considers at most
 200 candidates and the response pages the first 200 fused notes. This bounded
@@ -100,7 +106,9 @@ Call through an authenticated `notes:read` MCP grant:
 
 `query` is 1–500 characters, `noteId` is optional, and `limit` is 1–20 (default 5).
 There are no caller-selected owners, filters or cursors. Diagnostics describe an
-unfiltered search and its first `limit` results. The response is JSON text and
+unfiltered **note-only** ranking and its first `limit` notes. Research reports are
+not part of these diagnostic counts/ranks; ordinary search can merge reports.
+The response is JSON text and
 MCP `structuredContent` with these fields:
 
 - `index`: owner-only note coverage and chunk/job status counts. `indexedNotes`
@@ -113,7 +121,8 @@ MCP `structuredContent` with these fields:
   mutually exclusive partition of notes. `missingVectors` detects READY records
   without a vector; current database constraints normally prevent this state.
 - `execution`: mode, degradation, configured provider, model/dimensions/chunker,
-  lexical configuration/operator, strict cosine threshold and RRF/candidate limits.
+  lexical configuration/operator, complete-query vote policy, identifier policy,
+  ranking version/scope, strict cosine threshold and RRF/candidate limits.
   `disabled`, `unindexed`, `budget_exhausted` and `provider_unavailable` retain the
   production fallback meanings. `degradationReason` distinguishes the request-rate
   window, daily token ceiling, provider failure and semantic SQL failure;
@@ -123,15 +132,20 @@ MCP `structuredContent` with these fields:
   highest-scoring below-threshold notes, and the requested note (at most
   `3*limit+4` rows). Scores are **maximum chunk cosine per note**, not confidence.
   `passedThreshold` is null if no eligible vector was scored. Lexical and semantic
-  ranks are the production top-200 lists. `rrfScore` sums `1/(60+rank)` for each
-  matching list, independently of cosine magnitude. `finalRank` uses production
+  ranks are the note production top-200 lists. `lexicalVote` identifies complete-query
+  evidence in hybrid mode (all lexical
+  candidates vote during fallback). `rrfScore` sums `1/(60+rank)` for the semantic
+  list and voting lexical candidates, independently of cosine magnitude.
+  Partial lexical-only candidates can have score zero and a final rank.
+  `finalRank` uses production
   date/ID tie breaks; `included` describes the requested first page, bounded by
   the 200-result window. The semantic flag alone never means human relevance.
 - `note`: owner-scoped revision and chunk counts, at most 20 chunk/embedding
   metadata rows (with truncation flag and eligible-chunk cosine), best score/ranks
   and separate overall/semantic reasons. `no_chunks`, `stale_chunks`,
   `no_current_ready_embedding`, `semantic_not_executed`,
-  `below_similarity_threshold` and candidate/result-window reasons distinguish
+  `below_similarity_threshold`, `identifier_mismatch` and candidate/result-window
+  reasons distinguish
   failures. Unknown and other-owner IDs both return `status: not_found`.
 
 The tool uses the same provider approval, query cache, four-request/minute window
@@ -143,7 +157,9 @@ transaction with a two-second statement timeout and an eight-second transaction
 limit. Responses omit query text, note bodies, titles, vectors, credentials and
 provider exception details. Query/source text must not be logged.
 
-Production threshold and RRF behavior are unchanged. Diagnose coverage first;
-then evaluate a labeled multilingual query set before changing thresholds,
-lexical stemming or ranking. A missing vector has no measurable stored cosine:
+The cosine floor and RRF k remain unchanged; lexical votes and multilingual
+ranking follow #145. `note.matchesIdentifiers` explains an identifier exclusion
+without returning query text. Diagnose coverage first; use the
+[labeled evaluation workflow](22-search-evaluation.md) before further tuning.
+A missing vector has no measurable stored cosine:
 report null rather than interpreting it as a low score or silently indexing it.

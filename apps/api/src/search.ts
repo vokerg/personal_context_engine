@@ -12,6 +12,7 @@ import {
   EMBEDDING_DIMENSIONS,
   SEARCH_COSINE_THRESHOLD,
   SEARCH_RRF_K,
+  SEARCH_RANKING_VERSION,
   type SearchRepository,
 } from "@pce/db";
 import { CHUNKER_VERSION } from "@pce/core";
@@ -116,6 +117,7 @@ export function createSearchService(
           EMBEDDING_MODEL,
           EMBEDDING_DIMENSIONS,
           CHUNKER_VERSION,
+          SEARCH_RANKING_VERSION,
         ]),
       );
       const embedding = await embedQuery(owner, input.query, key);
@@ -136,19 +138,21 @@ export function createSearchService(
       const note = data.note;
       const semanticReason = !note
         ? "not_found"
-        : !note.totalChunks
-          ? "no_chunks"
-          : !note.currentChunks
-            ? "stale_chunks"
-            : !note.eligibleChunks
-              ? "no_current_ready_embedding"
-              : !vector
-                ? "semantic_not_executed"
-                : candidate?.passedThreshold === false
-                  ? "below_similarity_threshold"
-                  : !candidate?.semanticRank
-                    ? "outside_semantic_candidate_window"
-                    : "semantic_candidate";
+        : !note.matchesIdentifiers
+          ? "identifier_mismatch"
+          : !note.totalChunks
+            ? "no_chunks"
+            : !note.currentChunks
+              ? "stale_chunks"
+              : !note.eligibleChunks
+                ? "no_current_ready_embedding"
+                : !vector
+                  ? "semantic_not_executed"
+                  : candidate?.passedThreshold === false
+                    ? "below_similarity_threshold"
+                    : !candidate?.semanticRank
+                      ? "outside_semantic_candidate_window"
+                      : "semantic_candidate";
       const reason = !note
         ? "not_found"
         : candidate?.finalRank
@@ -176,8 +180,14 @@ export function createSearchService(
           rrfK: SEARCH_RRF_K,
           candidateLimit: 200,
           resultLimit: input.limit,
-          lexicalConfiguration: "simple",
+          rankingVersion: SEARCH_RANKING_VERSION,
+          rankingScope: "notes",
+          lexicalConfiguration: "simple+english+russian",
           lexicalOperator: "OR",
+          lexicalVotePolicy: vector ? "complete_query_only" : "all_candidates",
+          identifierPolicy: "literal_alphanumeric_tokens",
+          lexicalWeights: { title: "A", summary: "B", body: "D" },
+          semanticPruning: "absolute_floor_only",
           semanticMeaning:
             "eligible chunk passed cosine threshold; not a relevance confidence",
         },
@@ -210,9 +220,10 @@ export function createSearchService(
         JSON.stringify([
           owner,
           parameters,
-          "text-embedding-3-small",
-          1536,
-          "unicode-nfc-lf-2048-v1",
+          EMBEDDING_MODEL,
+          EMBEDDING_DIMENSIONS,
+          CHUNKER_VERSION,
+          SEARCH_RANKING_VERSION,
         ]),
       );
       let offset = 0,
