@@ -123,7 +123,7 @@ export class PagedFeed<T extends { id: string }> {
     void this.next(true);
   }
   loadMore() {
-    if (!this.busy && this.cursor) void this.next(false);
+    if (!this.busy && !this.state.error && this.cursor) void this.next(false);
   }
   private async next(first: boolean) {
     if (this.busy) return;
@@ -135,6 +135,7 @@ export class PagedFeed<T extends { id: string }> {
     this.state.loadingMore = !first;
     this.state.error = null;
     this.emit();
+    let recover = false;
     try {
       const page = await this.fetchPage(cursor, controller.signal);
       if (epoch !== this.epoch || controller.signal.aborted) return;
@@ -161,23 +162,19 @@ export class PagedFeed<T extends { id: string }> {
         this.state.nextCursor = null;
         this.seenIds.clear();
         this.seenCursors.clear();
-        this.busy = false;
-        this.active = null;
-        this.state.loading = true;
-        this.state.loadingMore = false;
-        this.emit();
-        void this.next(true);
-        return;
+        recover = true;
+      } else {
+        this.state.error = error;
       }
-      this.state.error = error;
     } finally {
       if (epoch === this.epoch) {
         this.busy = false;
         this.active = null;
-        this.state.loading = false;
+        this.state.loading = recover;
         this.state.loadingMore = false;
         this.state.refreshing = false;
         this.emit();
+        if (recover) void this.next(true);
       }
     }
   }
