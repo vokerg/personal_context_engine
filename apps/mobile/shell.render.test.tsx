@@ -13,7 +13,12 @@ vi.mock("react-native", async () => {
   };
   const host =
     (tag: string) =>
-    ({ children, accessibilityRole, accessibilityLabel, accessibilityState }: MockProps) =>
+    ({
+      children,
+      accessibilityRole,
+      accessibilityLabel,
+      accessibilityState,
+    }: MockProps) =>
       element(
         tag,
         {
