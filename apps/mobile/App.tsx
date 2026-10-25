@@ -19,13 +19,9 @@ import {
   type MobileTab,
 } from "./navigation";
 import { createNativeSession } from "./native-auth";
-import {
-  NoteDetailScreen,
-  NotesScreen,
-  SettingsScreen,
-  UpcomingScreen,
-} from "./screens";
+import { NoteDetailScreen, SettingsScreen, UpcomingScreen } from "./screens";
 import type { SessionView } from "./session";
+import { SearchScreen, TimelineScreen } from "./feed-screens";
 import { paletteFor, type Appearance, type Palette } from "./theme";
 import { ActionButton, StatusMessage } from "./ui";
 
@@ -147,104 +143,140 @@ export default function App() {
               Personal Context Engine
             </Text>
           </View>
-          <ScrollView
-            style={{ flex: 1 }}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ padding: 20, gap: 14, flexGrow: 1 }}
-          >
-            {!session ? (
-              <StatusMessage
-                palette={palette}
-                heading="Native sign-in needs configuration"
-                description="Configure the HTTPS API origin and registered iOS public OAuth client. An iOS development build is needed; Expo Go cannot receive the private callback."
-                alert
-              />
-            ) : auth.phase === "restoring" ? (
-              <StatusMessage
-                palette={palette}
-                heading="Restoring secure session…"
-              />
-            ) : auth.phase !== "signed-in" ? (
-              <View style={{ gap: 16 }}>
-                <StatusMessage
-                  palette={palette}
-                  heading="Sign-in required"
-                  description="Use the system browser and your existing PCE account. No developer token is needed."
-                />
-                {navigation.pendingNoteId ? (
-                  <Text style={{ color: palette.secondary }}>
-                    A note link is waiting for authentication.
-                  </Text>
-                ) : null}
-                {auth.notice ? (
-                  <Text
-                    accessibilityRole="alert"
-                    style={{ color: palette.danger }}
-                  >
-                    {auth.notice}
-                  </Text>
-                ) : null}
-                <ActionButton
-                  label="Sign in"
-                  palette={palette}
-                  onPress={() => void session.signIn()}
-                />
-                <ActionButton
-                  label="Retry saved session"
-                  palette={palette}
-                  secondary
-                  onPress={() => void session.restore()}
-                />
-              </View>
-            ) : !signedIn ? (
-              <StatusMessage palette={palette} heading="Ending session…" />
+          <View style={{ flex: 1, minHeight: 0 }}>
+            {!signedIn || !session ? (
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ padding: 20, gap: 14, flexGrow: 1 }}
+              >
+                {!session ? (
+                  <StatusMessage
+                    palette={palette}
+                    heading="Native sign-in needs configuration"
+                    description="Configure the HTTPS API origin and registered iOS public OAuth client. An iOS development build is needed; Expo Go cannot receive the private callback."
+                    alert
+                  />
+                ) : auth.phase === "restoring" ? (
+                  <StatusMessage
+                    palette={palette}
+                    heading="Restoring secure session…"
+                  />
+                ) : auth.phase !== "signed-in" ? (
+                  <View style={{ gap: 16 }}>
+                    <StatusMessage
+                      palette={palette}
+                      heading="Sign-in required"
+                      description="Use the system browser and your existing PCE account. No developer token is needed."
+                    />
+                    {navigation.pendingNoteId ? (
+                      <Text style={{ color: palette.secondary }}>
+                        A note link is waiting for authentication.
+                      </Text>
+                    ) : null}
+                    {auth.notice ? (
+                      <Text
+                        accessibilityRole="alert"
+                        style={{ color: palette.danger }}
+                      >
+                        {auth.notice}
+                      </Text>
+                    ) : null}
+                    <ActionButton
+                      label="Sign in"
+                      palette={palette}
+                      onPress={() => void session.signIn()}
+                    />
+                    <ActionButton
+                      label="Retry saved session"
+                      palette={palette}
+                      secondary
+                      onPress={() => void session.restore()}
+                    />
+                  </View>
+                ) : (
+                  <StatusMessage palette={palette} heading="Ending session…" />
+                )}
+              </ScrollView>
             ) : (
-              <View style={{ gap: 14 }}>
+              <>
                 {auth.notice ? (
                   <Text
                     accessibilityRole="alert"
-                    style={{ color: palette.danger }}
+                    style={{ color: palette.danger, paddingHorizontal: 20 }}
                   >
                     {auth.notice}
                   </Text>
+                ) : null}
+                {/* Keep both virtualized lists mounted under note detail so back retains scroll/query state.
+                    Neither list is nested inside a ScrollView. Unmount both on sign-out. */}
+                <TimelineScreen
+                  session={session}
+                  palette={palette}
+                  hidden={
+                    Boolean(navigation.noteId) || navigation.tab !== "notes"
+                  }
+                  onOpenNote={(id) => dispatch({ type: "open-note", id })}
+                />
+                <SearchScreen
+                  session={session}
+                  palette={palette}
+                  hidden={
+                    Boolean(navigation.noteId) || navigation.tab !== "search"
+                  }
+                  onOpenNote={(id) => dispatch({ type: "open-note", id })}
+                />
+                {!navigation.noteId && navigation.tab === "capture" ? (
+                  <ScrollView
+                    contentContainerStyle={{ padding: 20, flexGrow: 1 }}
+                  >
+                    <UpcomingScreen
+                      name="Capture"
+                      explanation="Direct text capture and persisted receipts arrive in native issue #126. Nothing is uploaded from this screen."
+                      palette={palette}
+                    />
+                  </ScrollView>
+                ) : null}
+                {!navigation.noteId && navigation.tab === "settings" ? (
+                  <ScrollView
+                    contentContainerStyle={{ padding: 20, flexGrow: 1 }}
+                  >
+                    <SettingsScreen
+                      appearance={appearance}
+                      onAppearance={setAppearance}
+                      palette={palette}
+                      onSignOut={signOut}
+                    />
+                  </ScrollView>
                 ) : null}
                 {navigation.noteId ? (
-                  <NoteDetailScreen
-                    key={navigation.noteId}
-                    noteId={navigation.noteId}
-                    session={session}
-                    palette={palette}
-                    onBack={() => dispatch({ type: "back" })}
-                  />
-                ) : navigation.tab === "notes" ? (
-                  <NotesScreen
-                    session={session}
-                    palette={palette}
-                    onOpenNote={(id) => dispatch({ type: "open-note", id })}
-                  />
-                ) : navigation.tab === "search" ? (
-                  <UpcomingScreen
-                    name="Search"
-                    explanation="The paginated hybrid search and filters arrive in native issue #124. Your notes are not searched locally or replaced with demo results."
-                    palette={palette}
-                  />
-                ) : navigation.tab === "capture" ? (
-                  <UpcomingScreen
-                    name="Capture"
-                    explanation="Direct text capture and persisted receipts arrive in native issue #126. Nothing is uploaded from this screen."
-                    palette={palette}
-                  />
-                ) : (
-                  <SettingsScreen
-                    appearance={appearance}
-                    onAppearance={setAppearance}
-                    palette={palette}
-                    onSignOut={signOut}
-                  />
-                )}
-              </View>
+                  <ScrollView
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: palette.background,
+                    }}
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={{
+                      padding: 20,
+                      gap: 14,
+                      flexGrow: 1,
+                    }}
+                  >
+                    <NoteDetailScreen
+                      key={navigation.noteId}
+                      noteId={navigation.noteId}
+                      session={session}
+                      palette={palette}
+                      onBack={() => dispatch({ type: "back" })}
+                    />
+                  </ScrollView>
+                ) : null}
+              </>
             )}
-          </ScrollView>
+          </View>
           {signedIn && !navigation.noteId ? (
             <TabBar
               active={navigation.tab}

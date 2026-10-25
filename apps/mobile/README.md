@@ -18,9 +18,26 @@ deliberate migration, not an unreviewed mix of navigators.
   external links. No `react-dom` or cookies.
 - `navigation.ts`: typed Notes / Search / Capture / Settings tabs, note route,
   signed-out link intent, auth transition and private-state reset.
-- `screens.tsx`: modular first-pass read-only Notes / note detail and Settings.
-  Search (#124) and Capture (#126) are explicitly unavailable until integrated;
-  there is no fabricated sample content or fake save/search operation.
+- `screens.tsx`: first-pass read-only note detail and Settings. Capture (#126)
+  is explicitly unavailable until integrated; no fabricated saves or results.
+- `feed-screens.tsx` / `feed-model.ts`: owner-scoped server-backed native
+  timeline and search (#124). Both FlatLists remain mounted behind a note
+  detail route to retain their scroll/query context on Back (and unmount on
+  sign-out). Cursor pagination has abort/race guards, deduplication, one-time
+  invalidated-cursor recovery and explicit retry. Pull down to refresh.
+- Timeline groups notes by **device-local capture day**, with project/kind,
+  approved-registry tag and date filtering applied on the server before paging.
+  Date fields accept `YYYY-MM-DD`; the inclusive local day range converts to
+  half-open UTC instants, respecting DST transitions. Facet lists can be
+  incomplete and approved-tag pagination is explicit. Candidate tags do not
+  appear in the approved tag filter.
+- Search runs the existing authenticated lexical/hybrid API after short input
+  debounce; it exposes API-reported mode/degradation, source revisions, match
+  indicators and research provenance. Backend failures are **not** represented
+  as successful semantic search. Search selection navigates to the owning note
+  (research-specific detail/history follows in #125).
+- A date range or selected filter is never used to filter only the first
+  locally loaded page. No offline note replication/cache is introduced.
 - `theme.ts`, `ui.tsx`, `screen-state.ts`: system/light/dark tokens,
   accessible controls and standardized loading/empty/error/retry states.
 - `native-auth.ts` / `session.ts`: the existing #122 secure native OAuth
@@ -40,7 +57,7 @@ Safe-area and visual/VoiceOver behavior are pending actual device inspection.
 
 From the repository root, use `npm ci`, then `npm run typecheck`,
 `npm test`, `npm run lint` and `npm run format:check`. The mobile
-navigation/theme/screen-state tests run under Vitest with synthetic data;
+navigation/theme/screen-state/feed tests run under Vitest with synthetic data;
 they are not a real-device or React Native rendered integration test.
 
 For an iOS development build, register the native public OAuth client and set
@@ -55,5 +72,5 @@ native callback delivery, VoiceOver, keyboard/safe-area sizing, high Dynamic
 Type, color appearance in-device, performance and offline networking. These
 belong to the local #131 release gate.
 
-Next screen owners: #124 timeline/search, #125 note and research detail, #126
-capture, #127 tags/removal; add Reminders navigation only after #128–#130.
+Next screen owners: #125 note and research detail, #126 capture, #127 tags/removal;
+add Reminders navigation only after #128–#130.
