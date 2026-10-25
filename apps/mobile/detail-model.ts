@@ -13,7 +13,9 @@ export type ResearchListState =
   | { kind: "error"; message: string };
 
 /** Report history is persisted independent of the immutable captured note. */
-export function orderReports(reports: readonly ResearchRecord[]): ResearchRecord[] {
+export function orderReports(
+  reports: readonly ResearchRecord[],
+): ResearchRecord[] {
   return [...reports].sort(
     (a, b) =>
       b.researchedAt.localeCompare(a.researchedAt) ||
@@ -26,13 +28,17 @@ export function noteMetadata(note: NoteDetail): string[] {
   const metadata = note.metadata;
   return [
     "Captured: " + note.capturedAt,
-    ...(metadata ? [
-      "Capture source: " + metadata.source.replace(/_/g, " "),
-      "Kind: " + metadata.kind,
-      ...(metadata.projects.length ? ["Projects: " + metadata.projects.join(", ")] : []),
-      ...(metadata.occurredAt ? ["Occurred: " + metadata.occurredAt] : []),
-      ...(metadata.dueAt ? ["Due: " + metadata.dueAt] : []),
-    ] : []),
+    ...(metadata
+      ? [
+          "Capture source: " + metadata.source.replace(/_/g, " "),
+          "Kind: " + metadata.kind,
+          ...(metadata.projects.length
+            ? ["Projects: " + metadata.projects.join(", ")]
+            : []),
+          ...(metadata.occurredAt ? ["Occurred: " + metadata.occurredAt] : []),
+          ...(metadata.dueAt ? ["Due: " + metadata.dueAt] : []),
+        ]
+      : []),
     ...(note.tags?.length ? ["Effective tags: " + note.tags.join(", ")] : []),
   ];
 }
@@ -48,11 +54,22 @@ export function originalLabel(note: NoteDetail): string {
 
 /** Restrict the external action to explicit web links, including after decoding. */
 export function safeExternalUrl(value: string): string | null {
-  if (!value || value.length > 2048 || value.trim() !== value || [...value].some((character) => character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127)) return null;
+  if (
+    !value ||
+    value.length > 2048 ||
+    value.trim() !== value ||
+    [...value].some(
+      (character) =>
+        character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127,
+    )
+  )
+    return null;
   try {
     const url = new URL(value);
     return (url.protocol === "https:" || url.protocol === "http:") &&
-      !!url.hostname && !url.username && !url.password
+      !!url.hostname &&
+      !url.username &&
+      !url.password
       ? url.href
       : null;
   } catch {
@@ -69,12 +86,14 @@ export function matchingReport(
   fetched: ResearchRecord,
   parentNoteId: string,
 ): boolean {
-  return selected.parentNoteId === parentNoteId &&
+  return (
+    selected.parentNoteId === parentNoteId &&
     fetched.parentNoteId === parentNoteId &&
     selected.reportId === fetched.reportId &&
     selected.seriesId === fetched.seriesId &&
     selected.revision === fetched.revision &&
-    selected.contentHash === fetched.contentHash;
+    selected.contentHash === fetched.contentHash
+  );
 }
 
 export function researchFailure(error: unknown): ResearchListState {
@@ -82,23 +101,25 @@ export function researchFailure(error: unknown): ResearchListState {
     return { kind: "disabled" };
   }
   if (error instanceof ApiRequestError) {
-    const message = error.status === 401
-      ? "Session expired. Sign in again."
-      : error.status === 403
-        ? "This session cannot read research reports."
-        : error.status === 503
-          ? "Research is temporarily unavailable."
-          : "Unable to read saved research.";
+    const message =
+      error.status === 401
+        ? "Session expired. Sign in again."
+        : error.status === 403
+          ? "This session cannot read research reports."
+          : error.status === 503
+            ? "Research is temporarily unavailable."
+            : "Unable to read saved research.";
     return { kind: "error", message };
   }
   if (error instanceof ApiTransportError) {
     return {
       kind: "error",
-      message: error.code === "TIMEOUT"
-        ? "Research request timed out. Retry when connected."
-        : error.code === "INVALID_RESPONSE"
-          ? "Research API returned an invalid response."
-          : "Could not load research. Check your connection.",
+      message:
+        error.code === "TIMEOUT"
+          ? "Research request timed out. Retry when connected."
+          : error.code === "INVALID_RESPONSE"
+            ? "Research API returned an invalid response."
+            : "Could not load research. Check your connection.",
     };
   }
   return { kind: "error", message: "Could not load research." };
