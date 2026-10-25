@@ -466,16 +466,18 @@ function useFeed<T extends { id: string }>(
     signal: AbortSignal,
   ) => Promise<{ items: T[]; nextCursor: string | null }>,
 ) {
-  const [state, setState] = useState<FeedState<T>>(initialFeed<T>);
+  const [snapshot, setSnapshot] = useState<{ key: string; state: FeedState<T> }>(
+    () => ({ key, state: initialFeed<T>() }),
+  );
   const current = useRef<PagedFeed<T> | null>(null);
   useEffect(() => {
     current.current?.cancel();
     if (!enabled) {
       current.current = null;
-      setState({ ...initialFeed<T>(), loading: false });
+      setSnapshot({ key, state: { ...initialFeed<T>(), loading: false } });
       return;
     }
-    const feed = new PagedFeed(fetcher, setState);
+    const feed = new PagedFeed(fetcher, (state) => setSnapshot({ key, state }));
     current.current = feed;
     feed.restart();
     return () => {
@@ -484,6 +486,11 @@ function useFeed<T extends { id: string }>(
     };
     // 'key' represents the immutable, validated query and invalidates earlier network work.
   }, [enabled, key]);
+  // Never display an earlier query's private results while a new request is pending.
+  const state =
+    snapshot.key === key
+      ? snapshot.state
+      : { ...initialFeed<T>(), loading: enabled };
   return {
     state,
     refresh: () => current.current?.restart(true),
