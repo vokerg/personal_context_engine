@@ -705,7 +705,7 @@ export function TimelineScreen({
             <FeedStatus
               title="Notes"
               state={feed.state}
-              retry={feed.retry}
+              retry={retrySearch}
               palette={palette}
             />
           ) : null
@@ -758,6 +758,7 @@ export function SearchScreen({
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<Filters>(emptyFilters);
   const [meta, setMeta] = useState<{
+    key: string;
     mode: "hybrid" | "lexical";
     degradation: string | null;
     truncated: boolean;
@@ -794,9 +795,11 @@ export function SearchScreen({
       );
       if (!signal.aborted)
         setMeta((previous) =>
-          previous && (previous.mode === "lexical" || previous.degradation)
+          previous?.key === key &&
+          (previous.mode === "lexical" || previous.degradation)
             ? { ...previous, truncated: previous.truncated || result.truncated }
             : {
+                key,
                 mode: result.mode,
                 degradation: result.degradation,
                 truncated: result.truncated,
@@ -805,6 +808,14 @@ export function SearchScreen({
       return { items: result.results, nextCursor: result.nextCursor };
     },
   );
+  const refreshSearch = () => {
+    setMeta(null);
+    feed.refresh();
+  };
+  const retrySearch = () => {
+    setMeta(null);
+    feed.retry();
+  };
   return (
     <View
       style={{
@@ -846,7 +857,7 @@ export function SearchScreen({
           palette={palette}
           facets={facets}
         />
-        {meta && prepared.valid ? (
+        {meta?.key === key && prepared.valid ? (
           <Text
             accessibilityRole="text"
             style={{ color: palette.secondary, fontSize: 14 }}
@@ -927,7 +938,7 @@ export function SearchScreen({
         refreshControl={
           <RefreshControl
             refreshing={feed.state.refreshing}
-            onRefresh={feed.refresh}
+            onRefresh={refreshSearch}
           />
         }
         ListEmptyComponent={
@@ -953,7 +964,7 @@ export function SearchScreen({
                 <FeedStatus
                   title="Results"
                   state={feed.state}
-                  retry={feed.retry}
+                  retry={retrySearch}
                   palette={palette}
                 />
               ) : null}
@@ -971,7 +982,7 @@ export function SearchScreen({
                   disabled={feed.state.loadingMore}
                 />
               ) : null}
-              {meta?.truncated && !feed.state.nextCursor ? (
+              {meta?.key === key && meta.truncated && !feed.state.nextCursor ? (
                 <Text style={{ color: palette.secondary }}>
                   The server reports additional matches beyond its returned
                   window.
