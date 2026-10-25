@@ -29,6 +29,7 @@
     "dev:web": "npm run dev:prepare && npm run dev:web:serve",
     "dev:web:serve": "npm run dev -w @pce/web",
     "dev:mobile": "npm run start -w @pce/mobile",
+    "dev:ios": "npm run dev:prepare && npm run ios -w @pce/mobile",
     "build": "npm run prisma:generate && npm run build --workspaces --if-present",
     "test": "npm run build && vitest run",
     "lint": "eslint apps packages",

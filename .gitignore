@@ -1,6 +1,7 @@
 node_modules/
 **/dist/
 **/.expo/
+/apps/mobile/ios/
 **/.turbo/
 coverage/
 .env

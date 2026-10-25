@@ -106,6 +106,53 @@ Use `npm run dev:mobile` and an SDK54-compatible local iOS build. Expo Go does
 not support the private callback contract. Do not put tokens, note text,
 database credentials or confidential URLs in Expo public environment variables.
 
+### Local simulator build (#131)
+
+Install full Xcode (the standalone Command Line Tools are insufficient), its
+iOS simulator runtime, CocoaPods and Watchman. Use Node 22, matching `.nvmrc`.
+The app uses Expo SDK 54's required React Native 0.81.5 patch and the local
+simulator bundle identifier `dev.pce.mobile`; no signing team or paid developer
+account is needed for a simulator build.
+Keep Xcode's default simulator signing enabled. Setting
+`CODE_SIGNING_ALLOWED=NO` can compile an app that launches but cannot access
+Keychain: actual local testing returned `errSecMissingEntitlement` (-34018),
+preventing secure session restoration and completion of sign-in. A simulator
+build with Xcode's normal generated application identifier restored Keychain
+access without a developer-program membership or provisioning profile.
+
+Put the two public mobile settings above in ignored `apps/mobile/.env.local`.
+The server must independently register that exact client and
+`pce://oauth/callback`; a build setting does not grant API access. An absent
+configuration shows the explicit configuration screen, rather than fabricating
+a signed-in session.
+
+From the repository root:
+
+```sh
+npm ci
+npm run dev:ios
+```
+
+The root command builds shared packages, then `expo run:ios` generates the
+ignored `apps/mobile/ios` project, installs its pods, compiles and launches the
+app with Metro. To select a particular installed iPhone simulator, run
+`npm run dev:prepare`, then `npm run ios -w @pce/mobile -- --device`.
+Native generated files and machine-specific paths must
+not be committed. After changing a native dependency or Expo configuration,
+regenerate with `npx expo prebuild --platform ios` from `apps/mobile`, then run
+the build again. Expo may add an Android script while generating its package
+scripts; Android validation remains outside this iOS checkpoint.
+
+For JS-only validation, run `npx expo-doctor` and
+`npx expo export --platform ios --output-dir /tmp/pce-ios-export` from
+`apps/mobile`. A successful export does not prove Xcode compilation, simulator
+launch or OAuth callback delivery.
+
+The [2026-10-25 simulator checkpoint](../../docs/evidence/issue-131/2026-10-25-simulator.md)
+records a successful local iPhone 17 / iOS 26.5 build, hosted native sign-in,
+authenticated timeline and session restoration after process relaunch. This is
+a partial #131 checkpoint; it does not close the read/write beta gate.
+
 **Not verified remotely:** Xcode compilation, iOS simulator/phone launch,
 native callback delivery, VoiceOver, keyboard/safe-area sizing, high Dynamic
 Type, color appearance in-device, performance and offline networking. These
