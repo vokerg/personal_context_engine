@@ -299,6 +299,10 @@ stop earlier API/web instances before running. The API and web listen only
 on `127.0.0.1`. Open the printed web URL using either `127.0.0.1` or
 `localhost`; both loopback aliases are accepted by the local session and API
 CORS checks.
+The local note adapter supports owner-scoped removal and archiving for notes
+in the current checkout snapshot. Removed notes stay hidden after refresh or
+re-import; originals remain intact. Archive filters apply to lists and facets.
+
 Ctrl-C stops both services. Ordinary `npm run dev` uses the root
 `API_PORT`, `PCE_WEB_PORT` and `VITE_API_BASE_URL` settings and can establish
 the configured local development session, but it does not run local content
