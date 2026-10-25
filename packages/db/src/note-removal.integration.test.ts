@@ -136,6 +136,29 @@ describe.skipIf(!url)("owner-scoped reversible note removal", () => {
     expect(stored.contentHash).toBe(before.contentHash);
     expect(stored.sourceRevision).toBe(before.sourceRevision);
 
+    const notes = createNoteRepository(db);
+    const source = {
+      markdown: markdown(ownId, captureIds[0]!),
+      ownerSubject: owner,
+      sourcePath: paths[0]!,
+      sourceRevision: "revision-1",
+    };
+    expect((await notes.importMarkdown(source)).result).toBe("replayed");
+    expect(
+      (
+        await notes.importMarkdown({
+          ...source,
+          sourceRevision: "revision-2",
+          expectedPreviousRevision: "revision-1",
+        })
+      ).result,
+    ).toBe("updated");
+    const reimported = await db.note.findUniqueOrThrow({ where: { id: ownId } });
+    expect(reimported.removedAt).toEqual(removedAt);
+    expect(reimported.removedBy).toBe(owner);
+    expect(reimported.originalInput).toBe(before.originalInput);
+    expect(reimported.archivedAt).toEqual(stored.archivedAt);
+
     const search = createSearchRepository(db);
     expect(await search.getByOwner(owner, ownId)).toBeNull();
     expect(

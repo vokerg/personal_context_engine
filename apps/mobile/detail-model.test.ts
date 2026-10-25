@@ -20,6 +20,7 @@ const reportA = "33333333-3333-4333-8333-333333333333";
 const reportB = "55555555-5555-4555-8555-555555555555";
 const note: NoteDetail = {
   id: noteId,
+  status: "active",
   title: "Synthetic captured text",
   summary: "Inferred summary",
   body: "Stored body",
