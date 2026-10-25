@@ -30,15 +30,19 @@ async function readWithRefresh<T>(
   try {
     return await read();
   } catch (error) {
-    if (!(error instanceof ApiRequestError) || error.status !== 401) throw error;
-    if (!await session.forceRefresh()) throw error;
+    if (!(error instanceof ApiRequestError) || error.status !== 401)
+      throw error;
+    if (!(await session.forceRefresh())) throw error;
     return read();
   }
 }
 
 function SectionLabel({ text, palette }: { text: string; palette: Palette }) {
   return (
-    <Text accessibilityRole="header" style={{ color: palette.text, fontSize: 18, fontWeight: "700" }}>
+    <Text
+      accessibilityRole="header"
+      style={{ color: palette.text, fontSize: 18, fontWeight: "700" }}
+    >
       {text}
     </Text>
   );
@@ -48,7 +52,10 @@ function PlainText({ value, palette }: { value: string; palette: Palette }) {
   // Deliberately use a native Text node. Neither captured text nor research
   // findings are parsed as Markdown/HTML or executed as links.
   return (
-    <Text selectable style={{ color: palette.text, fontSize: 16, lineHeight: 25 }}>
+    <Text
+      selectable
+      style={{ color: palette.text, fontSize: 16, lineHeight: 25 }}
+    >
       {value}
     </Text>
   );
@@ -79,7 +86,9 @@ function ResearchContent({
         {
           text: "Open website",
           onPress: () => {
-            void Linking.openURL(url).catch(() => setExternalError("Unable to open this website."));
+            void Linking.openURL(url).catch(() =>
+              setExternalError("Unable to open this website."),
+            );
           },
         },
       ],
@@ -89,17 +98,37 @@ function ResearchContent({
   return (
     <View style={{ gap: 14 }}>
       <Panel palette={palette}>
-        <SectionLabel text="Saved research — not original input" palette={palette} />
-        <Text style={{ color: palette.text, fontWeight: "600", fontSize: 17 }}>{report.title}</Text>
+        <SectionLabel
+          text="Saved research — not original input"
+          palette={palette}
+        />
+        <Text style={{ color: palette.text, fontWeight: "600", fontSize: 17 }}>
+          {report.title}
+        </Text>
         <Text style={{ color: palette.secondary }}>
-          {report.status === "COMPLETE" ? "Saved complete report" : "Saved draft — not complete"}
+          {report.status === "COMPLETE"
+            ? "Saved complete report"
+            : "Saved draft — not complete"}
           {" · Revision " + report.revision + " · " + report.researchedAt}
         </Text>
         <Text selectable style={{ color: palette.secondary }}>
-          {"Series: " + report.seriesId + "\nReport: " + report.reportId + "\nOrigin: " + report.origin + " · Saved: " + report.savedAt + "\nIndexing: " + report.indexing}
+          {"Series: " +
+            report.seriesId +
+            "\nReport: " +
+            report.reportId +
+            "\nOrigin: " +
+            report.origin +
+            " · Saved: " +
+            report.savedAt +
+            "\nIndexing: " +
+            report.indexing}
         </Text>
         <Text style={{ color: palette.secondary }}>
-          {"Research by " + report.provenance.agent + (report.provenance.modelId ? " (" + report.provenance.modelId + ")" : "")}
+          {"Research by " +
+            report.provenance.agent +
+            (report.provenance.modelId
+              ? " (" + report.provenance.modelId + ")"
+              : "")}
         </Text>
         <SectionLabel text="Question" palette={palette} />
         <PlainText value={report.question} palette={palette} />
@@ -114,70 +143,108 @@ function ResearchContent({
           </>
         ) : null}
         <Text style={{ color: palette.secondary }}>
-          {"PCE context: " + report.pceRetrieval.outcome.replace(/_/g, " ") +
+          {"PCE context: " +
+            report.pceRetrieval.outcome.replace(/_/g, " ") +
             (report.pceRetrieval.mode ? " · " + report.pceRetrieval.mode : "") +
-            (report.pceRetrieval.degradation ? " · Degraded: " + report.pceRetrieval.degradation : "")}
+            (report.pceRetrieval.degradation
+              ? " · Degraded: " + report.pceRetrieval.degradation
+              : "")}
         </Text>
       </Panel>
       <Panel palette={palette}>
         <SectionLabel text="Cited sources" palette={palette} />
         {report.sources.length === 0 ? (
-          <Text style={{ color: palette.secondary }}>No sources recorded in this version.</Text>
-        ) : report.sources.map((source) => (
-          <View key={source.id} style={{ gap: 6, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: palette.border }}>
-            <Text selectable style={{ color: palette.text, fontWeight: "600" }}>
-              {source.id + " · " + (source.kind === "pce_note" ? "PCE note" : "External website")}
-            </Text>
-            {source.kind === "pce_note" ? (
-              <>
-                <Text selectable style={{ color: palette.secondary }}>
-                  {"Source note: " + source.noteId +
-                    "\nSource revision: " + (source.sourceRevision ?? "not recorded") +
-                    "\nReason: " + source.rationale}
-                </Text>
-                {validSourceNoteId(source.noteId) ? (
+          <Text style={{ color: palette.secondary }}>
+            No sources recorded in this version.
+          </Text>
+        ) : (
+          report.sources.map((source) => (
+            <View
+              key={source.id}
+              style={{
+                gap: 6,
+                paddingVertical: 8,
+                borderBottomWidth: 1,
+                borderBottomColor: palette.border,
+              }}
+            >
+              <Text
+                selectable
+                style={{ color: palette.text, fontWeight: "600" }}
+              >
+                {source.id +
+                  " · " +
+                  (source.kind === "pce_note"
+                    ? "PCE note"
+                    : "External website")}
+              </Text>
+              {source.kind === "pce_note" ? (
+                <>
+                  <Text selectable style={{ color: palette.secondary }}>
+                    {"Source note: " +
+                      source.noteId +
+                      "\nSource revision: " +
+                      (source.sourceRevision ?? "not recorded") +
+                      "\nReason: " +
+                      source.rationale}
+                  </Text>
+                  {validSourceNoteId(source.noteId) ? (
+                    <ActionButton
+                      label={"Open cited note " + source.id}
+                      palette={palette}
+                      secondary
+                      onPress={() => onOpenSource(source.noteId)}
+                    />
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  {source.title ? (
+                    <Text style={{ color: palette.text }}>{source.title}</Text>
+                  ) : null}
+                  <Text selectable style={{ color: palette.secondary }}>
+                    {source.url + "\nChecked: " + source.checkedAt}
+                  </Text>
                   <ActionButton
-                    label={"Open cited note " + source.id}
+                    label={"Open website " + source.id}
                     palette={palette}
                     secondary
-                    onPress={() => onOpenSource(source.noteId)}
+                    disabled={!safeExternalUrl(source.url)}
+                    onPress={() => openExternal(source.url)}
                   />
-                ) : null}
-              </>
-            ) : (
-              <>
-                {source.title ? <Text style={{ color: palette.text }}>{source.title}</Text> : null}
-                <Text selectable style={{ color: palette.secondary }}>
-                  {source.url + "\nChecked: " + source.checkedAt}
-                </Text>
-                <ActionButton
-                  label={"Open website " + source.id}
-                  palette={palette}
-                  secondary
-                  disabled={!safeExternalUrl(source.url)}
-                  onPress={() => openExternal(source.url)}
-                />
-              </>
-            )}
-          </View>
-        ))}
-        {externalError ? <Text accessibilityRole="alert" style={{ color: palette.danger }}>{externalError}</Text> : null}
+                </>
+              )}
+            </View>
+          ))
+        )}
+        {externalError ? (
+          <Text accessibilityRole="alert" style={{ color: palette.danger }}>
+            {externalError}
+          </Text>
+        ) : null}
       </Panel>
       <Panel palette={palette}>
         <SectionLabel text="Claims and attribution" palette={palette} />
         {report.claims.length === 0 ? (
-          <Text style={{ color: palette.secondary }}>No claims recorded in this version.</Text>
-        ) : report.claims.map((claim) => (
-          <View key={claim.id} style={{ gap: 5 }}>
-            <Text style={{ color: palette.secondary }}>
-              {claim.id + " · " + claim.classification.replace(/_/g, " ")}
-            </Text>
-            <PlainText value={claim.text} palette={palette} />
-            <Text selectable style={{ color: palette.secondary }}>
-              {"Evidence: " + (claim.sourceIds.length ? claim.sourceIds.join(", ") : "none recorded")}
-            </Text>
-          </View>
-        ))}
+          <Text style={{ color: palette.secondary }}>
+            No claims recorded in this version.
+          </Text>
+        ) : (
+          report.claims.map((claim) => (
+            <View key={claim.id} style={{ gap: 5 }}>
+              <Text style={{ color: palette.secondary }}>
+                {claim.id + " · " + claim.classification.replace(/_/g, " ")}
+              </Text>
+              <PlainText value={claim.text} palette={palette} />
+              <Text selectable style={{ color: palette.secondary }}>
+                {"Evidence: " +
+                  (claim.sourceIds.length
+                    ? claim.sourceIds.join(", ")
+                    : "none recorded")}
+              </Text>
+            </View>
+          ))
+        )}
       </Panel>
     </View>
   );
@@ -202,7 +269,9 @@ export function NoteDetailScreen({
   const [noteLoading, setNoteLoading] = useState(true);
   const [noteRevision, setNoteRevision] = useState(0);
   const [researchRevision, setResearchRevision] = useState(0);
-  const [research, setResearch] = useState<ResearchListState>({ kind: "loading" });
+  const [research, setResearch] = useState<ResearchListState>({
+    kind: "loading",
+  });
   const [selected, setSelected] = useState<ResearchRecord | null>(null);
   const [fullReport, setFullReport] = useState<ResearchRecord | null>(null);
   const [reportError, setReportError] = useState("");
@@ -232,12 +301,17 @@ export function NoteDetailScreen({
       (error: unknown) => {
         if (!active) return;
         setNoteLoading(false);
-        setNoteError(error instanceof ApiRequestError && error.status === 401
-          ? "Session expired. Sign in again."
-          : describeNotesError(error, true));
+        setNoteError(
+          error instanceof ApiRequestError && error.status === 401
+            ? "Session expired. Sign in again."
+            : describeNotesError(error, true),
+        );
       },
     );
-    return () => { active = false; abort.abort(); };
+    return () => {
+      active = false;
+      abort.abort();
+    };
   }, [session, noteId, noteRevision]);
 
   useEffect(() => {
@@ -253,13 +327,20 @@ export function NoteDetailScreen({
       signal: abort.signal,
       timeoutMs: 12000,
     };
-    void readWithRefresh(session, () => getResearchForNote(options, noteId)).then(
+    void readWithRefresh(session, () =>
+      getResearchForNote(options, noteId),
+    ).then(
       (result) => {
         if (!active) return;
         // Never show a report bound to an unrelated parent note.
-        const matching = orderReports(result.reports.filter((r) => r.parentNoteId === noteId));
+        const matching = orderReports(
+          result.reports.filter((r) => r.parentNoteId === noteId),
+        );
         if (matching.length !== result.reports.length) {
-          setResearch({ kind: "error", message: "Research response did not match this note." });
+          setResearch({
+            kind: "error",
+            message: "Research response did not match this note.",
+          });
           return;
         }
         setResearch({ kind: "ready", reports: matching });
@@ -269,7 +350,10 @@ export function NoteDetailScreen({
         if (active) setResearch(researchFailure(error));
       },
     );
-    return () => { active = false; abort.abort(); };
+    return () => {
+      active = false;
+      abort.abort();
+    };
   }, [session, noteId, note, researchRevision]);
 
   useEffect(() => {
@@ -285,12 +369,16 @@ export function NoteDetailScreen({
       signal: abort.signal,
       timeoutMs: 12000,
     };
-    void readWithRefresh(session, () => getResearchReport(options, selected.reportId)).then(
+    void readWithRefresh(session, () =>
+      getResearchReport(options, selected.reportId),
+    ).then(
       (report) => {
         if (!active) return;
         setReportLoading(false);
         if (!matchingReport(selected, report, noteId)) {
-          setReportError("This saved report changed since the history was loaded. Reload research.");
+          setReportError(
+            "This saved report changed since the history was loaded. Reload research.",
+          );
         } else {
           setFullReport(report);
         }
@@ -298,79 +386,158 @@ export function NoteDetailScreen({
       (error: unknown) => {
         if (!active) return;
         setReportLoading(false);
-        setReportError(researchFailure(error).kind === "disabled"
-          ? "This report is no longer available. Reload research."
-          : "Unable to retrieve the selected report. Retry or reload research.");
+        setReportError(
+          researchFailure(error).kind === "disabled"
+            ? "This report is no longer available. Reload research."
+            : "Unable to retrieve the selected report. Retry or reload research.",
+        );
       },
     );
-    return () => { active = false; abort.abort(); };
+    return () => {
+      active = false;
+      abort.abort();
+    };
   }, [session, noteId, selected, research.kind]);
 
   return (
     <View style={{ gap: 14 }}>
       <ActionButton label="Back" palette={palette} secondary onPress={onBack} />
       <SectionTitle palette={palette}>Note detail</SectionTitle>
-      {noteLoading ? <StatusMessage palette={palette} heading="Loading note…" /> : null}
-      {noteError ? <StatusMessage palette={palette} heading="Note unavailable" description={noteError} alert retry={() => setNoteRevision((x) => x + 1)} /> : null}
+      {noteLoading ? (
+        <StatusMessage palette={palette} heading="Loading note…" />
+      ) : null}
+      {noteError ? (
+        <StatusMessage
+          palette={palette}
+          heading="Note unavailable"
+          description={noteError}
+          alert
+          retry={() => setNoteRevision((x) => x + 1)}
+        />
+      ) : null}
       {note ? (
         <>
           <Panel palette={palette}>
-            <Text accessibilityRole="header" style={{ color: palette.text, fontSize: 22, fontWeight: "700" }}>{note.title}</Text>
+            <Text
+              accessibilityRole="header"
+              style={{ color: palette.text, fontSize: 22, fontWeight: "700" }}
+            >
+              {note.title}
+            </Text>
             <SectionLabel text="Parsed summary — derived" palette={palette} />
             <PlainText value={note.summary} palette={palette} />
             <SectionLabel text="Capture metadata" palette={palette} />
             {noteMetadata(note).map((line) => (
-              <Text key={line} selectable style={{ color: palette.secondary }}>{line}</Text>
+              <Text key={line} selectable style={{ color: palette.secondary }}>
+                {line}
+              </Text>
             ))}
           </Panel>
           <Panel palette={palette}>
-            <SectionLabel text="Original user input — immutable" palette={palette} />
+            <SectionLabel
+              text="Original user input — immutable"
+              palette={palette}
+            />
             <PlainText value={originalLabel(note)} palette={palette} />
-            <SectionLabel text="Stored note body — separate from original input" palette={palette} />
+            <SectionLabel
+              text="Stored note body — separate from original input"
+              palette={palette}
+            />
             <PlainText value={note.body} palette={palette} />
           </Panel>
           <SectionTitle palette={palette}>Research history</SectionTitle>
-          {research.kind === "loading" ? <StatusMessage palette={palette} heading="Loading saved research…" /> : null}
+          {research.kind === "loading" ? (
+            <StatusMessage
+              palette={palette}
+              heading="Loading saved research…"
+            />
+          ) : null}
           {research.kind === "disabled" ? (
-            <StatusMessage palette={palette} heading="Research unavailable" description="The research endpoint is not available for this note or is disabled on the API." />
+            <StatusMessage
+              palette={palette}
+              heading="Research unavailable"
+              description="The research endpoint is not available for this note or is disabled on the API."
+            />
           ) : null}
           {research.kind === "error" ? (
-            <StatusMessage palette={palette} heading="Could not load research" description={research.message} alert retry={() => setResearchRevision((x) => x + 1)} />
+            <StatusMessage
+              palette={palette}
+              heading="Could not load research"
+              description={research.message}
+              alert
+              retry={() => setResearchRevision((x) => x + 1)}
+            />
           ) : null}
           {research.kind === "ready" ? (
             <>
-              <ActionButton label="Reload research" palette={palette} secondary onPress={() => setResearchRevision((x) => x + 1)} />
+              <ActionButton
+                label="Reload research"
+                palette={palette}
+                secondary
+                onPress={() => setResearchRevision((x) => x + 1)}
+              />
               {research.reports.length === 0 ? (
-                <StatusMessage palette={palette} heading="No saved research" description="No research versions are stored for this note." />
+                <StatusMessage
+                  palette={palette}
+                  heading="No saved research"
+                  description="No research versions are stored for this note."
+                />
               ) : (
                 <Panel palette={palette}>
-                  <SectionLabel text="Saved report versions" palette={palette} />
+                  <SectionLabel
+                    text="Saved report versions"
+                    palette={palette}
+                  />
                   {research.reports.map((version) => (
                     <Pressable
                       key={version.reportId}
                       accessibilityRole="button"
-                      accessibilityLabel={"Select research revision " + version.revision + " of " + version.seriesId}
-                      accessibilityState={{ selected: version.reportId === selected?.reportId }}
+                      accessibilityLabel={
+                        "Select research revision " +
+                        version.revision +
+                        " of " +
+                        version.seriesId
+                      }
+                      accessibilityState={{
+                        selected: version.reportId === selected?.reportId,
+                      }}
                       onPress={() => setSelected(version)}
                       style={({ pressed }) => ({
                         borderWidth: 1,
-                        borderColor: version.reportId === selected?.reportId ? palette.primary : palette.border,
+                        borderColor:
+                          version.reportId === selected?.reportId
+                            ? palette.primary
+                            : palette.border,
                         borderRadius: 10,
                         padding: 12,
                         minHeight: 48,
                         opacity: pressed ? 0.75 : 1,
-                        backgroundColor: version.reportId === selected?.reportId ? palette.subtle : palette.surface,
+                        backgroundColor:
+                          version.reportId === selected?.reportId
+                            ? palette.subtle
+                            : palette.surface,
                       })}
                     >
-                      <Text style={{ color: palette.text, fontWeight: "600" }}>{version.title + " · v" + version.revision}</Text>
+                      <Text style={{ color: palette.text, fontWeight: "600" }}>
+                        {version.title + " · v" + version.revision}
+                      </Text>
                       <Text style={{ color: palette.secondary }}>
-                        {version.status + " · " + version.researchedAt + " · " + version.origin}
+                        {version.status +
+                          " · " +
+                          version.researchedAt +
+                          " · " +
+                          version.origin}
                       </Text>
                     </Pressable>
                   ))}
                 </Panel>
               )}
-              {reportLoading ? <StatusMessage palette={palette} heading="Loading selected report…" /> : null}
+              {reportLoading ? (
+                <StatusMessage
+                  palette={palette}
+                  heading="Loading selected report…"
+                />
+              ) : null}
               {reportError ? (
                 <StatusMessage
                   palette={palette}
@@ -381,7 +548,12 @@ export function NoteDetailScreen({
                 />
               ) : null}
               {fullReport && fullReport.reportId === selected?.reportId ? (
-                <ResearchContent key={fullReport.reportId} report={fullReport} palette={palette} onOpenSource={onOpenSource} />
+                <ResearchContent
+                  key={fullReport.reportId}
+                  report={fullReport}
+                  palette={palette}
+                  onOpenSource={onOpenSource}
+                />
               ) : null}
             </>
           ) : null}
