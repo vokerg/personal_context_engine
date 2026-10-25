@@ -1,0 +1,28 @@
+name: Temporary formatting diagnostic for PR 136
+on:
+  push:
+    branches: ["feat/124-ios-timeline-search"]
+permissions:
+  contents: read
+jobs:
+  format-output:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Format changed mobile files without pushing
+        run: |
+          npx prettier --write apps/mobile/App.tsx apps/mobile/feed-model.ts apps/mobile/feed-model.test.ts apps/mobile/feed-screens.tsx apps/mobile/feed-screens.render.test.tsx
+          node --input-type=module <<'JS'
+          import { readFileSync } from 'node:fs';
+          for (const path of [
+            'apps/mobile/App.tsx', 'apps/mobile/feed-model.ts', 'apps/mobile/feed-model.test.ts',
+            'apps/mobile/feed-screens.tsx', 'apps/mobile/feed-screens.render.test.tsx'
+          ]) {
+            console.log('PCE_FORMAT_124::' + path + '::' + readFileSync(path).toString('base64'));
+          }
+          JS
