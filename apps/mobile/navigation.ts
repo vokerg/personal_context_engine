@@ -67,16 +67,29 @@ export function reduceNavigation(
       if (state.phase !== "signed-in") {
         return { ...state, pendingNoteId: id };
       }
-      return { ...state, tab: "notes", noteId: id, noteTrail: [], pendingNoteId: null };
+      return {
+        ...state,
+        tab: "notes",
+        noteId: id,
+        noteTrail: [],
+        pendingNoteId: null,
+      };
     }
     case "open-note":
       return state.phase === "signed-in" && isNoteId(action.id)
         ? { ...state, noteId: action.id, noteTrail: [] }
         : state;
     case "open-source":
-      return state.phase === "signed-in" && state.noteId && isNoteId(action.id) &&
-        action.id !== state.noteId && state.noteTrail.length < 20
-        ? { ...state, noteId: action.id, noteTrail: [...state.noteTrail, state.noteId] }
+      return state.phase === "signed-in" &&
+        state.noteId &&
+        isNoteId(action.id) &&
+        action.id !== state.noteId &&
+        state.noteTrail.length < 20
+        ? {
+            ...state,
+            noteId: action.id,
+            noteTrail: [...state.noteTrail, state.noteId],
+          }
         : state;
     case "tab":
       return state.phase === "signed-in"
@@ -84,7 +97,11 @@ export function reduceNavigation(
         : state;
     case "back":
       return state.noteId
-        ? { ...state, noteId: state.noteTrail.at(-1) ?? null, noteTrail: state.noteTrail.slice(0, -1) }
+        ? {
+            ...state,
+            noteId: state.noteTrail.at(-1) ?? null,
+            noteTrail: state.noteTrail.slice(0, -1),
+          }
         : state;
     case "reset":
       return { ...initialNavigation, phase: "signed-out" };
