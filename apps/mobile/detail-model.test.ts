@@ -106,6 +106,12 @@ describe("immutable note versus derived evidence presentation", () => {
       reportB,
       reportA,
     ]);
+    expect(
+      orderReports([
+        { ...base, researchedAt: "2026-10-25T09:20:00+02:00" },
+        { ...newer, researchedAt: "2026-10-25T08:30:00Z" },
+      ])[0]?.reportId,
+    ).toBe(reportB);
     expect(matchingReport(newer, { ...newer }, noteId)).toBe(true);
     expect(
       matchingReport(newer, { ...newer, contentHash: "b".repeat(64) }, noteId),
