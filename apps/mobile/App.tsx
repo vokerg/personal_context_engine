@@ -19,11 +19,7 @@ import {
   type MobileTab,
 } from "./navigation";
 import { createNativeSession } from "./native-auth";
-import {
-  NoteDetailScreen,
-  SettingsScreen,
-  UpcomingScreen,
-} from "./screens";
+import { NoteDetailScreen, SettingsScreen, UpcomingScreen } from "./screens";
 import type { SessionView } from "./session";
 import { SearchScreen, TimelineScreen } from "./feed-screens";
 import { paletteFor, type Appearance, type Palette } from "./theme";
@@ -161,7 +157,10 @@ export default function App() {
                     alert
                   />
                 ) : auth.phase === "restoring" ? (
-                  <StatusMessage palette={palette} heading="Restoring secure session…" />
+                  <StatusMessage
+                    palette={palette}
+                    heading="Restoring secure session…"
+                  />
                 ) : auth.phase !== "signed-in" ? (
                   <View style={{ gap: 16 }}>
                     <StatusMessage
@@ -175,12 +174,24 @@ export default function App() {
                       </Text>
                     ) : null}
                     {auth.notice ? (
-                      <Text accessibilityRole="alert" style={{ color: palette.danger }}>
+                      <Text
+                        accessibilityRole="alert"
+                        style={{ color: palette.danger }}
+                      >
                         {auth.notice}
                       </Text>
                     ) : null}
-                    <ActionButton label="Sign in" palette={palette} onPress={() => void session.signIn()} />
-                    <ActionButton label="Retry saved session" palette={palette} secondary onPress={() => void session.restore()} />
+                    <ActionButton
+                      label="Sign in"
+                      palette={palette}
+                      onPress={() => void session.signIn()}
+                    />
+                    <ActionButton
+                      label="Retry saved session"
+                      palette={palette}
+                      secondary
+                      onPress={() => void session.restore()}
+                    />
                   </View>
                 ) : (
                   <StatusMessage palette={palette} heading="Ending session…" />
@@ -189,7 +200,10 @@ export default function App() {
             ) : (
               <>
                 {auth.notice ? (
-                  <Text accessibilityRole="alert" style={{ color: palette.danger, paddingHorizontal: 20 }}>
+                  <Text
+                    accessibilityRole="alert"
+                    style={{ color: palette.danger, paddingHorizontal: 20 }}
+                  >
                     {auth.notice}
                   </Text>
                 ) : null}
@@ -198,17 +212,23 @@ export default function App() {
                 <TimelineScreen
                   session={session}
                   palette={palette}
-                  hidden={Boolean(navigation.noteId) || navigation.tab !== "notes"}
+                  hidden={
+                    Boolean(navigation.noteId) || navigation.tab !== "notes"
+                  }
                   onOpenNote={(id) => dispatch({ type: "open-note", id })}
                 />
                 <SearchScreen
                   session={session}
                   palette={palette}
-                  hidden={Boolean(navigation.noteId) || navigation.tab !== "search"}
+                  hidden={
+                    Boolean(navigation.noteId) || navigation.tab !== "search"
+                  }
                   onOpenNote={(id) => dispatch({ type: "open-note", id })}
                 />
                 {!navigation.noteId && navigation.tab === "capture" ? (
-                  <ScrollView contentContainerStyle={{ padding: 20, flexGrow: 1 }}>
+                  <ScrollView
+                    contentContainerStyle={{ padding: 20, flexGrow: 1 }}
+                  >
                     <UpcomingScreen
                       name="Capture"
                       explanation="Direct text capture and persisted receipts arrive in native issue #126. Nothing is uploaded from this screen."
@@ -217,7 +237,9 @@ export default function App() {
                   </ScrollView>
                 ) : null}
                 {!navigation.noteId && navigation.tab === "settings" ? (
-                  <ScrollView contentContainerStyle={{ padding: 20, flexGrow: 1 }}>
+                  <ScrollView
+                    contentContainerStyle={{ padding: 20, flexGrow: 1 }}
+                  >
                     <SettingsScreen
                       appearance={appearance}
                       onAppearance={setAppearance}
@@ -229,11 +251,19 @@ export default function App() {
                 {navigation.noteId ? (
                   <ScrollView
                     style={{
-                      position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
                       backgroundColor: palette.background,
                     }}
                     keyboardShouldPersistTaps="handled"
-                    contentContainerStyle={{ padding: 20, gap: 14, flexGrow: 1 }}
+                    contentContainerStyle={{
+                      padding: 20,
+                      gap: 14,
+                      flexGrow: 1,
+                    }}
                   >
                     <NoteDetailScreen
                       key={navigation.noteId}
