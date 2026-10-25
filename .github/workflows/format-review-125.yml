@@ -36,6 +36,6 @@ jobs:
               ...(await prettier.resolveConfig(path)),
               filepath: path,
             });
-            console.log('PCE_FORMAT:' + JSON.stringify({ path, content }));
+            console.log('PCE_FORMAT_B64:' + path + ':' + Buffer.from(content, 'utf8').toString('base64'));
           }
           NODE
