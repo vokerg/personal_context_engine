@@ -1,4 +1,4 @@
-import { createElement } from "react";
+import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -47,11 +47,14 @@ import type { MobileSession } from "./session";
 import { paletteFor } from "./theme";
 import { StatusMessage } from "./ui";
 
+// Vitest uses classic JSX for React Native TSX; Expo uses its native JSX transform.
+vi.stubGlobal("React", React);
+
 describe("native shell synthetic rendered accessibility", () => {
   const palette = paletteFor("dark", "dark");
 
   it("gates private notes and tabs when native auth is unconfigured", () => {
-    const html = renderToStaticMarkup(createElement(App));
+    const html = renderToStaticMarkup(React.createElement(App));
     expect(html).toContain("Native sign-in needs configuration");
     expect(html).not.toContain('role="tablist"');
     expect(html).not.toContain("Refresh notes");
@@ -59,7 +62,7 @@ describe("native shell synthetic rendered accessibility", () => {
 
   it("renders labelled, selected appearance options and sign out", () => {
     const html = renderToStaticMarkup(
-      createElement(SettingsScreen, {
+      React.createElement(SettingsScreen, {
         appearance: "dark",
         onAppearance: () => undefined,
         palette,
@@ -74,7 +77,7 @@ describe("native shell synthetic rendered accessibility", () => {
 
   it("renders a loading state before displaying any private notes", () => {
     const html = renderToStaticMarkup(
-      createElement(NotesScreen, {
+      React.createElement(NotesScreen, {
         session: {} as MobileSession,
         palette,
         onOpenNote: () => undefined,
@@ -86,7 +89,7 @@ describe("native shell synthetic rendered accessibility", () => {
 
   it("renders a screen-reader alert and a visible retry on failure", () => {
     const html = renderToStaticMarkup(
-      createElement(StatusMessage, {
+      React.createElement(StatusMessage, {
         palette,
         heading: "Unable to load notes",
         description: "Network unavailable",
@@ -102,7 +105,7 @@ describe("native shell synthetic rendered accessibility", () => {
   it("does not fabricate search results or claim capture is enabled", () => {
     for (const name of ["Search", "Capture"] as const) {
       const html = renderToStaticMarkup(
-        createElement(UpcomingScreen, {
+        React.createElement(UpcomingScreen, {
           name,
           explanation: "Feature not connected",
           palette,
