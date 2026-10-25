@@ -1,3 +1,4 @@
+import { identifierPredicate } from "./search-lexical.js";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import {
   searchRanking,
@@ -15,6 +16,9 @@ export interface DiagnosticInput {
   limit: number;
 }
 export interface RankingDiagnostic {
+  lexicalVote: boolean;
+  keywordAnchorSimilarity: number | null;
+  passedKeywordGate: boolean | null;
   id: string;
   bestSimilarity: number | null;
   passedThreshold: boolean | null;
@@ -122,10 +126,12 @@ export function createSearchDiagnosticsRepository(db: PrismaClient) {
           final AS (SELECT r.*,row_number() OVER(ORDER BY score DESC,f."capturedAt" DESC,f.id COLLATE "C")::int AS "finalRank"
             FROM ranked r JOIN filtered f ON f.id=r.id),
           candidates AS (
-            SELECT f.id,${literal ? Prisma.sql`1-d.distance` : Prisma.sql`NULL::float8`} AS "bestSimilarity",
+            SELECT f.id,CASE WHEN a."distanceLimit" IS NULL THEN NULL ELSE 1-a."distanceLimit" END AS "keywordAnchorSimilarity",
+              CASE WHEN d.distance IS NULL THEN NULL ELSE a."distanceLimit" IS NULL OR d.distance<=a."distanceLimit" OR coalesce(r."lexicalVote",false) END AS "passedKeywordGate",
+              ${literal ? Prisma.sql`1-d.distance` : Prisma.sql`NULL::float8`} AS "bestSimilarity",
               ${literal ? Prisma.sql`CASE WHEN d.distance IS NULL THEN NULL ELSE d.distance<${SEARCH_MAX_DISTANCE} END` : Prisma.sql`NULL::boolean`} AS "passedThreshold",
-              r."lexicalRank",r."semanticRank",coalesce(r.score,0)::float8 AS "rrfScore",r."finalRank"
-            FROM filtered f LEFT JOIN distances d ON d.id=f.id LEFT JOIN final r ON r.id=f.id
+              coalesce(r."lexicalVote",false) AS "lexicalVote",r."lexicalRank",r."semanticRank",coalesce(r.score,0)::float8 AS "rrfScore",r."finalRank"
+            FROM filtered f CROSS JOIN keyword_anchor a LEFT JOIN distances d ON d.id=f.id LEFT JOIN final r ON r.id=f.id
           ), selected AS (
             (SELECT * FROM candidates WHERE "finalRank" IS NOT NULL ORDER BY "finalRank",id COLLATE "C" LIMIT ${input.limit})
             UNION
@@ -138,15 +144,15 @@ export function createSearchDiagnosticsRepository(db: PrismaClient) {
             (SELECT * FROM candidates WHERE id=${input.noteId ?? null})
           ) SELECT * FROM selected ORDER BY "finalRank" NULLS LAST,"bestSimilarity" DESC NULLS LAST,id COLLATE "C"`);
           const notes = input.noteId
-            ? await tx.note.findMany({
-                where: {
-                  id: input.noteId,
-                  ownerSubject: owner,
-                  removedAt: null,
-                },
-                select: { id: true, sourceRevision: true },
-                take: 1,
-              })
+            ? await tx.$queryRaw<
+                Array<{
+                  id: string;
+                  sourceRevision: string;
+                  matchesIdentifiers: boolean;
+                }>
+              >(Prisma.sql`
+              SELECT n.id,n."sourceRevision",${identifierPredicate(input.query, Prisma.sql`n.title||E'\n'||n.summary||E'\n'||n.body||E'\n'||n."originalInput"`)} AS "matchesIdentifiers"
+              FROM notes n WHERE n.id=${input.noteId} AND n."ownerSubject"=${owner} AND n."removedAt" IS NULL LIMIT 1`)
             : [];
           const chunks = notes.length
             ? await tx.$queryRaw<ChunkDiagnostic[]>(Prisma.sql`
