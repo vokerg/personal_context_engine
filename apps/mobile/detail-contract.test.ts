@@ -46,18 +46,21 @@ const artifact = {
       checkedAt: "2026-10-22T11:55:00Z",
     },
   ],
-  claims: [{
-    id: "fact",
-    text: "Fixture claim",
-    classification: "sourced_fact",
-    sourceIds: ["related", "website"],
-  }],
+  claims: [
+    {
+      id: "fact",
+      text: "Fixture claim",
+      classification: "sourced_fact",
+      sourceIds: ["related", "website"],
+    },
+  ],
   contentHash: "a".repeat(64),
   origin: "api",
   savedAt: "2026-10-22T12:01:00Z",
   indexing: "READY",
 };
-const original = "Original <img src=x onerror=alert(1)>\nExact line endings\r\n";
+const original =
+  "Original <img src=x onerror=alert(1)>\nExact line endings\r\n";
 const detail = {
   id: noteId,
   title: "Fixture note",
@@ -68,23 +71,33 @@ const detail = {
   tags: ["project-a"],
 };
 
-function mockApi(overrides: Record<string, { status: number; body: unknown }> = {}) {
+function mockApi(
+  overrides: Record<string, { status: number; body: unknown }> = {},
+) {
   const paths: string[] = [];
   const request: typeof fetch = async (url, init) => {
     const path = new URL(String(url)).pathname;
     paths.push(path);
     expect(init?.method).toBe("GET");
-    expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer " + "A".repeat(64));
+    expect(new Headers(init?.headers).get("Authorization")).toBe(
+      "Bearer " + "A".repeat(64),
+    );
     const fallback: Record<string, unknown> = {
       ["/api/v1/notes/" + noteId]: detail,
-      ["/api/v1/notes/" + noteId + "/research"]: { reports: [artifact], imports: [] },
+      ["/api/v1/notes/" + noteId + "/research"]: {
+        reports: [artifact],
+        imports: [],
+      },
       ["/api/v1/research/reports/" + reportId]: artifact,
     };
     const response = overrides[path];
-    return new Response(JSON.stringify(response ? response.body : fallback[path]), {
-      status: response?.status ?? (path in fallback ? 200 : 404),
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify(response ? response.body : fallback[path]),
+      {
+        status: response?.status ?? (path in fallback ? 200 : 404),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   };
   const options = {
     baseUrl: "https://pce.example",
@@ -121,7 +134,15 @@ describe("native note/research API read contract", () => {
     const path = "/api/v1/notes/" + noteId;
     for (const status of [401, 403, 404, 503]) {
       const { options } = mockApi({
-        [path]: { status, body: { error: { code: status === 401 ? "UNAUTHORIZED" : "NOT_FOUND", message: "Not exposed" } } },
+        [path]: {
+          status,
+          body: {
+            error: {
+              code: status === 401 ? "UNAUTHORIZED" : "NOT_FOUND",
+              message: "Not exposed",
+            },
+          },
+        },
       });
       await expect(getNote(options, noteId)).rejects.toMatchObject({ status });
     }
@@ -129,10 +150,25 @@ describe("native note/research API read contract", () => {
   it("does not silently accept malformed report or forged source history", async () => {
     const url = "/api/v1/notes/" + noteId + "/research";
     const { options } = mockApi({
-      [url]: { status: 200, body: { reports: [{ ...artifact, sources: [{
-        kind: "external", id: "website", url: "javascript:alert(1)", title: null,
-        checkedAt: artifact.researchedAt,
-      }] }] } },
+      [url]: {
+        status: 200,
+        body: {
+          reports: [
+            {
+              ...artifact,
+              sources: [
+                {
+                  kind: "external",
+                  id: "website",
+                  url: "javascript:alert(1)",
+                  title: null,
+                  checkedAt: artifact.researchedAt,
+                },
+              ],
+            },
+          ],
+        },
+      },
     });
     await expect(getResearchForNote(options, noteId)).rejects.toMatchObject({
       code: "INVALID_RESPONSE",
