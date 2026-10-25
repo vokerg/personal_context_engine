@@ -24,6 +24,11 @@ const items: Record<
     selected: SymbolViewProps["name"];
   }
 > = {
+  tasks: {
+    label: "Tasks",
+    icon: "checkmark.circle",
+    selected: "checkmark.circle.fill",
+  },
   notes: { label: "Notes", icon: "doc.text", selected: "doc.text.fill" },
   search: {
     label: "Search",
@@ -47,8 +52,10 @@ export function TabBar({
   palette,
   onSelect,
   onHeight,
+  tasksEnabled = false,
 }: {
   active: MobileTab;
+  tasksEnabled?: boolean;
   palette: Palette;
   onSelect: (tab: MobileTab) => void;
   onHeight: (height: number) => void;
@@ -103,7 +110,10 @@ export function TabBar({
           style={[StyleSheet.absoluteFill, styles.glass]}
         />
       ) : null}
-      {MOBILE_TABS.map((tab) => {
+      {(tasksEnabled
+        ? (["notes", "tasks", "search", "capture", "settings"] as const)
+        : MOBILE_TABS
+      ).map((tab) => {
         const selected = active === tab;
         const item = items[tab];
         const color = selected ? palette.primary : palette.secondary;

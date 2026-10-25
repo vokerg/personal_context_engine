@@ -1,3 +1,5 @@
+import { TasksScreen } from "./task-screen";
+import { TASKS_ENABLED } from "./task-feature";
 import { useEffect, useMemo, useReducer, useState } from "react";
 import {
   AppState,
@@ -208,6 +210,17 @@ export default function App() {
                   }
                   onOpenNote={(id) => dispatch({ type: "open-note", id })}
                 />
+                {TASKS_ENABLED ? (
+                  <TasksScreen
+                    session={session}
+                    palette={palette}
+                    bottomInset={menuInset}
+                    hidden={
+                      Boolean(navigation.noteId) || navigation.tab !== "tasks"
+                    }
+                    onOpenNote={(id) => dispatch({ type: "open-note", id })}
+                  />
+                ) : null}
                 <SearchScreen
                   session={session}
                   palette={palette}
@@ -282,6 +295,7 @@ export default function App() {
           </View>
           {signedIn && !navigation.noteId ? (
             <TabBar
+              tasksEnabled={TASKS_ENABLED}
               onHeight={(height) => setMenuInset(height + 24)}
               active={navigation.tab}
               palette={palette}

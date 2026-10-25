@@ -54,7 +54,14 @@ export function verifiedConfig(config: MobileOAuthConfig): MobileOAuthConfig {
     !config.scopes.length ||
     new Set(config.scopes).size !== config.scopes.length ||
     config.scopes.some(
-      (scope) => !["notes:read", "capture:write", "tags:write"].includes(scope),
+      (scope) =>
+        ![
+          "notes:read",
+          "capture:write",
+          "tags:write",
+          "tasks:read",
+          "tasks:write",
+        ].includes(scope),
     ) ||
     !config.scopes.includes("notes:read")
   )

@@ -2,6 +2,9 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("expo-crypto", () => ({
+  randomUUID: () => "00000000-0000-4000-8000-000000000099",
+}));
 vi.mock("./tab-bar", () => ({ TabBar: () => null }));
 vi.mock("./native-auth", () => ({ createNativeSession: () => null }));
 vi.mock("react-native", async () => {

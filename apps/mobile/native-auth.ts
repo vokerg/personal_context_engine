@@ -1,3 +1,4 @@
+import { TASKS_ENABLED, nativeScopes } from "./task-feature";
 import { AuthRequest, ResponseType } from "expo-auth-session";
 import * as Crypto from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
@@ -50,7 +51,7 @@ export function createNativeSession(): MobileSession | null {
         apiOrigin: baseUrl,
         clientId,
         callback,
-        scopes: ["notes:read", "capture:write", "tags:write"],
+        scopes: nativeScopes(TASKS_ENABLED),
       },
       platform,
     );
