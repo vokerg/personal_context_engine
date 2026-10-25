@@ -188,6 +188,10 @@ function ResearchContent({
                       "\nReason: " +
                       source.rationale}
                   </Text>
+                  <Text style={{ color: palette.secondary }}>
+                    Opening the source shows its current authorized note, not a
+                    historical snapshot of the cited revision.
+                  </Text>
                   {validSourceNoteId(source.noteId) ? (
                     <ActionButton
                       label={"Open cited note " + source.id}
