@@ -69,7 +69,7 @@ describe("native shell synthetic rendered accessibility", () => {
         onSignOut: () => undefined,
       }),
     );
-    expect(html).toContain('role="heading"');
+    expect(html).toContain('role="header"');
     expect(html).toContain('aria-label="dark appearance"');
     expect(html).toContain('aria-selected="true"');
     expect(html).toContain('aria-label="Sign out"');
