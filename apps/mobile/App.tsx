@@ -272,7 +272,9 @@ export default function App() {
                       session={session}
                       palette={palette}
                       onBack={() => dispatch({ type: "back" })}
-                      onOpenSource={(id) => dispatch({ type: "open-source", id })}
+                      onOpenSource={(id) =>
+                        dispatch({ type: "open-source", id })
+                      }
                     />
                   </ScrollView>
                 ) : null}
