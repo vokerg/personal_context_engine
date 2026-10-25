@@ -727,7 +727,7 @@ export function TimelineScreen({
             <FeedStatus
               title="Notes"
               state={feed.state}
-              retry={retrySearch}
+              retry={feed.retry}
               palette={palette}
             />
           ) : null
