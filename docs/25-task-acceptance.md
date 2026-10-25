@@ -33,6 +33,25 @@ database. Also run lint, typecheck, format and docs checks. These are separate
 from manual host/device acceptance. The existing least-privilege PostgreSQL CI
 includes the combined HTTP acceptance test.
 
+### Recorded local results (2026-10-25)
+
+Executed from an isolated worktree against a Unix-socket-only disposable
+PostgreSQL 16.15/pgvector database with `en_US.UTF-8` locale:
+
+- `npm run tasks:verify`: all seven steps passed, 18 migrations reconciled twice,
+  no schema difference, **17 files / 112 tests passed**.
+- Full `npm test -- --no-file-parallelism` with explicit synthetic DB URLs:
+  **90 files / 456 tests passed** (build included).
+- `npm run lint`, `npm run typecheck`, `npm run format:check`,
+  `npm run docs:check`: passed (204 local documentation links).
+- Earlier native slice: iOS JavaScript export passed (731 modules). This is not
+  native compilation, installation or device acceptance.
+
+The initial #148 run in a `C`-locale database exposed an existing Cyrillic search
+fixture mismatch; the UTF-8-locale rerun passed. The initial #152 broad run lacked
+an Expo crypto mock in a shell SSR test; the corrected test rerun passed. Neither
+failure is treated as a successful run. Live/manual checks below remain pending.
+
 ## Observable coverage
 
 | Boundary | Evidence and limit |
