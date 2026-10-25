@@ -6,10 +6,7 @@ import {
   getNotes,
   type NotePreview,
 } from "@pce/api-client";
-import {
-  describeListState,
-  type RemoteState,
-} from "./screen-state";
+import { describeListState, type RemoteState } from "./screen-state";
 import type { MobileSession } from "./session";
 import type { Appearance, Palette } from "./theme";
 import { ActionButton, Panel, SectionTitle, StatusMessage } from "./ui";
