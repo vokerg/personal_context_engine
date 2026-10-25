@@ -144,7 +144,7 @@ export default function App() {
             </Text>
           </View>
           <View style={{ flex: 1, minHeight: 0 }}>
-            {!signedIn ? (
+            {!signedIn || !session ? (
               <ScrollView
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={{ padding: 20, gap: 14, flexGrow: 1 }}
