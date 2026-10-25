@@ -331,15 +331,22 @@ function FilterControls({
           </Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7 }}>
             {state.values?.projects.length ? (
-              state.values.projects.filter((project, index) => allProjects || index < 12 || project.slug === filters.project).map(({ slug, count }) => (
-                <Chip
-                  key={slug}
-                  label={slug + " (" + count + ")"}
-                  selected={filters.project === slug}
-                  onPress={() => set("project", slug)}
-                  palette={palette}
-                />
-              ))
+              state.values.projects
+                .filter(
+                  (project, index) =>
+                    allProjects ||
+                    index < 12 ||
+                    project.slug === filters.project,
+                )
+                .map(({ slug, count }) => (
+                  <Chip
+                    key={slug}
+                    label={slug + " (" + count + ")"}
+                    selected={filters.project === slug}
+                    onPress={() => set("project", slug)}
+                    palette={palette}
+                  />
+                ))
             ) : (
               <Text style={{ color: palette.secondary }}>
                 No project facets available
@@ -348,7 +355,9 @@ function FilterControls({
           </View>
           {(state.values?.projects.length ?? 0) > 12 ? (
             <Chip
-              label={allProjects ? "Show fewer projects" : "Show all project facets"}
+              label={
+                allProjects ? "Show fewer projects" : "Show all project facets"
+              }
               selected={false}
               onPress={() => setAllProjects((v) => !v)}
               palette={palette}
@@ -478,9 +487,10 @@ function useFeed<T extends { id: string }>(
     signal: AbortSignal,
   ) => Promise<{ items: T[]; nextCursor: string | null }>,
 ) {
-  const [snapshot, setSnapshot] = useState<{ key: string; state: FeedState<T> }>(
-    () => ({ key, state: initialFeed<T>() }),
-  );
+  const [snapshot, setSnapshot] = useState<{
+    key: string;
+    state: FeedState<T>;
+  }>(() => ({ key, state: initialFeed<T>() }));
   const current = useRef<PagedFeed<T> | null>(null);
   useEffect(() => {
     current.current?.cancel();
