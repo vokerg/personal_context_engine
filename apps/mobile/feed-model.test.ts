@@ -149,7 +149,7 @@ describe("paged native feed lifecycle", () => {
     const calls: (string | undefined)[] = [];
     const { feed, last } = makeFeed(async (cursor) => {
       calls.push(cursor);
-      if (cursor === "stale") throw new ApiRequestError(409, "CONFLICT");
+      if (cursor === "stale") throw new ApiRequestError(400, "BAD_REQUEST");
       if (calls.length < 3) return page([id1], "stale");
       return page([id2], null);
     });
