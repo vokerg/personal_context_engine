@@ -952,7 +952,7 @@ export function SearchScreen({
             <FeedStatus
               title="Results"
               state={feed.state}
-              retry={feed.retry}
+              retry={retrySearch}
               palette={palette}
             />
           ) : null
