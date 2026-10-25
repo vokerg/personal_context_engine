@@ -18,7 +18,7 @@ export function orderReports(
 ): ResearchRecord[] {
   return [...reports].sort(
     (a, b) =>
-      b.researchedAt.localeCompare(a.researchedAt) ||
+      Date.parse(b.researchedAt) - Date.parse(a.researchedAt) ||
       b.revision - a.revision ||
       a.reportId.localeCompare(b.reportId),
   );
