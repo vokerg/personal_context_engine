@@ -3,7 +3,7 @@ import {
   FlatList, Keyboard, Pressable, RefreshControl, Text, TextInput, View,
 } from "react-native";
 import {
-  ApiRequestError, ApiTransportError, describeNotesError,
+  ApiRequestError, describeNotesError,
   getBrowseFacets, getBrowsePage, getTagRegistry, searchContext,
   type BrowseFacets, type BrowseQuery, type SearchRequest, type SearchResponse,
 } from "@pce/api-client";
@@ -269,13 +269,12 @@ export function TimelineScreen({ session, palette, onOpenNote, hidden }: {
   session: MobileSession; palette: Palette; onOpenNote: (id: string) => void; hidden?: boolean;
 }) {
   const [filters, setFilters] = useState<Filters>(emptyFilters);
-  const [refreshIndex, setRefreshIndex] = useState(0);
   const facets = useFacets(session);
   const prepared = useMemo(() => {
     try { return { query: browseQuery(filters), error: "" }; }
     catch (error) { return { query: null, error: error instanceof Error ? error.message : "Invalid filters" }; }
   }, [filters]);
-  const key = JSON.stringify(prepared.query) + ":" + refreshIndex;
+  const key = JSON.stringify(prepared.query);
   const feed = useFeed<NotePreview>(prepared.query !== null, key, async (cursor, signal) => {
     const opts = requestOptions(session, signal);
     const result = await authorized(session, signal, () => getBrowsePage(opts, { ...prepared.query as BrowseQuery, ...(cursor ? {cursor} : {}) }));
@@ -298,7 +297,7 @@ export function TimelineScreen({ session, palette, onOpenNote, hidden }: {
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24, gap: 9, flexGrow: 1 }}
         onEndReached={() => { if (!hidden) feed.loadMore(); }}
         onEndReachedThreshold={0.4}
-        refreshControl={<RefreshControl refreshing={feed.state.refreshing} onRefresh={() => { setRefreshIndex((v) => v + 1); }} />}
+        refreshControl={<RefreshControl refreshing={feed.state.refreshing} onRefresh={feed.refresh} />}
         ListEmptyComponent={prepared.query ? <FeedStatus title="Notes" state={feed.state} retry={feed.retry} palette={palette} /> : null}
         ListFooterComponent={feed.state.items.length ? (
           <View style={{ gap: 8 }}>
