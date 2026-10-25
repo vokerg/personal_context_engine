@@ -389,10 +389,10 @@ function FilterControls({
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7 }}>
             {state.approved
               .filter(
-                (tag, index) => allTags || index < 16 || tag.slug === filters.tag,
+                (tag, index) =>
+                  allTags || index < 16 || tag.slug === filters.tag,
               )
-              .map(
-              ({ slug, displayName }) => (
+              .map(({ slug, displayName }) => (
                 <Chip
                   key={slug}
                   label={displayName || slug}
@@ -400,8 +400,7 @@ function FilterControls({
                   onPress={() => set("tag", slug)}
                   palette={palette}
                 />
-              ),
-            )}
+              ))}
           </View>
           {state.approved.length > 16 ? (
             <Chip
