@@ -4,7 +4,8 @@ Epic [#147](https://github.com/vokerg/personal_context_engine/issues/147) define
 first-class Tasks. The #148 slice implements durable creation, lifecycle, API,
 history and shared client contracts. The #149 slice adds extraction contracts
 and gated private GitHub artifact import. The #150 slice adds dedicated Task search and scoped MCP tools.
-Web/iOS views, prompt activation and live acceptance remain #151–#154.
+The #151 slice adds the gated web workspace. iOS, prompt activation and live
+acceptance remain #152–#154.
 
 ## Record and source boundaries
 
@@ -205,3 +206,40 @@ Existing Note tools and `capture_note` schemas remain unchanged. Synthetic
 PostgreSQL and official MCP client tests cover multilingual queries, identifiers,
 pagination, completion history, owner/scope isolation and source removal; live
 ChatGPT usage is a separate release gate.
+
+## Web Tasks workspace (#151)
+
+`VITE_PCE_TASKS=true` adds Notes/Tasks navigation to the existing web app. The API
+Task gate is independent; production builds need the explicit public flag.
+`dev:local` injects the matching flag only with explicit local sessions and the
+server Task gate; ordinary development Vite configuration also infers it. No
+private token/configuration enters this public flag. Defaults stay off.
+
+The Task workspace offers Open, Completed and All, dedicated server search,
+bounded Previous/Next pages, full Task description/provenance, paged lifecycle
+history and authorized source Note navigation. It keeps query/page/selection in
+memory when switching to Notes and back, and clears on session removal. Search
+text and Task bodies are not saved in shared URLs or browser storage. Source
+Notes are independently fetched/authorized through the existing Note reader.
+
+Completion/reopen waits for the server; the Task row is not marked completed
+optimistically. Duplicate taps are blocked synchronously. Network uncertainty
+retains the exact command for an explicit retry; a stale revision reloads the
+view and requires a new deliberate change. Confirmed completion leaves Open,
+remains in Completed/All and preserves the Note. Keyboard focus returns to the
+list heading after confirmation. Auth/offline/not-found failures expose safe
+messages, with retry/reconnect guidance, never raw provider/network exceptions.
+
+Explicit standalone Task creation uses one generated stable ID, title and optional
+description. After an uncertain response, inputs remain fixed and retry reuses
+that ID/payload. The pending request is in memory, not a durable offline queue;
+a reload/logout requires inspecting the server list before manually recreating
+anything. Existing Task title/description editing is not implemented; the API
+currently supports lifecycle changes only. No Note opening/tag creates Tasks.
+
+UI components use native checkbox/button/form semantics, responsive columns and
+the existing system light/dark palette. Synthetic typed-transport component tests
+cover one-of-three completion, archive/reopen, source retention, literal rendering,
+search/pages, duplicate taps, conflicts, stable mutation/creation retries and
+401/403/404. [Browser evidence](evidence/issue-151/browser.md) records actual
+synthetic desktop/narrow checks and remaining live acceptance limits.
