@@ -153,7 +153,9 @@ describe.skipIf(!url)("owner-scoped reversible note removal", () => {
         })
       ).result,
     ).toBe("updated");
-    const reimported = await db.note.findUniqueOrThrow({ where: { id: ownId } });
+    const reimported = await db.note.findUniqueOrThrow({
+      where: { id: ownId },
+    });
     expect(reimported.removedAt).toEqual(removedAt);
     expect(reimported.removedBy).toBe(owner);
     expect(reimported.originalInput).toBe(before.originalInput);

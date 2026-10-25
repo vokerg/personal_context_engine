@@ -49,8 +49,12 @@ describe("mobile filters through the real typed authenticated API client", () =>
     expect(seen?.searchParams.get("project")).toBe("garden");
     expect(seen?.searchParams.get("kind")).toBe("memo");
     expect(seen?.searchParams.get("tag")).toBe("approved-tag");
-    expect(seen?.searchParams.get("start")).toContain("2026-10-20T");
-    expect(seen?.searchParams.get("end")).toContain("2026-10-22T");
+    expect(seen?.searchParams.get("start")).toBe(
+      new Date(2026, 9, 20).toISOString(),
+    );
+    expect(seen?.searchParams.get("end")).toBe(
+      new Date(2026, 9, 22).toISOString(),
+    );
     expect(seen?.searchParams.get("cursor")).toBe("cursor_1");
   });
 
