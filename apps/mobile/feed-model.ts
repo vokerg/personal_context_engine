@@ -224,7 +224,7 @@ export class PagedFeed<T extends { id: string }> {
       if (
         !first &&
         error instanceof ApiRequestError &&
-        error.status === 409 &&
+        (error.status === 400 || error.status === 409) &&
         !this.recoveredStaleCursor
       ) {
         this.recoveredStaleCursor = true;
