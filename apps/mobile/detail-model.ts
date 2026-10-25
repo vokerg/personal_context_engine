@@ -48,7 +48,7 @@ export function originalLabel(note: NoteDetail): string {
 
 /** Restrict the external action to explicit web links, including after decoding. */
 export function safeExternalUrl(value: string): string | null {
-  if (!value || value.length > 2048 || value.trim() !== value || /[\u0000-\u0020\u007f]/.test(value)) return null;
+  if (!value || value.length > 2048 || value.trim() !== value || [...value].some((character) => character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127)) return null;
   try {
     const url = new URL(value);
     return (url.protocol === "https:" || url.protocol === "http:") &&
