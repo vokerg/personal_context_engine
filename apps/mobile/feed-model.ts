@@ -197,7 +197,7 @@ export class PagedFeed<T extends { id: string }> {
     this.emit();
     let recover = false;
     try {
-      const page = await this.fetchPage(cursor, controller.signal);
+      const page = await this.fetchPage(cursor ?? undefined, controller.signal);
       if (epoch !== this.epoch || controller.signal.aborted) return;
       if (
         page.nextCursor &&
