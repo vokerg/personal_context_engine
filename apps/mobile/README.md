@@ -160,3 +160,31 @@ belong to the local #131 release gate.
 
 Next screen owners: #126 capture, #127 tags/removal;
 add Reminders navigation only after #128–#130.
+
+## Floating iOS menu (#142)
+
+The existing typed tab/detail navigator now renders a floating rounded menu
+with SF Symbols and an `expo-glass-effect` native glass surface on supported
+iOS 26+ builds. This is a custom menu, not a migration to a system tab-bar
+controller: system tab morphing and minimize-on-scroll are not implemented.
+Opaque item backgrounds are removed so scrolling content can show through.
+Timeline/search and the Capture/Settings scroll views reserve a bottom inset
+based on the measured menu height, including when text size changes. Detail
+continues to hide the menu; session and navigation behavior are unchanged.
+
+The menu starts opaque until the Reduce Transparency preference is known and
+follows live preference changes. Unsupported systems/builds and reduced
+transparency use the existing theme's opaque surface. Light/dark app appearance
+is passed to the glass view. Native dependencies use Expo SDK54-compatible
+versions; rebuild the iOS development app after pulling this change (a Metro
+reload alone cannot install the native modules).
+
+Physical-device appearance, VoiceOver and the largest Dynamic Type sizes remain
+manual verification items; automated checks do not establish visual quality.
+
+Local verification on 2026-10-25: the Xcode 26.6 build installed and launched on
+an iPhone 17 / iOS 26.5 simulator. The floating material was visually inspected
+in light and dark app appearance; all four tabs opened, and system appearance
+was restored afterward. No personal screenshots are stored in the repository.
+Synthetic menu tests cover live transparency changes, unsupported-build fallback,
+accessible selected labels, tab dispatch and subscription cleanup.

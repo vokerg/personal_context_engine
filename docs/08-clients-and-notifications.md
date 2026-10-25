@@ -318,3 +318,24 @@ remain in API and MCP detail/search results with `status: "archived"`. The web
 timeline defaults to active notes and exposes an Active notes / Archived notes /
 Active and archived status dropdown; browse, facets and tag counts follow the
 selected status.
+
+## Native menu material (#142)
+
+The existing typed tab/detail navigator now renders a floating rounded menu
+with SF Symbols and an `expo-glass-effect` native glass surface on supported
+iOS 26+ builds. This is a custom menu, not a migration to a system tab-bar
+controller: system tab morphing and minimize-on-scroll are not implemented.
+Opaque item backgrounds are removed so scrolling content can show through.
+Timeline/search and the Capture/Settings scroll views reserve a bottom inset
+based on the measured menu height, including when text size changes. Detail
+continues to hide the menu; session and navigation behavior are unchanged.
+
+The menu starts opaque until the Reduce Transparency preference is known and
+follows live preference changes. Unsupported systems/builds and reduced
+transparency use the existing theme's opaque surface. Light/dark app appearance
+is passed to the glass view. Native dependencies use Expo SDK54-compatible
+versions; rebuild the iOS development app after pulling this change (a Metro
+reload alone cannot install the native modules).
+
+Physical-device appearance, VoiceOver and the largest Dynamic Type sizes remain
+manual verification items; automated checks do not establish visual quality.
