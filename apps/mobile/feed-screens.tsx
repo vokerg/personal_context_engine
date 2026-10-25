@@ -940,6 +940,9 @@ export function SearchScreen({
               {item.channel} · source revision {item.sourceRevision} ·{" "}
               {item.capturedAt.slice(0, 10)}
             </Text>
+            <Text selectable style={{ color: palette.secondary, fontSize: 12 }}>
+              Source ID: {item.id}
+            </Text>
             <Text style={{ color: palette.secondary, fontSize: 12 }}>
               Match: {item.lexical ? "lexical" : ""}
               {item.lexical && item.semantic ? " + " : ""}
