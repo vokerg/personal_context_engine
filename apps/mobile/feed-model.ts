@@ -1,4 +1,8 @@
-import { ApiRequestError, type BrowseQuery, type SearchRequest } from "@pce/api-client";
+import {
+  ApiRequestError,
+  type BrowseQuery,
+  type SearchRequest,
+} from "@pce/api-client";
 
 export type Filters = {
   project: string;
@@ -7,7 +11,13 @@ export type Filters = {
   from: string;
   to: string;
 };
-export const emptyFilters: Filters = { project: "", kind: "", tag: "", from: "", to: "" };
+export const emptyFilters: Filters = {
+  project: "",
+  kind: "",
+  tag: "",
+  from: "",
+  to: "",
+};
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 function localMidnight(day: string, following = false): Date | null {
@@ -16,9 +26,22 @@ function localMidnight(day: string, following = false): Date | null {
   const year = Number(match[1]);
   const month = Number(match[2]);
   const date = Number(match[3]);
-  if (year < 100 || year > 9999 || month < 1 || month > 12 || date < 1 || date > 31) return null;
+  if (
+    year < 100 ||
+    year > 9999 ||
+    month < 1 ||
+    month > 12 ||
+    date < 1 ||
+    date > 31
+  )
+    return null;
   const local = new Date(year, month - 1, date);
-  if (local.getFullYear() !== year || local.getMonth() !== month - 1 || local.getDate() !== date) return null;
+  if (
+    local.getFullYear() !== year ||
+    local.getMonth() !== month - 1 ||
+    local.getDate() !== date
+  )
+    return null;
   if (following) return new Date(year, month - 1, date + 1);
   return local;
 }
@@ -26,13 +49,22 @@ function localMidnight(day: string, following = false): Date | null {
 /** Device-local inclusive calendar days translated to half-open UTC instants.
  * Construct each midnight separately so 23/25-hour DST days remain correct.
  */
-export function localDateBounds(from: string, to: string): { start?: string; end?: string } {
+export function localDateBounds(
+  from: string,
+  to: string,
+): { start?: string; end?: string } {
   const start = from ? localMidnight(from) : null;
   const end = to ? localMidnight(to, true) : null;
-  if ((from && !start) || (to && !end)) throw new Error("Use valid dates in YYYY-MM-DD format.");
-  if (from && to && from > to) throw new Error("Start date must not follow end date.");
-  if (start && end && start.getTime() >= end.getTime()) throw new Error("Invalid date range.");
-  return { ...(start ? { start: start.toISOString() } : {}), ...(end ? { end: end.toISOString() } : {}) };
+  if ((from && !start) || (to && !end))
+    throw new Error("Use valid dates in YYYY-MM-DD format.");
+  if (from && to && from > to)
+    throw new Error("Start date must not follow end date.");
+  if (start && end && start.getTime() >= end.getTime())
+    throw new Error("Invalid date range.");
+  return {
+    ...(start ? { start: start.toISOString() } : {}),
+    ...(end ? { end: end.toISOString() } : {}),
+  };
 }
 
 export function browseQuery(filters: Filters): BrowseQuery {
@@ -43,8 +75,13 @@ export function browseQuery(filters: Filters): BrowseQuery {
     ...localDateBounds(filters.from, filters.to),
   };
 }
-export function searchQuery(filters: Filters, query: string, cursor?: string): SearchRequest {
-  if (!query.trim() || query.trim().length > 500) throw new Error("Enter a query of at most 500 characters.");
+export function searchQuery(
+  filters: Filters,
+  query: string,
+  cursor?: string,
+): SearchRequest {
+  if (!query.trim() || query.trim().length > 500)
+    throw new Error("Enter a query of at most 500 characters.");
   const dates = localDateBounds(filters.from, filters.to);
   return {
     query: query.trim(),
@@ -58,17 +95,30 @@ export function searchQuery(filters: Filters, query: string, cursor?: string): S
 }
 export function localDayKey(timestamp: string): string {
   const date = new Date(timestamp);
-  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
 }
-export function searchQuality(mode: "lexical" | "hybrid", degradation: string | null): string {
-  if (mode === "hybrid" && !degradation) return "Hybrid: lexical and semantic retrieval";
+export function searchQuality(
+  mode: "lexical" | "hybrid",
+  degradation: string | null,
+): string {
+  if (mode === "hybrid" && !degradation)
+    return "Hybrid: lexical and semantic retrieval";
   const reasons: Record<string, string> = {
     disabled: "semantic search disabled",
     unindexed: "semantic index incomplete",
     provider_unavailable: "semantic provider unavailable",
     budget_exhausted: "semantic budget exhausted",
   };
-  return "Lexical search" + (degradation ? " — " + (reasons[degradation] ?? "semantic search unavailable") : " — semantic search not used");
+  return (
+    "Lexical search" +
+    (degradation
+      ? " — " + (reasons[degradation] ?? "semantic search unavailable")
+      : " — semantic search not used")
+  );
 }
 
 export type FeedState<T> = {
@@ -93,14 +143,24 @@ export class PagedFeed<T extends { id: string }> {
   private seenCursors = new Set<string>();
   private recoveredStaleCursor = false;
   readonly state: FeedState<T> = {
-    items: [], nextCursor: null, loading: true, loadingMore: false, refreshing: false, error: null,
+    items: [],
+    nextCursor: null,
+    loading: true,
+    loadingMore: false,
+    refreshing: false,
+    error: null,
   };
   constructor(
-    private readonly fetchPage: (cursor: string | undefined, signal: AbortSignal) => Promise<FeedPage<T>>,
+    private readonly fetchPage: (
+      cursor: string | undefined,
+      signal: AbortSignal,
+    ) => Promise<FeedPage<T>>,
     private readonly publish: (state: FeedState<T>) => void,
   ) {}
 
-  private emit() { this.publish({ ...this.state, items: [...this.state.items] }); }
+  private emit() {
+    this.publish({ ...this.state, items: [...this.state.items] });
+  }
   cancel() {
     this.epoch++;
     this.active?.abort();
@@ -139,10 +199,16 @@ export class PagedFeed<T extends { id: string }> {
     try {
       const page = await this.fetchPage(cursor, controller.signal);
       if (epoch !== this.epoch || controller.signal.aborted) return;
-      if (page.nextCursor && (page.nextCursor === cursor || this.seenCursors.has(page.nextCursor)))
+      if (
+        page.nextCursor &&
+        (page.nextCursor === cursor || this.seenCursors.has(page.nextCursor))
+      )
         throw new Error("Repeated pagination cursor");
       if (cursor) this.seenCursors.add(cursor);
-      if (first) { this.state.items = []; this.seenIds.clear(); }
+      if (first) {
+        this.state.items = [];
+        this.seenIds.clear();
+      }
       for (const item of page.items) {
         if (!this.seenIds.has(item.id)) {
           this.seenIds.add(item.id);
@@ -155,7 +221,12 @@ export class PagedFeed<T extends { id: string }> {
       if (epoch !== this.epoch || controller.signal.aborted) return;
       // A stale server-side cursor is not an empty page. Restart once,
       // invalidating all old pages rather than mixing two snapshots.
-      if (!first && error instanceof ApiRequestError && error.status === 409 && !this.recoveredStaleCursor) {
+      if (
+        !first &&
+        error instanceof ApiRequestError &&
+        error.status === 409 &&
+        !this.recoveredStaleCursor
+      ) {
         this.recoveredStaleCursor = true;
         this.cursor = undefined;
         this.state.items = [];
