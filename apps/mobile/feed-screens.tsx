@@ -387,7 +387,11 @@ function FilterControls({
             Approved tags only
           </Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7 }}>
-            {(allTags ? state.approved : state.approved.slice(0, 16)).map(
+            {state.approved
+              .filter(
+                (tag, index) => allTags || index < 16 || tag.slug === filters.tag,
+              )
+              .map(
               ({ slug, displayName }) => (
                 <Chip
                   key={slug}
@@ -880,7 +884,10 @@ export function SearchScreen({
           palette={palette}
           facets={facets}
         />
-        {queryIsCurrent && !feed.state.error && meta?.key === key && prepared.valid ? (
+        {queryIsCurrent &&
+        !feed.state.error &&
+        meta?.key === key &&
+        prepared.valid ? (
           <Text
             accessibilityRole="text"
             style={{ color: palette.secondary, fontSize: 14 }}
