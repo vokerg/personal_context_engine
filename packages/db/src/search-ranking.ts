@@ -8,6 +8,8 @@ import {
   lexicalMatch,
   lexicalQueries,
   lexicalScore,
+  keywordAnchor,
+  keywordAdmission,
 } from "./search-lexical.js";
 import { effectiveTagsSql } from "./note-tags.js";
 
@@ -23,7 +25,7 @@ export const validOwner = (owner: string) => {
   if (!/^[A-Za-z0-9][A-Za-z0-9._:|@-]{0,127}$/.test(owner))
     throw new TypeError("Invalid verified owner");
 };
-export const SEARCH_RANKING_VERSION = "multilingual-complete-v2";
+export const SEARCH_RANKING_VERSION = "multilingual-keyword-v3";
 export const SEARCH_COSINE_THRESHOLD = 0.15;
 export const SEARCH_MAX_DISTANCE = 1 - SEARCH_COSINE_THRESHOLD;
 export const SEARCH_RRF_K = 60;
@@ -70,9 +72,11 @@ export function searchRanking(
         GROUP BY f.id`
            : Prisma.sql`SELECT id,0.0::double precision AS distance FROM filtered WHERE false`
        }
-     ), semantic AS (SELECT id,row_number() OVER(ORDER BY distance,id COLLATE "C") AS rank
-       FROM distances WHERE distance < ${SEARCH_MAX_DISTANCE}
-       ORDER BY distance,id COLLATE "C" LIMIT 200),
+     ), ${keywordAnchor(input.query, "filtered", SEARCH_MAX_DISTANCE)},
+     semantic AS (SELECT d.id,row_number() OVER(ORDER BY d.distance,d.id COLLATE "C") AS rank
+       FROM distances d CROSS JOIN keyword_anchor a
+       WHERE d.distance < ${SEARCH_MAX_DISTANCE} AND ${keywordAdmission}
+       ORDER BY d.distance,d.id COLLATE "C" LIMIT 200),
      ranked AS (SELECT coalesce(l.id,s.id) AS id,CASE WHEN l.vote THEN 1.0/(${SEARCH_RRF_K}+l.rank) ELSE 0 END+coalesce(1.0/(${SEARCH_RRF_K}+s.rank),0) AS score,
           l.rank::int AS "lexicalRank",s.rank::int AS "semanticRank",coalesce(l.vote,false) AS "lexicalVote",
           l.id IS NOT NULL AS lexical,s.id IS NOT NULL AS semantic

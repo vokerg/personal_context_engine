@@ -224,6 +224,125 @@ ${original}
       );
     });
 
+    it("filters weak semantic-only tails for a single keyword with indexed title evidence", async () => {
+      const owner = "keyword-" + randomUUID();
+      const exact = await seed(
+        owner,
+        "Купить листья для заваривания.",
+        similarity(0.6),
+        "Чай для гостей",
+      );
+      const related = await seed(
+        owner,
+        "Горячий напиток к завтраку",
+        similarity(0.8),
+        "Напитки",
+      );
+      const irrelevant = await seed(
+        owner,
+        "Спланировать маршрут к маяку.",
+        similarity(0.3),
+        "Путешествие",
+      );
+      const repo = createSearchRepository(db);
+      const rows = await repo.searchByOwner(owner, { query: "чай" }, basis(0));
+      expect(rows.map((r) => r.id)).toEqual([exact, related]);
+      const d = await repo.inspectByOwner(
+        owner,
+        { query: "чай", noteId: irrelevant, limit: 20 },
+        basis(0),
+      );
+      expect(d.rankings.find((r) => r.id === irrelevant)).toMatchObject({
+        passedThreshold: true,
+        passedKeywordGate: false,
+        semanticRank: null,
+        finalRank: null,
+      });
+      expect(
+        d.rankings.find((r) => r.id === exact)?.keywordAnchorSimilarity,
+      ).toBeCloseTo(0.6, 6);
+      const service = createSearchService(
+        repo,
+        "s".repeat(32),
+        { embed: async () => ({ vector: basis(0), usageTokens: 1 }) },
+        undefined,
+        true,
+      );
+      const diagnostic = await service.diagnoseByOwner(owner, {
+        query: "чай",
+        noteId: irrelevant,
+        limit: 20,
+      });
+      expect(diagnostic.note).toMatchObject({
+        reason: "below_keyword_anchor",
+        semanticReason: "below_keyword_anchor",
+      });
+      expect(diagnostic.execution.keywordAnchorSimilarity).toBeCloseTo(0.6, 6);
+    });
+
+    it("uses the weakest title anchor and retains literal matches regardless of their vectors", async () => {
+      const owner = "ambiguous-keyword-" + randomUUID();
+      const first = await seed(
+        owner,
+        "Observe wild birds",
+        similarity(0.7),
+        "Crane migration",
+      );
+      const second = await seed(
+        owner,
+        "Repair lifting machinery",
+        similarity(0.3),
+        "Crane maintenance",
+      );
+      const related = await seed(
+        owner,
+        "Replace the hoist motor",
+        similarity(0.4),
+        "Workshop task",
+      );
+      const unindexed = await seed(
+        owner,
+        "A paper craft",
+        undefined,
+        "Crane origami",
+      );
+      const rows = await createSearchRepository(db).searchByOwner(
+        owner,
+        { query: "crane" },
+        basis(0),
+      );
+      expect(rows.map((r) => r.id)).toEqual(
+        expect.arrayContaining([first, second, related, unindexed]),
+      );
+    });
+
+    it("keeps weak conceptual matches without a compatible title anchor and for multi-word questions", async () => {
+      const owner = "conceptual-keyword-" + randomUUID();
+      await seed(owner, "Income and expenses", undefined, "Cashflow");
+      const weak = await seed(owner, "A distant paraphrase", similarity(0.274));
+      const repo = createSearchRepository(db);
+      expect(
+        (await repo.searchByOwner(owner, { query: "cashflow" }, basis(0))).map(
+          (r) => r.id,
+        ),
+      ).toContain(weak);
+      await seed(
+        owner,
+        "A literal question",
+        similarity(0.9),
+        "How should I plan cashflow?",
+      );
+      expect(
+        (
+          await repo.searchByOwner(
+            owner,
+            { query: "How should I plan cashflow?" },
+            basis(0),
+          )
+        ).map((r) => r.id),
+      ).toContain(weak);
+    });
+
     it("diagnoses coverage, exact cosine, below-threshold candidates and RRF without exposing foreign data or vectors", async () => {
       const owner = "diagnostics-" + randomUUID();
       const relevant = await seed(owner, "synthetic needle", basis(0));
@@ -253,7 +372,7 @@ ${original}
         limit: 20,
       });
       expect(diagnostic.execution).toMatchObject({
-        rankingVersion: "multilingual-complete-v2",
+        rankingVersion: "multilingual-keyword-v3",
         rankingScope: "notes",
         lexicalConfiguration: "simple+english+russian",
         lexicalOperator: "OR",

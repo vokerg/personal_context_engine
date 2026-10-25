@@ -41,6 +41,9 @@ export function lexicalDocuments(
   body = text,
 ) {
   return Prisma.sql`to_tsvector('simple',${text}) AS document,
+    to_tsvector('simple',${title}) AS simple_title,
+    to_tsvector('english',${title}) AS english_title,
+    to_tsvector('russian',${title}) AS russian_title,
     setweight(to_tsvector('english',${title}),'A') || setweight(to_tsvector('english',${summary}),'B') || setweight(to_tsvector('english',${body}),'D') AS english_document,
     setweight(to_tsvector('russian',${title}),'A') || setweight(to_tsvector('russian',${summary}),'B') || setweight(to_tsvector('russian',${body}),'D') AS russian_document`;
 }
@@ -58,3 +61,28 @@ export function lexicalMatch(query: string, text: Prisma.Sql, hybrid: boolean) {
 
 export const lexicalScore = Prisma.sql`greatest(
   ts_rank(english_document,q.english,32),ts_rank(russian_document,q.russian,32))`;
+
+/** A single token can be a keyword lookup; questions and phrases stay hybrid. */
+export const keywordLookup = (query: string) =>
+  /^[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*$/u.test(query.trim());
+
+export const titleMatch = Prisma.sql`(
+  simple_title @@ q.simple OR english_title @@ q.english OR russian_title @@ q.russian)`;
+
+/** Semantic expansion of a title-backed keyword must be at least as close as
+ * the weakest indexed title match. No anchor means no extra restriction. */
+export function keywordAnchor(
+  query: string,
+  documents: "filtered" | "documents",
+  maxDistance: number,
+) {
+  return Prisma.sql`keyword_anchor AS (
+    SELECT max(d.distance)::float8 AS "distanceLimit"
+    FROM distances d JOIN ${Prisma.raw(documents)} f ON f.id=d.id CROSS JOIN search_query q
+    WHERE ${keywordLookup(query)} AND d.distance < ${maxDistance} AND ${titleMatch}
+  )`;
+}
+
+export const keywordAdmission = Prisma.sql`(
+  a."distanceLimit" IS NULL OR d.distance<=a."distanceLimit"
+  OR EXISTS(SELECT 1 FROM lexical l WHERE l.id=d.id AND l.vote))`;

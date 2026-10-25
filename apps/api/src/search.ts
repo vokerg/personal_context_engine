@@ -150,9 +150,11 @@ export function createSearchService(
                   ? "semantic_not_executed"
                   : candidate?.passedThreshold === false
                     ? "below_similarity_threshold"
-                    : !candidate?.semanticRank
-                      ? "outside_semantic_candidate_window"
-                      : "semantic_candidate";
+                    : candidate?.passedKeywordGate === false
+                      ? "below_keyword_anchor"
+                      : !candidate?.semanticRank
+                        ? "outside_semantic_candidate_window"
+                        : "semantic_candidate";
       const reason = !note
         ? "not_found"
         : candidate?.finalRank
@@ -187,7 +189,9 @@ export function createSearchService(
           lexicalVotePolicy: vector ? "complete_query_only" : "all_candidates",
           identifierPolicy: "literal_alphanumeric_tokens",
           lexicalWeights: { title: "A", summary: "B", body: "D" },
-          semanticPruning: "absolute_floor_only",
+          semanticPruning: "single_token_title_anchor",
+          keywordAnchorSimilarity:
+            data.rankings[0]?.keywordAnchorSimilarity ?? null,
           semanticMeaning:
             "eligible chunk passed cosine threshold; not a relevance confidence",
         },

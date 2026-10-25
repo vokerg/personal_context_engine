@@ -30,6 +30,11 @@ Complete-query lexical candidates receive a hybrid RRF vote; partial OR matches
 remain retrievable at zero fusion score behind positive-score candidates.
 Lexical-only fallback gives all lexical candidates a vote. See the
 [relevance evaluation](22-search-evaluation.md) for measured tradeoffs and limits.
+For a single-token query with current indexed title matches, semantic-only
+expansion must be at least as similar as the weakest such title match. Complete
+lexical matches remain available. Questions, phrases and missing/unindexed title
+matches keep the ordinary semantic floor. Diagnostics expose the extra gate.
+
 Exact current-owner/model/chunker/revision
 1536-dimensional vectors provide cosine candidates (distance <0.85); reciprocal
 rank fusion uses k=60 and deduplicates per note. Each branch considers at most
@@ -131,7 +136,9 @@ MCP `structuredContent` with these fields:
 - `candidates`: the union of top final, lexical and semantic notes, up to three
   highest-scoring below-threshold notes, and the requested note (at most
   `3*limit+4` rows). Scores are **maximum chunk cosine per note**, not confidence.
-  `passedThreshold` is null if no eligible vector was scored. Lexical and semantic
+  `passedThreshold` describes the absolute cosine floor and is null if no
+  eligible vector was scored. `passedKeywordGate` separately describes the
+  title-backed keyword gate; `keywordAnchorSimilarity` is null when inactive. Lexical and semantic
   ranks are the note production top-200 lists. `lexicalVote` identifies complete-query
   evidence in hybrid mode (all lexical
   candidates vote during fallback). `rrfScore` sums `1/(60+rank)` for the semantic
@@ -144,7 +151,7 @@ MCP `structuredContent` with these fields:
   metadata rows (with truncation flag and eligible-chunk cosine), best score/ranks
   and separate overall/semantic reasons. `no_chunks`, `stale_chunks`,
   `no_current_ready_embedding`, `semantic_not_executed`,
-  `below_similarity_threshold`, `identifier_mismatch` and candidate/result-window
+  `below_similarity_threshold`, `below_keyword_anchor`, `identifier_mismatch` and candidate/result-window
   reasons distinguish
   failures. Unknown and other-owner IDs both return `status: not_found`.
 

@@ -529,3 +529,15 @@ reject higher/relative cutoffs after observed recall losses. No schema migration
 reindex, reranker service, deployment or ChatGPT cutover. Small-sample results,
 regressions, diagnostic changes and reproduction are documented in the
 [evaluation runbook](22-search-evaluation.md).
+
+
+**#145 precision follow-up (2026-10-25):** owner feedback showed unrelated
+semantic tails for literal keyword searches. V3 additionally uses the weakest
+current indexed title match as a semantic-only admission floor for single-token
+lookups, preserving complete lexical candidates. No indexed title anchor or a
+multi-token question/phrase retains broad semantic retrieval. Body-anchored and
+broader short-query policies were rejected after recall losses. Additional
+20-query synthetic confirmation and original-set rechecks preserved judged
+recall while improving returned precision; unseen weak single-word paraphrases
+remain an explicit risk. Diagnostics and the evaluation runbook record this
+conditional gate separately from the unchanged absolute cosine floor.

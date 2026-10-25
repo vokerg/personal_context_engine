@@ -13,6 +13,8 @@ import {
   lexicalMatch,
   lexicalQueries,
   lexicalScore,
+  keywordAnchor,
+  keywordAdmission,
 } from "./search-lexical.js";
 import { effectiveTagsSql } from "./note-tags.js";
 import type { SearchInput, SearchRow } from "./search.js";
@@ -82,7 +84,10 @@ export function createResearchSearchRepository(db: PrismaClient) {
         AND e.status='READY' AND e.vector IS NOT NULL GROUP BY f.id`
           : Prisma.sql`SELECT id,0.0::double precision AS distance FROM documents WHERE false`
       }
-     ), semantic AS (SELECT id,row_number() OVER(ORDER BY distance,id) AS rank FROM distances WHERE distance<${SEARCH_MAX_DISTANCE} ORDER BY distance,id LIMIT 200),
+     ), ${keywordAnchor(input.query, "documents", SEARCH_MAX_DISTANCE)},
+     semantic AS (SELECT d.id,row_number() OVER(ORDER BY d.distance,d.id) AS rank
+       FROM distances d CROSS JOIN keyword_anchor a WHERE d.distance<${SEARCH_MAX_DISTANCE} AND ${keywordAdmission}
+       ORDER BY d.distance,d.id LIMIT 200),
      ranked AS (SELECT coalesce(l.id,s.id) AS id,l.id IS NOT NULL AS lexical,s.id IS NOT NULL AS semantic,
       CASE WHEN l.vote THEN 1.0/(${SEARCH_RRF_K}+l.rank) ELSE 0 END+coalesce(1.0/(${SEARCH_RRF_K}+s.rank),0) AS score FROM lexical l FULL JOIN semantic s ON l.id=s.id)
      SELECT f.id,f.title,left(f.findings,240) AS snippet,f."researchedAt" AS "capturedAt",f."sourceRevision",

@@ -105,3 +105,19 @@ Fixture hashes (SHA-256 of parsed benchmark):
 
 - Development/validation: `060fe07d20fedf47b77cae69c71751ac1491bea6e946f9845c97ed249674e169`
 - Confirmation: `e86b1a98ac506386670b18b3ff5c6fec714ba206b9b634ba9828de483e495a3b`
+
+## Keyword precision follow-up
+
+Version v3 applies a title-backed admission gate only to single-token lookups. These 20 additional queries were frozen before the v3 run. This comparison is against v2 (`fd590ff`), not the original `fd33b58` baseline.
+
+| Set | R@5 before → after | nDCG@5 before → after | All-returned precision before → after | Full-window recall before → after |
+| --- | --- | --- | --- | --- |
+| Original validation (48) | 1.0000 → 1.0000 | 0.9561 → 0.9561 | 0.2232 → 0.2418 | 1.0000 → 1.0000 |
+| Original confirmation (32) | 1.0000 → 1.0000 | 0.9605 → 0.9605 | 0.1704 → 0.1991 | 1.0000 → 1.0000 |
+| Keyword confirmation (20) | 0.9474 → 0.9474 | 0.9016 → 0.9016 | 0.1751 → 0.7198 | 0.9474 → 0.9474 |
+
+Keyword confirmation mean precision among the first five returned results improves 0.3105 → 0.7351. Fixed-denominator P@5 remains 0.2900; reducing irrelevant result counts is invisible to fixed-K precision when all relevant items are already present. Full-list returned precision is therefore reported explicitly. Empty result lists have undefined returned precision and are excluded from that macro average; no-answer FPR remains separately reported.
+
+One conceptual query has no result before or after; the absent-term query still returns unrelated results. None of the 20 confirmation queries loses a previously retrieved judged positive. The original private recheck also preserves judged full-window recall; private evidence remains outside this repository.
+
+Local keyword SQL p50/p95 rises from 3.96/4.79 ms in v2 to 5.40/7.45 ms in v3. This is a small cached-vector local measurement, not a deployment SLO.

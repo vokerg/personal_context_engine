@@ -131,16 +131,16 @@ and existing cost/rate reservations. Do not commit caches, even synthetic ones;
 the same cache may contain private inputs. Keep outputs protected when evaluating
 private data. Fixture files contain only invented public content.
 
-The investigation reused all existing private document vectors and made three
-bounded standard embedding requests for 232 evaluation inputs (3,351 actual
-input tokens; 17,700 conservatively reserved tokens), including synthetic
+The investigation reused all existing private document vectors and made four
+bounded standard embedding requests for 252 evaluation inputs (3,406 actual
+input tokens; 18,210 conservatively reserved tokens), including synthetic
 confirmation documents. Gates were checked and durable owner daily budget was
 reserved before each request. No production originals/index rows changed.
-Estimated cost was $0.00006702 at the documented $0.02/million input tokens;
+Offline evaluation estimated cost was $0.00006812 at the documented $0.02/million input tokens;
 actual account charges are outside this estimate. Array input and model pricing
 are described in the [OpenAI embedding API](https://developers.openai.com/api/reference/resources/embeddings/methods/create)
 and [model documentation](https://developers.openai.com/api/docs/models/text-embedding-3-small).
-Requests took approximately 0.78–2.28 seconds in batches; this is not per-query
+Requests took approximately 0.63–2.28 seconds in batches; this is not per-query
 interactive latency. The final runtime still makes at most one existing query
 embedding call, with unchanged cache, deadlines, rate and token reservations.
 
@@ -165,3 +165,44 @@ assistance, since each complete-query dictionary branch is evaluated separately.
 Negation, contradictions and historical supersession remain difficult for the
 embedding model. A larger independently labeled real corpus is needed before
 more aggressive filtering, learned ranking or a default retrieval cutover.
+
+
+## Keyword precision follow-up
+
+Owner feedback exposed a gap in v2: a temporarily rate-limited local check tested
+lexical fallback, concealing the unrelated tail returned by normal hybrid search.
+Better top ranks alone did not satisfy literal-lookup precision. That check is not
+evidence of clean hybrid results.
+
+Version `multilingual-keyword-v3` adds a narrow single-token policy. When at least
+one matching title has a current compatible vector above the ordinary floor,
+semantic-only candidates must be at least as close as the weakest title match.
+Complete lexical matches remain available independently of this gate. Multiple
+title matches lower the anchor conservatively; absent/unindexed anchors,
+questions and phrases retain broad semantic retrieval. More strongly related
+semantic-only notes can still pass, including notes without shared query words.
+The same helper applies to notes and saved reports. Diagnostics expose the anchor,
+`passedKeywordGate` and `below_keyword_anchor`; cursor/cache bindings use v3.
+
+Broader policies based on arbitrary body matches or two/three-token queries lost
+judged cross-language/related results and were rejected. The chosen single-token
+title policy preserved judged full-window recall on the original private and
+synthetic sets. The keyword-focused confirmation fixture was frozen before the
+v3 run: 20 additional queries over 32 synthetic documents, including morphology,
+multiple plausible interpretations, conceptual queries without title anchors and
+an absent term. All-returned macro precision improved 0.1751 → 0.7198, while
+R@5 remained 0.9474 and nDCG@5 remained 0.9016. One conceptual query was already
+missed and remains missed; the unknown-term case still returns false positives.
+Original validation/confirmation nDCG@5 and full-window recall are unchanged;
+returned precision improves. See the [evidence addendum](../scripts/search-eval/evidence.md#keyword-precision-follow-up).
+
+Run the same cache-only benchmark with `--keyword` for this fixture. The additional
+20 embeddings used 55 actual input tokens, included in the offline totals above.
+Ordinary authenticated local verification requests also use the existing query
+budget; their costs are separate from those offline evaluation totals.
+
+This policy favors precision for title-backed keyword lookups. A weaker valid
+paraphrase below the title anchor can still be excluded in an unseen corpus,
+particularly for single-word conceptual/ambiguous searches. Existing no-anchor
+and question/phrase semantic retrieval remains broad. These small judged sets do
+not prove that this risk is eliminated; no general answerability claim is made.

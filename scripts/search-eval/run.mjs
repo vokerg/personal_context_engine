@@ -7,10 +7,13 @@ import { searchRanking } from "../../packages/db/dist/search-ranking.js";
 import { baselineRanking } from "./baseline.mjs";
 import { syntheticBenchmark as developmentBenchmark } from "./fixtures.mjs";
 import { confirmationBenchmark } from "./confirmation.mjs";
+import { keywordConfirmationBenchmark } from "./keyword-confirmation.mjs";
 const syntheticBenchmark =
-  process.argv[4] === "--confirmation"
-    ? confirmationBenchmark
-    : developmentBenchmark;
+  process.argv[4] === "--keyword"
+    ? keywordConfirmationBenchmark
+    : process.argv[4] === "--confirmation"
+      ? confirmationBenchmark
+      : developmentBenchmark;
 import { summarize } from "./metrics.mjs";
 
 const url = process.env.PCE_DB_TEST_URL;

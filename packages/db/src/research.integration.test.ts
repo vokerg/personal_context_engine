@@ -171,6 +171,41 @@ describe.skipIf(!url)("versioned research report persistence", () => {
         )
       ).map((r) => r.id),
     ).toContain(report.reportId);
+    const unrelated = {
+      ...artifact(parent),
+      title: "Engine maintenance",
+      findings: "Replace the motor in the workshop.",
+    };
+    await reports.persistByOwner(owner, { artifact: unrelated });
+    await createResearchEmbeddingRepository(db).prepareNote(
+      unrelated.reportId,
+      owner,
+    );
+    const weak = JSON.stringify(
+      Array.from({ length: 1536 }, (_, i) =>
+        i === 0 ? 0.3 : i === 1 ? Math.sqrt(1 - 0.3 ** 2) : 0,
+      ),
+    );
+    await db.$executeRaw`UPDATE research_embeddings e SET vector=${weak}::vector,status='READY' FROM research_chunks c WHERE c.id=e."chunkId" AND c."reportId"=${unrelated.reportId} AND c."ownerSubject"=${owner}`;
+    expect(
+      (await search.searchByOwner(owner, { query: "observatory" }, vector)).map(
+        (r) => r.id,
+      ),
+    ).toContain(report.reportId);
+    expect(
+      (await search.searchByOwner(owner, { query: "observatory" }, vector)).map(
+        (r) => r.id,
+      ),
+    ).not.toContain(unrelated.reportId);
+    expect(
+      (
+        await search.searchByOwner(
+          owner,
+          { query: "What should I plan next?" },
+          vector,
+        )
+      ).map((r) => r.id),
+    ).toContain(unrelated.reportId);
     expect(
       (await search.searchByOwner(owner, { query: "AX-9120" }, vector)).map(
         (r) => r.id,
