@@ -68,3 +68,7 @@ Use the decision register to settle changes rather than quietly revising assumpt
 ## Content-agent boundary
 
 The eventual private content repository may have its own narrow `AGENTS.md` for note capture. That agent should operate only on approved content paths and must not inherit code-changing privileges merely because it shares the Personal Context Engine name. ChatGPT Project instructions must explicitly load the relevant content rules; an `AGENTS.md` file is not automatically applied by every ChatGPT integration.
+
+## On-demand iOS device Release installation
+
+For on-demand **physical iPhone Release** deployment from a local Mac, use the repository skill [ios-device-release](.agents/skills/ios-device-release/SKILL.md). The skill runs a guarded helper against the current checkout with normal Xcode signing and a free Apple Personal Team. Run it **only locally**, never in remote GitHub CI/agents; the owner must complete first-time Xcode/device trust and authorize provisioning in Xcode. Do not confuse the Release installation path with the existing simulator/Metro development workflow.
