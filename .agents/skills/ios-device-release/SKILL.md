@@ -5,7 +5,7 @@ description: Build, locally sign, install and launch the Personal Context Engine
 
 # iPhone Release deployment (local Mac only)
 
-This skill is a reproducible local device workflow, **not** an instruction to modify app/server code. Read [apps/mobile/README.md](../../../../apps/mobile/README.md) before troubleshooting native auth or signing.
+This skill is a reproducible local device workflow, **not** an instruction to modify app/server code. Read [apps/mobile/README.md](../../../apps/mobile/README.md) before troubleshooting native auth or signing.
 
 ## Procedure
 
