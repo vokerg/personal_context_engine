@@ -293,3 +293,13 @@ The 13-case supplied-output persistence matrix validates exact originals and
 classification test. Actual publication/installation, deployed write readiness,
 consent, one-send voice/text and device acceptance remain #153/#154, requiring
 owner go/no-go before production prompt mutation.
+
+## Consolidated acceptance (#154)
+
+Run `npm run tasks:verify` from an isolated checkout with an explicitly configured
+disposable local `PCE_DB_TEST_URL`. The command builds the relevant packages,
+checks migration replay/schema drift and runs cross-surface synthetic suites.
+The combined authenticated HTTP/typed-client test covers three independent Tasks,
+one completion, source archive/removal and reversible feature disable/reactivation
+without changing originals or history. See [acceptance and release gates](25-task-acceptance.md)
+for reproduction, review order and the actual native/host checks still required.

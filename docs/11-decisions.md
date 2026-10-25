@@ -612,3 +612,14 @@ artifact fallback after activation. Prepared source/archive and supplied-output
 DB tests are not actual model, deployment, installed-prompt or connector proof.
 No account release or live settings were changed. See
 [policy and release boundaries](24-task-extraction-policy.md).
+
+### Task acceptance checkpoint (#154; D-031)
+
+The consolidated synthetic verifier checks additive migration replay/drift and
+existing cross-surface suites against an explicit disposable loopback database.
+Combined authenticated HTTP acceptance preserves originals, source privacy and
+Task history through source archive/removal and feature disable/reactivation.
+This is local mechanism evidence; actual device/VoiceOver, installed Project
+settings/plugin, deployed connector and owner release gates remain open. No new
+rollout or external-execution authorization is implied. See
+[acceptance and staged rollout](25-task-acceptance.md).

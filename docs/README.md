@@ -58,3 +58,5 @@ Where a contract remains proposed, implement a test-backed specification before 
 - [23 — Independent Tasks](23-tasks.md) — #148 owner-scoped records, lifecycle, retry/history, scoped HTTP API and rollout limits.
 
 - [24 — Shared Task extraction policy](24-task-extraction-policy.md) — tasks-v1 normative model decisions and inactive prompt/plugin integration boundaries.
+
+- [25 — Task acceptance and rollout](25-task-acceptance.md) — reproducible synthetic cross-surface verification, staged review, retained-data rollback and outstanding live gates.
