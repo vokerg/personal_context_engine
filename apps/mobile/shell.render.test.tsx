@@ -2,6 +2,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("./tab-bar", () => ({ TabBar: () => null }));
 vi.mock("./native-auth", () => ({ createNativeSession: () => null }));
 vi.mock("react-native", async () => {
   const { createElement: element } = await import("react");

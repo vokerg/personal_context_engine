@@ -504,3 +504,12 @@ state (`archivedAt`/`archivedBy`) is toggled through the owner-scoped
 API/MCP/search with `status: "archived"`; web browse defaults to active and
 offers archived/all selection. Removal still takes precedence and cannot be
 undone by archive toggles.
+
+## Implemented native menu constraint (#142; D-005)
+
+The Expo SDK54 custom tab navigator remains in place. Its floating menu uses
+SDK-compatible `expo-glass-effect` and `expo-symbols`, with opaque fallback for
+unsupported builds and Reduce Transparency. No router migration or platform
+system tab-bar behavior is implied. This changes presentation and scroll insets
+only, with no API, storage, session or content contract changes. See the
+[mobile documentation](../apps/mobile/README.md#floating-ios-menu-142).
