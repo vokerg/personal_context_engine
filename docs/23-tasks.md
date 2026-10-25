@@ -271,3 +271,25 @@ reused. Synthetic native component/transport tests and iOS JS export pass; actua
 native compilation, device/simulator, VoiceOver/font/safe-area/auth/background
 checks are **not inferred** and remain #131/#154. See
 [native configuration and limits](../apps/mobile/README.md#optional-native-tasks-152).
+
+## Capture integration candidates (#153)
+
+[Shared tasks-v1 policy](24-task-extraction-policy.md) is the single classification
+authority for NOTES and conversation capture. Clear grounded user commitments
+can become 0..N independent Task records after activation, without per-task
+approval. Speculative/quoted/unaccepted ideas remain Notes; explicit no-Task
+opt-out skips the batch. Task creation never authorizes dates/reminders or
+external execution. The importer/API remain deterministic.
+
+A private notes-v3.0 candidate and a separately prepared conversation-plugin
+0.2.0 archive are reviewable but **inactive**. Working prompt/settings and
+installed plugin remain unchanged. Current plugin source has no own server;
+actual absent write tools use the reviewed GitHub batch path after activation.
+See [Project acceptance](12-chatgpt-project.md#first-class-task-integration-candidate-153)
+and [integration audit](../integrations/conversation-capture/README.md).
+
+The 13-case supplied-output persistence matrix validates exact originals and
+0/1/3/EN/RU/mixed/opt-out/unclear/quoted outputs through replay; it is not an LLM
+classification test. Actual publication/installation, deployed write readiness,
+consent, one-send voice/text and device acceptance remain #153/#154, requiring
+owner go/no-go before production prompt mutation.
