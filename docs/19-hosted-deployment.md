@@ -118,6 +118,21 @@ source detail apply the same SQL owner predicate. No unowned rows are adopted.
 
 With existing session authentication and `PCE_DB_SEARCH=true`, the API also enables owner-scoped per-note `PATCH /api/v1/notes/:id/tags`. Only `tags:write` grants or session cookies with the existing origin/CSRF checks may mutate tag overrides. Deployed PostgreSQL must be migrated to include `note_tag_overrides` before serving this version. Original GitHub and API capture tags, content hashes, revisions and embedding chunks remain unchanged; only the effective tag view changes. A 409 indicates the note tags changed in another tab and requires a detail reload. There is no content-repo write, new background worker, paid service, or live NOTES prompt activation.
 
+## Reversible note removal and archiving (#120)
+
+Deploy the `20261024060000_note_removal` migration before enabling the hosted
+detail action. `DELETE /api/v1/notes/:id` is gated by `notes:write`, uses the
+verified session owner, and hides the row from all normal timeline/detail/search
+and worker candidates while retaining the original and provenance in PostgreSQL.
+It does not delete GitHub content or claim erasure. `PATCH
+/api/v1/notes/:id/archive` uses the same scope and toggles a separate archive
+state; archived notes remain in API/MCP/search responses with an explicit
+`status`. The web defaults to active notes and offers archived/all selection.
+Verify explicit browser confirmation, archive toggling, generic 404 behavior
+for foreign/repeated IDs, strict removal no-body/query rejection and strict
+archive-body validation using synthetic notes. There is no permanent-delete
+operation in this release.
+
 ## Optional research report rollout (#104/#105)
 
 The merged code keeps report API/search/MCP retrieval off unless Render has

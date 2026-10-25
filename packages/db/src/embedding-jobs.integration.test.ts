@@ -397,6 +397,11 @@ Synthetic original.
       }),
     };
     let now = new Date("2026-10-25T10:00:00Z");
+    // Keep the persisted rate window on the same clock as this test's worker.
+    // checkpointScan otherwise creates it using the real database clock.
+    await db.embeddingScan.create({
+      data: { ownerSubject: owner, windowStartedAt: now },
+    });
     await runEmbeddingPass({
       queue: repo,
       provider,

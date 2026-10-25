@@ -14,18 +14,21 @@ const notes: NotePreview[] = [
     title: "Morning note",
     summary: "Architecture notes from Prague",
     capturedAt: "2026-10-17T00:30:00+02:00",
+    status: "active",
   },
   {
     id: id(2),
     title: "Older idea",
     summary: "Searchable context",
     capturedAt: "2026-10-16T19:00:00+02:00",
+    status: "active",
   },
   {
     id: id(3),
     title: "Evening note",
     summary: "Design feedback",
     capturedAt: "2026-10-17T21:00:00+02:00",
+    status: "active",
   },
 ];
 
@@ -68,12 +71,14 @@ describe("local timeline", () => {
         title: "Spring note",
         summary: "Before the DST jump",
         capturedAt: "2026-03-28T23:30:00Z",
+        status: "active",
       },
       {
         id: id(5),
         title: "Later note",
         summary: "After the local date changed",
         capturedAt: "2026-03-29T22:30:00Z",
+        status: "active",
       },
     ];
     const result = filterTimeline(

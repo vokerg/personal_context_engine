@@ -243,6 +243,7 @@ describe("authenticated private read boundary", () => {
     summary: "Sample A",
     body: "Synthetic content A",
     capturedAt: "2026-10-16T10:00:00+02:00",
+    status: "active",
   };
   const bob: NoteDetail = {
     id: idBob,
@@ -250,6 +251,7 @@ describe("authenticated private read boundary", () => {
     summary: "Sample B",
     body: "Synthetic content B",
     capturedAt: "2026-10-16T10:00:00+02:00",
+    status: "active",
   };
   const fixtures: Record<string, NoteDetail[]> = { alice: [alice], bob: [bob] };
   const makeApp = () =>
@@ -263,6 +265,7 @@ describe("authenticated private read boundary", () => {
               title: note.title,
               summary: note.summary,
               capturedAt: note.capturedAt,
+              status: note.status,
             })) ?? [],
           getByOwner: async (subject, noteId) =>
             fixtures[subject]?.find((note) => note.id === noteId) ?? null,
@@ -347,6 +350,7 @@ describe("authenticated private read boundary", () => {
             title: alice.title,
             summary: alice.summary,
             capturedAt: alice.capturedAt,
+            status: alice.status,
           },
         ],
       });
@@ -373,6 +377,136 @@ describe("authenticated private read boundary", () => {
       expect(
         bobList.json().notes.map((note: { id: string }) => note.id),
       ).toEqual([idBob]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("removes notes only with notes:write and never accepts a caller owner", async () => {
+    const removeByOwner = vi.fn(
+      async (subject: string, noteId: string) =>
+        subject === "alice" && noteId === idAlice,
+    );
+    const app = createApp({
+      config: { ...loadApiConfig({}), auth },
+      dependencies: {
+        notes: {
+          listByOwner: async () => [],
+          getByOwner: async () => null,
+          removeByOwner,
+        },
+      },
+    });
+    try {
+      const readOnly = await app.inject({
+        method: "DELETE",
+        url: "/api/v1/notes/" + idAlice,
+        headers: { authorization: "Bearer " + signedToken() },
+      });
+      expect(readOnly.statusCode).toBe(403);
+      expect(removeByOwner).not.toHaveBeenCalled();
+
+      const removed = await app.inject({
+        method: "DELETE",
+        url: "/api/v1/notes/" + idAlice,
+        headers: {
+          authorization: "Bearer " + signedToken({ scope: "notes:write" }),
+        },
+      });
+      expect(removed.statusCode).toBe(200);
+      expect(removed.json()).toEqual({ removed: true });
+      expect(removeByOwner).toHaveBeenCalledWith("alice", idAlice);
+
+      const foreign = await app.inject({
+        method: "DELETE",
+        url: "/api/v1/notes/" + idAlice,
+        headers: {
+          authorization:
+            "Bearer " + signedToken({ sub: "bob", scope: "notes:write" }),
+        },
+      });
+      expect(foreign.statusCode).toBe(404);
+      expect(foreign.json()).toEqual({ error: { code: "NOT_FOUND" } });
+      expect(removeByOwner).toHaveBeenLastCalledWith("bob", idAlice);
+
+      const body = await app.inject({
+        method: "DELETE",
+        url: "/api/v1/notes/" + idAlice,
+        headers: {
+          authorization: "Bearer " + signedToken({ scope: "notes:write" }),
+        },
+        payload: { ownerSubject: "alice" },
+      });
+      expect(body.statusCode).toBe(400);
+      expect(body.json()).toEqual({ error: { code: "BAD_REQUEST" } });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("archives and restores notes with owner-scoped notes:write access", async () => {
+    const setArchivedByOwner = vi.fn(
+      async (subject: string, noteId: string, archived: boolean) =>
+        subject === "alice" && noteId === idAlice
+          ? archived
+            ? "archived"
+            : "active"
+          : null,
+    );
+    const app = createApp({
+      config: { ...loadApiConfig({}), auth },
+      dependencies: {
+        notes: {
+          listByOwner: async () => [],
+          getByOwner: async () => null,
+          setArchivedByOwner,
+        },
+      },
+    });
+    try {
+      const readOnly = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/notes/" + idAlice + "/archive",
+        headers: { authorization: "Bearer " + signedToken() },
+        payload: { archived: true },
+      });
+      expect(readOnly.statusCode).toBe(403);
+      expect(setArchivedByOwner).not.toHaveBeenCalled();
+
+      const archived = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/notes/" + idAlice + "/archive",
+        headers: {
+          authorization: "Bearer " + signedToken({ scope: "notes:write" }),
+        },
+        payload: { archived: true },
+      });
+      expect(archived.statusCode).toBe(200);
+      expect(archived.json()).toEqual({ status: "archived" });
+      expect(setArchivedByOwner).toHaveBeenCalledWith("alice", idAlice, true);
+
+      const foreign = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/notes/" + idAlice + "/archive",
+        headers: {
+          authorization:
+            "Bearer " + signedToken({ sub: "bob", scope: "notes:write" }),
+        },
+        payload: { archived: false },
+      });
+      expect(foreign.statusCode).toBe(404);
+      expect(foreign.json()).toEqual({ error: { code: "NOT_FOUND" } });
+
+      const malformed = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/notes/" + idAlice + "/archive",
+        headers: {
+          authorization: "Bearer " + signedToken({ scope: "notes:write" }),
+        },
+        payload: { archived: true, ownerSubject: "alice" },
+      });
+      expect(malformed.statusCode).toBe(400);
+      expect(malformed.json()).toEqual({ error: { code: "BAD_REQUEST" } });
     } finally {
       await app.close();
     }

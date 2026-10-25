@@ -61,7 +61,7 @@ boundary in [security](09-security-and-privacy.md#pinned-issuer-rs256-verificati
 ## Deferred decisions
 
 - Choose the hosted/scheduled LLM provider, budget and execution model for unattended aggregators.
-- Rich editing/deletion/conflict semantics **within** the DB-primary model; the operational source-of-truth decision itself is settled in D-019.
+- Permanent erasure, restore UI and rich editing/conflict semantics **within** the DB-primary model; reversible workspace removal is accepted in D-029 and the operational source-of-truth decision itself is settled in D-019.
 - Optional user-initiated GitHub/portable export and any bidirectional synchronization; neither is a capture requirement.
 - Final authentication provider, hosting, scheduler and push transport.
 - Production embeddings, vector search rollout, knowledge graphs and autonomous external integrations (embedding provider/direction now accepted in D-015/D-016, implementation still pending).
@@ -486,3 +486,21 @@ Browser tag and project/kind metadata also refresh hourly instead of on each
 ingestion status change; explicit refresh/retry and own tag edits remain
 immediate. Background refresh preserves visible metadata, including on
 transient failure, while session clearing still removes it.
+
+### D-029 — Reversible owner-scoped note removal and archiving (#120)
+
+**Accepted implementation scope (2026-10-24).** A verified owner may explicitly
+remove a note from the normal workspace through `DELETE /api/v1/notes/:id`
+with `notes:write` authorization. The web client requires a second
+confirmation. Removal is represented by `removedAt`/`removedBy`; it preserves
+the immutable original, capture, source provenance and revision instead of
+deleting PostgreSQL or GitHub data. Normal timeline/detail/search/facet/tag,
+research and worker/embedding reads exclude removed notes. Unknown, foreign
+and repeated removals are indistinguishable 404s, and the removal route accepts
+no caller-selected owner or request body. Restore, permanent erasure, GitHub
+deletion and audit-history UI remain separate future work. A distinct archive
+state (`archivedAt`/`archivedBy`) is toggled through the owner-scoped
+`PATCH /api/v1/notes/:id/archive` route. Archived notes remain available to
+API/MCP/search with `status: "archived"`; web browse defaults to active and
+offers archived/all selection. Removal still takes precedence and cannot be
+undone by archive toggles.

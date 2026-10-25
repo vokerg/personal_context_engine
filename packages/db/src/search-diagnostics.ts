@@ -93,13 +93,13 @@ export function createSearchDiagnosticsRepository(db: PrismaClient) {
               e.status,e.vector IS NOT NULL AS "hasVector"
             FROM notes n JOIN note_chunks c ON c."noteId"=n.id AND c."ownerSubject"=n."ownerSubject"
             LEFT JOIN chunk_embeddings e ON e."chunkId"=c.id
-            WHERE n."ownerSubject"=${owner} AND c."ownerSubject"=${owner}
+            WHERE n."ownerSubject"=${owner} AND n."removedAt" IS NULL AND c."ownerSubject"=${owner}
           ), per_note AS (
             SELECT n.id,coalesce(bool_or(c.eligible),false) AS indexed,
               count(DISTINCT c.id) FILTER(WHERE c.current) AS current_chunks,
               count(DISTINCT c.id) FILTER(WHERE c.eligible) AS ready_chunks
             FROM notes n LEFT JOIN chunks c ON c."noteId"=n.id
-            WHERE n."ownerSubject"=${owner} GROUP BY n.id
+            WHERE n."ownerSubject"=${owner} AND n."removedAt" IS NULL GROUP BY n.id
           )
           SELECT count(*)::int AS "totalNotes",count(*) FILTER(WHERE indexed)::int AS "indexedNotes",
             count(*) FILTER(WHERE current_chunks>0 AND current_chunks=ready_chunks)::int AS "fullyIndexedNotes",
@@ -139,7 +139,11 @@ export function createSearchDiagnosticsRepository(db: PrismaClient) {
           ) SELECT * FROM selected ORDER BY "finalRank" NULLS LAST,"bestSimilarity" DESC NULLS LAST,id COLLATE "C"`);
           const notes = input.noteId
             ? await tx.note.findMany({
-                where: { id: input.noteId, ownerSubject: owner },
+                where: {
+                  id: input.noteId,
+                  ownerSubject: owner,
+                  removedAt: null,
+                },
                 select: { id: true, sourceRevision: true },
                 take: 1,
               })
@@ -153,7 +157,7 @@ export function createSearchDiagnosticsRepository(db: PrismaClient) {
             ${literal ? Prisma.sql`CASE WHEN ${eligible} THEN 1-(e.vector <=> ${literal}::vector) ELSE NULL END` : Prisma.sql`NULL::float8`} AS similarity
           FROM notes n JOIN note_chunks c ON c."noteId"=n.id AND c."ownerSubject"=n."ownerSubject"
           LEFT JOIN chunk_embeddings e ON e."chunkId"=c.id
-          WHERE n.id=${input.noteId} AND n."ownerSubject"=${owner} AND c."ownerSubject"=${owner}
+          WHERE n.id=${input.noteId} AND n."ownerSubject"=${owner} AND n."removedAt" IS NULL AND c."ownerSubject"=${owner}
           ORDER BY c.section,c.ordinal,e.id LIMIT 21`)
             : [];
           const [noteCounts] = notes.length
@@ -184,7 +188,7 @@ export function createSearchDiagnosticsRepository(db: PrismaClient) {
             ))::int AS "missingEmbeddings"
           FROM notes n JOIN note_chunks c ON c."noteId"=n.id AND c."ownerSubject"=n."ownerSubject"
           LEFT JOIN chunk_embeddings e ON e."chunkId"=c.id
-          WHERE n.id=${input.noteId} AND n."ownerSubject"=${owner} AND c."ownerSubject"=${owner}`)
+          WHERE n.id=${input.noteId} AND n."ownerSubject"=${owner} AND n."removedAt" IS NULL AND c."ownerSubject"=${owner}`)
             : [];
           return {
             health: health!,

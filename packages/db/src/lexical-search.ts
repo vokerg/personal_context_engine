@@ -32,6 +32,7 @@ export function createLexicalSearchRepository(db: PrismaClient) {
         FROM "notes" n,
              plainto_tsquery('simple'::regconfig, ${query}) q
         WHERE n."ownerSubject" = ${ownerSubject}
+          AND n."removedAt" IS NULL
           AND to_tsvector('simple'::regconfig,
                 concat_ws(' ', n."title", n."summary", n."body", n."originalInput")) @@ q
         ORDER BY ts_rank(to_tsvector('simple'::regconfig,

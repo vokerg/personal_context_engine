@@ -24,7 +24,11 @@ and [mobile acceptance limits](08-clients-and-notifications.md).
 
 Set `PCE_MCP_ENABLED=true` only with the explicit single-user session mode and
 `PCE_DB_SEARCH=true`. Supply `PCE_OAUTH_CLIENTS` as a JSON array of objects with
-`clientId`, `redirectUris` and allowed `scopes` (`notes:read`, `capture:write`).
+`clientId`, `redirectUris` and allowed `scopes` (`notes:read`, `notes:write`,
+`capture:write`). `notes:write` is for the authenticated HTTP workspace-removal
+and archive routes; the MCP catalog exposes no destructive or archive mutation
+tool. MCP search, `get_note` and `fetch` retain archived notes and label them
+with `status: "archived"`.
 See the synthetic example in `.env.example`. Client registration is a trusted
 operator action; arbitrary remote client metadata is not fetched and dynamic
 registration is not advertised. Do not put real credentials in a client ID.

@@ -135,6 +135,23 @@ it("fetches bounded pages, preserves page/detail/back and exposes safe original/
   expect(container.querySelector("#kind-filter")?.textContent).toContain(
     "memo (48)",
   );
+  const status = container.querySelector<HTMLSelectElement>("#status-filter")!;
+  expect([...status.options].map((option) => option.value)).toEqual([
+    "active",
+    "archived",
+    "all",
+  ]);
+  await act(async () => {
+    status.value = "archived";
+    status.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await flush();
+  expect(
+    requests
+      .filter((request) => request.pathname === "/api/v1/browse")
+      .at(-1)
+      ?.searchParams.get("status"),
+  ).toBe("archived");
   await click("Next page");
   expect(container.textContent).toContain("Page 2");
   expect(container.querySelectorAll(".note-button").length).toBe(24);

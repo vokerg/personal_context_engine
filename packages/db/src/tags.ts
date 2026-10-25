@@ -13,7 +13,10 @@ export function createTagFacetRepository(
   allowedIds?: readonly string[],
 ) {
   return {
-    async listTagsByOwner(owner: string) {
+    async listTagsByOwner(
+      owner: string,
+      status: "active" | "archived" | "all" = "active",
+    ) {
       if (allowedIds?.length === 0) return { tags: [], truncated: false };
       const snapshot = allowedIds
         ? Prisma.sql`AND n.id IN (${Prisma.join(allowedIds)})`
@@ -26,7 +29,10 @@ export function createTagFacetRepository(
           FROM notes AS n
           LEFT JOIN note_tag_overrides o ON o."noteId"=n.id AND o."ownerSubject"=n."ownerSubject"
           CROSS JOIN LATERAL unnest(${effectiveTagsSql}) AS t(slug)
-          WHERE n."ownerSubject" = ${owner} ${snapshot}
+          WHERE n."ownerSubject" = ${owner}
+            AND n."removedAt" IS NULL
+            ${status === "active" ? Prisma.sql`AND n."archivedAt" IS NULL` : status === "archived" ? Prisma.sql`AND n."archivedAt" IS NOT NULL` : Prisma.empty}
+            ${snapshot}
           GROUP BY t.slug
           ORDER BY t.slug COLLATE "C" ASC
           LIMIT ${TAG_FACET_LIMIT + 1}

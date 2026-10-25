@@ -139,20 +139,34 @@ export function createLocalReader(
 ) {
   if (browseEnabled && (!cursorSecret || Buffer.byteLength(cursorSecret) < 32))
     throw new Error("Browse signing key required");
-  const owned = (owner) => ({ ownerSubject: owner, id: { in: allowedIds } });
+  const owned = (owner) => ({
+    ownerSubject: owner,
+    id: { in: allowedIds },
+    removedAt: null,
+  });
   const preview = {
     id: true,
     title: true,
     summary: true,
     capturedAt: true,
     tags: true,
+    archivedAt: true,
   };
-  const dto = (note) => ({
+  const dto = ({ archivedAt, ...note }) => ({
     ...note,
+    status: archivedAt ? "archived" : "active",
     capturedAt: note.capturedAt.toISOString(),
   });
   const scopedFilters = (owner, filters = {}) => {
-    const where = { ...owned(owner) };
+    const status = filters.status ?? "active";
+    const where = {
+      ...owned(owner),
+      ...(status === "active"
+        ? { archivedAt: null }
+        : status === "archived"
+          ? { archivedAt: { not: null } }
+          : {}),
+    };
     if (filters.tag) where.tags = { has: filters.tag };
     if (filters.project) where.projects = { has: filters.project };
     if (filters.kind) where.kind = filters.kind;
@@ -180,7 +194,7 @@ export function createLocalReader(
               cursorSecret,
             ).pageByOwner(owner, query);
           },
-          async facetsByOwner(owner) {
+          async facetsByOwner(owner, status = "active") {
             if (owner !== subject)
               return { projects: [], kinds: [], truncated: false };
             const { createBrowseRepository } = await import("@pce/db");
@@ -188,10 +202,24 @@ export function createLocalReader(
               db,
               allowedIds,
               cursorSecret,
-            ).facetsByOwner(owner);
+            ).facetsByOwner(owner, status);
           },
         }
       : {}),
+    async removeByOwner(owner, id) {
+      if (owner !== subject || !allowedIds.includes(id)) return false;
+      const { createNoteRemovalRepository } = await import("@pce/db");
+      return createNoteRemovalRepository(db).removeByOwner(owner, id);
+    },
+    async setArchivedByOwner(owner, id, archived) {
+      if (owner !== subject || !allowedIds.includes(id)) return null;
+      const { createNoteArchiveRepository } = await import("@pce/db");
+      return createNoteArchiveRepository(db).setArchivedByOwner(
+        owner,
+        id,
+        archived,
+      );
+    },
     async listByOwner(owner, filters = {}) {
       if (owner !== subject) return [];
       return (
@@ -202,10 +230,13 @@ export function createLocalReader(
         })
       ).map(dto);
     },
-    async listTagsByOwner(owner) {
+    async listTagsByOwner(owner, status = "active") {
       if (owner !== subject) return { tags: [], truncated: false };
       const { createTagFacetRepository } = await import("@pce/db");
-      return createTagFacetRepository(db, allowedIds).listTagsByOwner(owner);
+      return createTagFacetRepository(db, allowedIds).listTagsByOwner(
+        owner,
+        status,
+      );
     },
     async getByOwner(owner, id) {
       if (owner !== subject || !allowedIds.includes(id)) return null;
@@ -235,6 +266,7 @@ export function createLocalReader(
       if (!browseEnabled) return dto(note);
       return {
         id: note.id,
+        status: note.archivedAt ? "archived" : "active",
         title: note.title,
         summary: note.summary,
         tags: note.tags,

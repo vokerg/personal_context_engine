@@ -35,7 +35,7 @@ Both clients share typed HTTP contracts and an API client, but platform-specific
 
 ## API boundary
 
-- Clients authenticate to the Fastify API. Issue #13 implements an interim one-hour HS256 JWT bearer verifier and `notes:read` scope; the final identity provider/login/token refresh mechanism is **not selected**. The shared API client accepts a per-request token provider, and the two UIs now offer a **development-only**, memory-only bearer entry for synthetic list/detail requests. Neither implements token issuance, refresh or production login; the default API still has no private note reader.
+- Clients authenticate to the Fastify API. Issue #13 implements an interim one-hour HS256 JWT bearer verifier and `notes:read` scope; the final identity provider/login/token refresh mechanism is **not selected**. The shared API client accepts a per-request token provider, and the two UIs now offer a **development-only**, memory-only bearer entry for synthetic list/detail requests. The web detail view also uses the explicit `notes:write` scope for reversible workspace removal. Neither implements token issuance, refresh or production login; the default API still has no private note reader.
 - API owns authorization, read projections and user-approved commands.
 - Clients never receive GitHub personal access tokens, `DATABASE_URL`, worker credentials, or private content repository write access.
 - Note creation through mobile will go through an authenticated API ingestion path; it must create a durable capture and maintain the same schema/provenance guarantees as ChatGPT ingestion.
@@ -117,8 +117,9 @@ dictionary. Each count is the number of distinct accessible notes tagged
 with that slug. The opt-in local reader further limits counts to note IDs in
 the current content snapshot, excluding stale/removed file records.
 
-`GET /api/v1/notes` accepts optional `tag`, `project`, `kind`, `from`
-and `to` query parameters; combined filters are conjunctive. Slugs follow
+`GET /api/v1/notes` accepts optional `tag`, `project`, `kind`, `from`, `to`
+and `status` (`active`, `archived` or `all`) query parameters; active is the
+default and combined filters are conjunctive. Slugs follow
 Markdown v1 and the date range is over inclusive **UTC** calendar days of
 `capturedAt`. Invalid values, duplicate keys and unknown fields get a
 generic 400 without echoing private inputs. A verified `notes:read` token
@@ -191,7 +192,8 @@ ChatGPT repository search is unchanged. This is bounded literal substring
 browsing, not #48's indexed lexical/hybrid retrieval or a production search cutover.
 
 The authenticated `GET /api/v1/browse` route accepts optional `q` (trimmed,
-1–256 characters), `tag`, `project`, `kind`, `start`, `end` and `cursor`.
+1–256 characters), `tag`, `project`, `kind`, `start`, `end`, `cursor` and
+`status` (`active`, `archived` or `all`; active is the default).
 It returns at most **24** previews, each with a 320-code-point summary excerpt,
 and a nullable `nextCursor`. `start` is inclusive and `end` exclusive; both are
 offset-bearing instants. The web converts viewer-local date inputs to local
@@ -214,8 +216,9 @@ clear cursors. Detail/Back and browser history preserve page/filter context in
 memory; refresh restarts at page one. Reconciliation polling keeps ingestion status fresh; tag and project/kind
 metadata refresh hourly. Press Refresh notes to reload notes and metadata immediately.
 
-`GET /api/v1/browse/facets` returns observed owner/snapshot-scoped project and
-kind counts, independent of current filters. Project suggestions cap at 200
+`GET /api/v1/browse/facets` accepts the same status selection and returns
+observed owner/snapshot-scoped project and kind counts for that selection.
+Project suggestions cap at 200
 with `truncated`; additional valid project slugs can still be typed. Kind
 options include counts. Tag facets keep the existing observed-tag contract.
 Facet failures can be retried independently. No curated tags or normalization
@@ -295,3 +298,23 @@ retains loaded chips and controls without loading placeholders or animation;
 transient failures retain the last successful metadata with a retry message.
 Clearing the session clears metadata and stops its refresh timer. The detail
 Back button has explicit spacing before the captured-note label.
+
+## Reversible note removal (#120)
+
+The authenticated web detail view exposes an explicit Remove note action. It
+requires a second confirmation and a verified `notes:write` capability; the
+browser never sends an owner identifier or note body. Successful removal
+navigates back to the timeline and removes the note from normal list, detail,
+search, facet and tag views. The operation is a workspace hide, not a GitHub
+delete or an erasure guarantee: PostgreSQL retains the original, provenance,
+source revision and capture for recovery/audit. Repeated removal and foreign
+owner IDs return the same generic not-found behavior. There is no restore UI in
+this slice; restore requires a separately authorized recovery operation.
+
+The same detail view has a reversible Archive note / Unarchive note action.
+`PATCH /api/v1/notes/:id/archive` accepts `{ "archived": true|false }` with
+`notes:write`; it never changes the original or removal state. Archived notes
+remain in API and MCP detail/search results with `status: "archived"`. The web
+timeline defaults to active notes and exposes an Active notes / Archived notes /
+Active and archived status dropdown; browse, facets and tag counts follow the
+selected status.

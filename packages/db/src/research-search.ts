@@ -38,11 +38,12 @@ export function createResearchSearchRepository(db: PrismaClient) {
         await tx.$queryRaw`SELECT set_config('statement_timeout','2000',true)`;
         return tx.$queryRaw<SearchRow[]>(Prisma.sql`
      WITH filtered AS NOT MATERIALIZED (
-      SELECT r.*,n.tags,n.projects,n.kind,${effectiveTagsSql} AS "effectiveTags",
+      SELECT r.*,n.tags,n.projects,n.kind,n."archivedAt" AS "archivedAt",${effectiveTagsSql} AS "effectiveTags",
        r.artifact->>'findings' AS findings
       FROM research_reports r JOIN notes n ON n.id=r."parentNoteId" AND n."ownerSubject"=r."ownerSubject"
       LEFT JOIN note_tag_overrides o ON o."noteId"=n.id AND o."ownerSubject"=n."ownerSubject"
-      WHERE r."ownerSubject"=${owner}
+      WHERE r."ownerSubject"=${owner} AND n."removedAt" IS NULL
+       ${input.status === "active" ? Prisma.sql`AND n."archivedAt" IS NULL` : input.status === "archived" ? Prisma.sql`AND n."archivedAt" IS NOT NULL` : Prisma.empty}
        ${input.tags?.length ? Prisma.sql`AND ${effectiveTagsSql} @> ${input.tags}::text[]` : Prisma.empty}
        ${input.project ? Prisma.sql`AND ${input.project}=ANY(n.projects)` : Prisma.empty}
        ${input.kind ? Prisma.sql`AND n.kind=${input.kind}` : Prisma.empty}
@@ -70,7 +71,9 @@ export function createResearchSearchRepository(db: PrismaClient) {
      ranked AS (SELECT coalesce(l.id,s.id) AS id,l.id IS NOT NULL AS lexical,s.id IS NOT NULL AS semantic,
       coalesce(1.0/(60+l.rank),0)+coalesce(1.0/(60+s.rank),0) AS score FROM lexical l FULL JOIN semantic s ON l.id=s.id)
      SELECT f.id,f.title,left(f.findings,240) AS snippet,f."researchedAt" AS "capturedAt",f."sourceRevision",
-       f.origin AS channel,f."effectiveTags" AS tags,f.projects,f.kind,r.lexical,r.semantic,
+       f.origin AS channel,f."effectiveTags" AS tags,f.projects,f.kind,
+       CASE WHEN f."archivedAt" IS NULL THEN 'active' ELSE 'archived' END AS status,
+       r.lexical,r.semantic,
        'research' AS "contentType",f."parentNoteId",r.score::double precision AS score
      FROM ranked r JOIN filtered f ON f.id=r.id ORDER BY r.score DESC,f."researchedAt" DESC,f.id LIMIT 201`);
       });

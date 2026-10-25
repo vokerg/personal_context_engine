@@ -140,6 +140,8 @@ test("reader scopes SQL by owner and current checkout IDs", async () => {
   assert.deepEqual(calls[2].where, {
     ownerSubject: "local-developer",
     id: { in: ["known"] },
+    removedAt: null,
+    archivedAt: null,
     tags: { has: "focus" },
     projects: { has: "demo" },
     kind: "memo",
@@ -151,10 +153,13 @@ test("reader scopes SQL by owner and current checkout IDs", async () => {
   assert.deepEqual(calls[0].where, {
     ownerSubject: "local-developer",
     id: { in: ["known"] },
+    removedAt: null,
+    archivedAt: null,
   });
   assert.deepEqual(calls[1].where, {
     ownerSubject: "local-developer",
     id: "known",
+    removedAt: null,
   });
 });
 
@@ -583,4 +588,124 @@ test("local database browsing stays off by default and requires an ephemeral ser
     }).pageByOwner,
     "function",
   );
+});
+
+test("local note actions register routes and retain owner, snapshot and removal boundaries", async () => {
+  const id = "00000000-0000-4000-8000-000000000120";
+  const updates = [];
+  let removed = false;
+  const db = {
+    note: {
+      updateMany: async (query) => {
+        updates.push(query);
+        if (removed) return { count: 0 };
+        if (query.data.removedAt) removed = true;
+        return { count: 1 };
+      },
+      findFirst: async ({ where }) => {
+        assert.equal(where.ownerSubject, "local-developer");
+        assert.equal(where.removedAt, null);
+        return removed ? null : { archivedAt: null };
+      },
+    },
+  };
+  const reader = createLocalReader(db, [id]);
+  assert.equal(await reader.removeByOwner("foreign", id), false);
+  assert.equal(await reader.removeByOwner("local-developer", "unknown"), false);
+  assert.equal(await reader.setArchivedByOwner("foreign", id, true), null);
+  assert.equal(
+    await reader.setArchivedByOwner("local-developer", "unknown", true),
+    null,
+  );
+  assert.equal(updates.length, 0);
+  assert.equal(
+    await reader.setArchivedByOwner("local-developer", id, true),
+    "archived",
+  );
+  assert.equal(await reader.removeByOwner("local-developer", id), true);
+  assert.equal(await reader.removeByOwner("local-developer", id), false);
+  assert.equal(
+    await reader.setArchivedByOwner("local-developer", id, false),
+    null,
+  );
+  assert.equal(await reader.getByOwner("local-developer", id), null);
+  for (const query of updates) {
+    assert.equal(query.where.id, id);
+    assert.equal(query.where.ownerSubject, "local-developer");
+    assert.equal(query.where.removedAt, null);
+  }
+  const { createApp } = await import("../apps/api/dist/app.js");
+  const app = createApp({
+    config: {
+      host: "127.0.0.1",
+      port: 3110,
+      environment: "development",
+      corsOrigin: null,
+      requiresDatabase: false,
+      auth: {
+        issuer: "pce-local-development",
+        audience: "pce-api",
+        secret: "a".repeat(64),
+      },
+    },
+    dependencies: { notes: reader },
+  });
+  try {
+    // Missing adapter methods previously left these routes unregistered (404).
+    assert.equal(
+      (await app.inject({ method: "DELETE", url: `/api/v1/notes/${id}` }))
+        .statusCode,
+      401,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: "PATCH",
+          url: `/api/v1/notes/${id}/archive`,
+          payload: { archived: true },
+        })
+      ).statusCode,
+      401,
+    );
+  } finally {
+    await app.close();
+  }
+});
+
+test("local list and detail hide removed notes and preserve archive status", async () => {
+  const calls = [];
+  const note = {
+    id: "known",
+    title: "Synthetic",
+    summary: "",
+    tags: [],
+    capturedAt: new Date(),
+    archivedAt: new Date(),
+  };
+  const db = {
+    note: {
+      findMany: async (query) => {
+        calls.push(query);
+        return [note];
+      },
+      findFirst: async (query) => {
+        calls.push(query);
+        return { ...note, body: "Synthetic body" };
+      },
+    },
+  };
+  const reader = createLocalReader(db, ["known"]);
+  assert.equal(
+    (await reader.listByOwner("local-developer", { status: "archived" }))[0]
+      .status,
+    "archived",
+  );
+  assert.deepEqual(calls[0].where.archivedAt, { not: null });
+  await reader.listByOwner("local-developer", { status: "all" });
+  assert.equal(Object.hasOwn(calls[1].where, "archivedAt"), false);
+  assert.equal(
+    (await reader.getByOwner("local-developer", "known")).status,
+    "archived",
+  );
+  for (const query of calls) assert.equal(query.where.removedAt, null);
 });

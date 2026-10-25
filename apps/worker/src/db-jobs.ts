@@ -17,6 +17,9 @@ export async function runDbJobPass(
   const report = { prepared: 0, retried: 0, failed: 0 };
   for (let i = 0; i < 16; i++) {
     const job = await db.$transaction(async (tx) => {
+      await tx.$executeRaw`UPDATE "db_processing_jobs" j SET "status"='FAILED',"leaseOwner"=NULL,"leaseUntil"=NULL,"lastErrorCode"='NOTE_REMOVED'
+    FROM "notes" n WHERE j."noteId"=n."id" AND j."ownerSubject"=${ownerSubject} AND n."ownerSubject"=${ownerSubject}
+    AND n."removedAt" IS NOT NULL AND j."status" IN ('PENDING','RETRY','LEASED')`;
       await tx.$executeRaw`UPDATE "db_processing_jobs" j SET "status"='FAILED',"leaseOwner"=NULL,"leaseUntil"=NULL,"lastErrorCode"='SOURCE_CHANGED'
     FROM "notes" n WHERE j."noteId"=n."id" AND j."ownerSubject"=${ownerSubject} AND n."ownerSubject"=${ownerSubject}
     AND j."sourceRevision"<>n."sourceRevision" AND j."status" IN ('PENDING','RETRY','LEASED')`;
@@ -37,7 +40,7 @@ export async function runDbJobPass(
       const [row] = await tx.$queryRaw<
         Array<{ id: string; noteId: string; attemptCount: number }>
       >`SELECT j."id",j."noteId",j."attemptCount" FROM "db_processing_jobs" j
-    INNER JOIN "notes" n ON n."id"=j."noteId" AND n."ownerSubject"=j."ownerSubject" AND n."sourceRevision"=j."sourceRevision"
+    INNER JOIN "notes" n ON n."id"=j."noteId" AND n."ownerSubject"=j."ownerSubject" AND n."sourceRevision"=j."sourceRevision" AND n."removedAt" IS NULL
     WHERE j."ownerSubject"=${ownerSubject} AND j."attemptCount"<6 AND (j."status"='PENDING' OR (j."status"='RETRY' AND j."nextRetryAt"<=${now}) OR (j."status"='LEASED' AND j."leaseUntil"<=${now}))
     ORDER BY j."createdAt",j."id" LIMIT 1 FOR UPDATE OF j SKIP LOCKED`;
       if (!row) return null;

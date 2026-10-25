@@ -1,6 +1,8 @@
 import {
   createBrowseRepository,
   createSearchRepository,
+  createNoteRemovalRepository,
+  createNoteArchiveRepository,
   createTagFacetRepository,
   type PrismaClient,
 } from "@pce/db";
@@ -22,18 +24,24 @@ export function createDatabaseNoteReader(
   const browse = createBrowseRepository(db, undefined, cursorSecret);
   const tags = createTagFacetRepository(db);
   const sources = createSearchRepository(db);
+  const removal = createNoteRemovalRepository(db);
+  const archive = createNoteArchiveRepository(db);
   const pageByOwner = async (owner: string, query: BrowseQuery) =>
     BrowsePageSchema.parse(await browse.pageByOwner(owner, query));
   return {
     pageByOwner,
-    async facetsByOwner(owner) {
-      return BrowseFacetsSchema.parse(await browse.facetsByOwner(owner));
+    async facetsByOwner(owner, status = "active") {
+      return BrowseFacetsSchema.parse(
+        await browse.facetsByOwner(owner, status),
+      );
     },
     listTagsByOwner: tags.listTagsByOwner,
     async getByOwner(owner, id) {
       const note = await sources.getByOwner(owner, id);
       return note ? NoteDetailSchema.parse(note) : null;
     },
+    removeByOwner: removal.removeByOwner,
+    setArchivedByOwner: archive.setArchivedByOwner,
     async listByOwner(owner, raw = {}) {
       const { from, to, ...filters } = NotesQuerySchema.parse(raw);
       const end = to ? new Date(to + "T00:00:00.000Z") : undefined;

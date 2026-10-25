@@ -61,8 +61,8 @@ describe("device-local day and server predicates", () => {
       kind: "memo",
       tag: "approved",
     });
-    expect(browse.start).toMatch(/^2026-10-20T/);
-    expect(browse.end).toMatch(/^2026-10-22T/);
+    expect(browse.start).toBe(new Date(2026, 9, 20).toISOString());
+    expect(browse.end).toBe(new Date(2026, 9, 22).toISOString());
     const search = searchQuery(filter, "   home connection  ", "valid_CURSOR");
     expect(search).toMatchObject({
       query: "home connection",

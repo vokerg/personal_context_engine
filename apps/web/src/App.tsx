@@ -12,6 +12,8 @@ import {
   approveTag,
   unapproveTag,
   changeNoteTag,
+  removeNote,
+  setNoteArchived,
   type TagRegistryResponse,
   getBrowsePage,
   getBrowseFacets,
@@ -150,6 +152,11 @@ export function App({
   const [tagDraft, setTagDraft] = useState("");
   const [tagEditBusy, setTagEditBusy] = useState(false);
   const [tagEditError, setTagEditError] = useState("");
+  const [removeConfirm, setRemoveConfirm] = useState(false);
+  const [removeBusy, setRemoveBusy] = useState(false);
+  const [removeError, setRemoveError] = useState("");
+  const [archiveBusy, setArchiveBusy] = useState(false);
+  const [archiveError, setArchiveError] = useState("");
   const registrySlugs = useMemo(
     () => new Set(registry?.approved.map((tag) => tag.slug) ?? []),
     [registry],
@@ -215,6 +222,7 @@ export function App({
       filters.tag,
       filters.project,
       filters.kind,
+      filters.status,
       browseEnabled ? filters.from : "",
       browseEnabled ? filters.to : "",
     ],
@@ -237,7 +245,10 @@ export function App({
   const dateRangeInvalid = Boolean(
     filters.from && filters.to && filters.from > filters.to,
   );
-  const hasFilters = Object.values(filters).some(Boolean);
+  const hasFilters = Object.entries(filters).some(
+    ([key, value]) =>
+      Boolean(value) && (key !== "status" || value !== "active"),
+  );
 
   function navigate(
     next: BrowseFilters,
@@ -305,6 +316,11 @@ export function App({
     setTagEditBusy(false);
     setTagEditError("");
     setTagDraft("");
+    setRemoveConfirm(false);
+    setRemoveBusy(false);
+    setRemoveError("");
+    setArchiveBusy(false);
+    setArchiveError("");
     if (sessionAuthentication) {
       const csrf =
         document.cookie
@@ -566,6 +582,7 @@ export function App({
             ...(filters.kind
               ? { kind: filters.kind as SearchRequest["kind"] }
               : {}),
+            status: filters.status,
             ...((apiFilters as { start?: string }).start
               ? { start: (apiFilters as { start: string }).start }
               : {}),
@@ -600,6 +617,7 @@ export function App({
                   summary: r.snippet || r.title,
                   tags: r.tags,
                   capturedAt: r.capturedAt,
+                  status: r.status,
                 }))
                 .filter(
                   (n, index, all) =>
@@ -613,7 +631,10 @@ export function App({
               ...apiFilters,
               ...(browseCursor ? { cursor: browseCursor } : {}),
             })
-          : getNotes(requestOptions, apiFilters);
+          : getNotes(
+              requestOptions,
+              apiFilters as Parameters<typeof getNotes>[1],
+            );
     request
       .then((result) => {
         if (!active) return;
@@ -673,18 +694,21 @@ export function App({
     const controller = new AbortController();
     setFacetsError("");
     setFacetsState((current) => (current === "ready" ? "ready" : "loading"));
-    getBrowseFacets({
-      baseUrl,
-      getAccessToken: () => token,
-      useSessionCookie: sessionAuthentication,
-      getCsrfToken: () =>
-        document.cookie
-          .split("; ")
-          .find((v) => v.startsWith("pce_csrf="))
-          ?.slice(9) ?? "",
-      signal: controller.signal,
-      timeoutMs: 12000,
-    })
+    getBrowseFacets(
+      {
+        baseUrl,
+        getAccessToken: () => token,
+        useSessionCookie: sessionAuthentication,
+        getCsrfToken: () =>
+          document.cookie
+            .split("; ")
+            .find((v) => v.startsWith("pce_csrf="))
+            ?.slice(9) ?? "",
+        signal: controller.signal,
+        timeoutMs: 12000,
+      },
+      filters.status,
+    )
       .then((result) => {
         if (active) {
           setFacets(result);
@@ -713,6 +737,7 @@ export function App({
     reloadCount,
     facetAttempt,
     metadataRefresh,
+    filters.status,
   ]);
 
   useEffect(() => {
@@ -721,18 +746,21 @@ export function App({
     const controller = new AbortController();
     setTagsState((current) => (current === "ready" ? "ready" : "loading"));
     setTagsError("");
-    getTags({
-      baseUrl,
-      getAccessToken: () => token,
-      useSessionCookie: sessionAuthentication,
-      getCsrfToken: () =>
-        document.cookie
-          .split("; ")
-          .find((v) => v.startsWith("pce_csrf="))
-          ?.slice(9) ?? "",
-      signal: controller.signal,
-      timeoutMs: 12000,
-    })
+    getTags(
+      {
+        baseUrl,
+        getAccessToken: () => token,
+        useSessionCookie: sessionAuthentication,
+        getCsrfToken: () =>
+          document.cookie
+            .split("; ")
+            .find((v) => v.startsWith("pce_csrf="))
+            ?.slice(9) ?? "",
+        signal: controller.signal,
+        timeoutMs: 12000,
+      },
+      filters.status,
+    )
       .then((result) => {
         if (!active) return;
         setTags(result);
@@ -751,7 +779,14 @@ export function App({
       active = false;
       controller.abort();
     };
-  }, [baseUrl, token, tagAttempt, reloadCount, metadataRefresh]);
+  }, [
+    baseUrl,
+    token,
+    tagAttempt,
+    reloadCount,
+    metadataRefresh,
+    filters.status,
+  ]);
 
   useEffect(() => {
     if (!token) return;
@@ -841,6 +876,11 @@ export function App({
     setTagDraft("");
     setTagEditError("");
     setTagEditBusy(false);
+    setRemoveConfirm(false);
+    setRemoveBusy(false);
+    setRemoveError("");
+    setArchiveBusy(false);
+    setArchiveError("");
   }, [selectedId]);
 
   async function editNoteTag(operation: "add" | "remove", slug: string) {
@@ -898,6 +938,100 @@ export function App({
       }
     } finally {
       if (epoch === editEpoch.current) setTagEditBusy(false);
+    }
+  }
+
+  async function removeSelectedNote() {
+    if (!token || !detail || removeBusy) return;
+    const epoch = editEpoch.current;
+    const id = detail.id;
+    setRemoveBusy(true);
+    setRemoveError("");
+    try {
+      await removeNote(
+        {
+          baseUrl,
+          getAccessToken: () => token,
+          useSessionCookie: sessionAuthentication,
+          getCsrfToken: () =>
+            document.cookie
+              .split("; ")
+              .find((v) => v.startsWith("pce_csrf="))
+              ?.slice(9) ?? "",
+          timeoutMs: 12000,
+        },
+        id,
+      );
+      if (epoch !== editEpoch.current) return;
+      setNotes((current) => current.filter((note) => note.id !== id));
+      setDetail(null);
+      setRemoveConfirm(false);
+      setReloadCount((n) => n + 1);
+      navigateToNote(null);
+      setNotice("Note removed from this workspace.");
+    } catch (error) {
+      if (epoch !== editEpoch.current) return;
+      if (error instanceof ApiRequestError && error.status === 401) {
+        signOut(describeNotesError(error));
+      } else if (error instanceof ApiRequestError && error.status === 403) {
+        setRemoveError("This session is missing notes:write access.");
+      } else if (error instanceof ApiRequestError && error.status === 404) {
+        setRemoveError("This note is unavailable.");
+      } else {
+        setRemoveError(describeNotesError(error, true));
+      }
+    } finally {
+      if (epoch === editEpoch.current) setRemoveBusy(false);
+    }
+  }
+
+  async function setSelectedNoteArchived(archived: boolean) {
+    if (!token || !detail || archiveBusy) return;
+    const epoch = editEpoch.current;
+    const id = detail.id;
+    setArchiveBusy(true);
+    setArchiveError("");
+    try {
+      const result = await setNoteArchived(
+        {
+          baseUrl,
+          getAccessToken: () => token,
+          useSessionCookie: sessionAuthentication,
+          getCsrfToken: () =>
+            document.cookie
+              .split("; ")
+              .find((v) => v.startsWith("pce_csrf="))
+              ?.slice(9) ?? "",
+          timeoutMs: 12000,
+        },
+        id,
+        archived,
+      );
+      if (epoch !== editEpoch.current) return;
+      setDetail((current) =>
+        current?.id === id ? { ...current, status: result.status } : current,
+      );
+      setNotes((current) =>
+        current.map((note) =>
+          note.id === id ? { ...note, status: result.status } : note,
+        ),
+      );
+      setReloadCount((n) => n + 1);
+      setNotice(archived ? "Note archived." : "Note restored to active notes.");
+      if (archived && filters.status === "active") navigateToNote(null);
+    } catch (error) {
+      if (epoch !== editEpoch.current) return;
+      if (error instanceof ApiRequestError && error.status === 401) {
+        signOut(describeNotesError(error));
+      } else if (error instanceof ApiRequestError && error.status === 403) {
+        setArchiveError("This session is missing notes:write access.");
+      } else if (error instanceof ApiRequestError && error.status === 404) {
+        setArchiveError("This note is unavailable.");
+      } else {
+        setArchiveError(describeNotesError(error, true));
+      }
+    } finally {
+      if (epoch === editEpoch.current) setArchiveBusy(false);
     }
   }
 
@@ -1227,6 +1361,22 @@ export function App({
                     )}
                 </select>
               </div>
+              <div className="filter-field filter-date">
+                <label htmlFor="status-filter">Notes</label>
+                <select
+                  id="status-filter"
+                  value={filters.status}
+                  onChange={(event) =>
+                    changeFilter({
+                      status: event.target.value as BrowseFilters["status"],
+                    })
+                  }
+                >
+                  <option value="active">Active notes</option>
+                  <option value="archived">Archived notes</option>
+                  <option value="all">Active and archived</option>
+                </select>
+              </div>
               <div className="filter-actions">
                 <button
                   className="ghost"
@@ -1362,8 +1512,8 @@ export function App({
               </button>
               <p className="share-hint">
                 {sharedFilters
-                  ? "Tag, project, kind and dates are in the address. Copy it to share; access still requires a session."
-                  : "Sharing adds tag, project, kind and dates to the address. Search text stays in memory."}
+                  ? "Tag, project, kind, status and dates are in the address. Copy it to share; access still requires a session."
+                  : "Sharing adds tag, project, kind, status and dates to the address. Search text stays in memory."}
               </p>
             </section>
 
@@ -1443,7 +1593,14 @@ export function App({
                               aria-label={`Open note: ${note.title}`}
                               onClick={() => navigateToNote(note.id)}
                             >
-                              <span className="note-title">{note.title}</span>
+                              <span className="note-title">
+                                {note.title}
+                                {note.status === "archived" && (
+                                  <span className="status-badge status-archived note-status">
+                                    Archived
+                                  </span>
+                                )}
+                              </span>
                               <span className="note-excerpt">
                                 {note.summary}
                               </span>
@@ -1596,8 +1753,96 @@ export function App({
                   </div>
                 )}
                 {detailState === "ready" && detail?.id === selectedId && (
+                  <div className="detail-actions">
+                    <span
+                      className={`status-badge status-${detail.status}`}
+                      aria-label={`Note status: ${detail.status}`}
+                    >
+                      {detail.status === "archived" ? "Archived" : "Active"}
+                    </span>
+                    <button
+                      className="ghost"
+                      type="button"
+                      onClick={() =>
+                        void setSelectedNoteArchived(
+                          detail.status !== "archived",
+                        )
+                      }
+                      disabled={archiveBusy || removeBusy || removeConfirm}
+                    >
+                      {archiveBusy
+                        ? detail.status === "archived"
+                          ? "Restoring…"
+                          : "Archiving…"
+                        : detail.status === "archived"
+                          ? "Unarchive note"
+                          : "Archive note"}
+                    </button>
+                    {!removeConfirm ? (
+                      <button
+                        className="danger"
+                        type="button"
+                        aria-label="Remove note"
+                        onClick={() => {
+                          setRemoveError("");
+                          setRemoveConfirm(true);
+                        }}
+                        disabled={removeBusy || archiveBusy}
+                      >
+                        Remove note
+                      </button>
+                    ) : (
+                      <div
+                        className="remove-confirm"
+                        role="group"
+                        aria-label="Confirm note removal"
+                      >
+                        <p>
+                          Remove this note from the workspace? Its original
+                          source and provenance will be preserved.
+                        </p>
+                        <div className="actions">
+                          <button
+                            className="ghost"
+                            type="button"
+                            onClick={() => {
+                              setRemoveConfirm(false);
+                              setRemoveError("");
+                            }}
+                            disabled={removeBusy}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            className="danger"
+                            type="button"
+                            aria-label="Confirm remove note"
+                            onClick={() => void removeSelectedNote()}
+                            disabled={removeBusy}
+                          >
+                            {removeBusy ? "Removing…" : "Remove note"}
+                          </button>
+                        </div>
+                        {removeError && (
+                          <p className="error" role="alert">
+                            {removeError}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {archiveError && (
+                      <p className="error" role="alert">
+                        {archiveError}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {detailState === "ready" && detail?.id === selectedId && (
                   <article>
-                    <p className="eyebrow">Captured note</p>
+                    <p className="eyebrow">
+                      Captured note
+                      {detail.status === "archived" ? " · archived" : ""}
+                    </p>
                     <h2
                       className="detail-title"
                       ref={detailHeading}

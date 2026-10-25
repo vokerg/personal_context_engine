@@ -11,6 +11,7 @@ export interface BrowseQuery {
   start?: string | undefined;
   end?: string | undefined;
   cursor?: string | undefined;
+  status?: "active" | "archived" | "all" | undefined;
 }
 export class BrowseCursorError extends Error {
   constructor() {
@@ -32,13 +33,17 @@ export function createBrowseRepository(
   const scope = (
     owner: string,
     ids: readonly string[] | undefined,
+    status: "active" | "archived" | "all",
   ) => Prisma.sql`
     n."ownerSubject" = ${owner}
+    AND n."removedAt" IS NULL
+    ${status === "active" ? Prisma.sql`AND n."archivedAt" IS NULL` : status === "archived" ? Prisma.sql`AND n."archivedAt" IS NOT NULL` : Prisma.empty}
     ${ids ? Prisma.sql`AND n.id = ANY(${[...ids]}::text[])` : Prisma.empty}`;
   return {
     async pageByOwner(owner: string, query: BrowseQuery = {}) {
       const ids = allowedIds ? [...allowedIds].sort() : undefined;
       const { cursor, ...filters } = query;
+      const status = filters.status ?? "active";
       const fingerprint = createHash("sha256")
         .update(
           JSON.stringify([
@@ -50,6 +55,7 @@ export function createBrowseRepository(
             filters.kind ?? "",
             filters.start ?? "",
             filters.end ?? "",
+            status,
           ]),
         )
         .digest("hex");
@@ -98,11 +104,13 @@ export function createBrowseRepository(
           summary: string;
           tags: string[];
           capturedAt: Date;
+          status: "active" | "archived";
         }>
       >(Prisma.sql`
-        SELECT n.id, n.title, left(n.summary, 320) AS summary, ${effectiveTagsSql} AS tags, n."capturedAt"
+        SELECT n.id, n.title, left(n.summary, 320) AS summary, ${effectiveTagsSql} AS tags, n."capturedAt",
+          CASE WHEN n."archivedAt" IS NULL THEN 'active' ELSE 'archived' END AS status
         FROM notes n LEFT JOIN note_tag_overrides o ON o."noteId"=n.id AND o."ownerSubject"=n."ownerSubject"
-        WHERE ${scope(owner, ids)}
+        WHERE ${scope(owner, ids, status)}
         ${filters.tag ? Prisma.sql`AND ${filters.tag} = ANY(${effectiveTagsSql})` : Prisma.empty}
         ${filters.project ? Prisma.sql`AND ${filters.project} = ANY(n.projects)` : Prisma.empty}
         ${filters.kind ? Prisma.sql`AND n.kind = ${filters.kind}` : Prisma.empty}
@@ -129,7 +137,10 @@ export function createBrowseRepository(
             : null,
       };
     },
-    async facetsByOwner(owner: string) {
+    async facetsByOwner(
+      owner: string,
+      status: "active" | "archived" | "all" = "active",
+    ) {
       const ids = allowedIds ? [...allowedIds] : undefined;
       if (ids?.length === 0)
         return { projects: [], kinds: [], truncated: false };
@@ -137,11 +148,11 @@ export function createBrowseRepository(
         db.$queryRaw<Array<{ slug: string; count: bigint }>>(Prisma.sql`
           SELECT p.slug, count(DISTINCT n.id)::bigint AS count
           FROM notes n CROSS JOIN LATERAL unnest(n.projects) p(slug)
-          WHERE ${scope(owner, ids)} GROUP BY p.slug
+          WHERE ${scope(owner, ids, status)} GROUP BY p.slug
           ORDER BY p.slug COLLATE "C" ASC LIMIT 201`),
         db.$queryRaw<Array<{ slug: string; count: bigint }>>(Prisma.sql`
           SELECT n.kind AS slug, count(*)::bigint AS count FROM notes n
-          WHERE ${scope(owner, ids)} GROUP BY n.kind ORDER BY n.kind COLLATE "C" ASC LIMIT 7`),
+          WHERE ${scope(owner, ids, status)} GROUP BY n.kind ORDER BY n.kind COLLATE "C" ASC LIMIT 7`),
       ]);
       const dto = (rows: Array<{ slug: string; count: bigint }>) =>
         rows.map((r) => ({ slug: r.slug, count: Number(r.count) }));

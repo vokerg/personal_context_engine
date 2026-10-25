@@ -1,8 +1,10 @@
 import {
   BrowseQuerySchema,
+  BrowseStatusQuerySchema,
   type BrowseQuery,
   NotesQuerySchema,
   type NotesQuery,
+  type BrowseStatus,
 } from "@pce/api-client";
 import type { TimelineFilters } from "./timeline.js";
 
@@ -10,6 +12,7 @@ export type BrowseFilters = TimelineFilters & {
   tag: string;
   project: string;
   kind: NonNullable<NotesQuery["kind"]> | "";
+  status: BrowseStatus;
 };
 export const emptyFilters: BrowseFilters = {
   query: "",
@@ -18,6 +21,7 @@ export const emptyFilters: BrowseFilters = {
   tag: "",
   project: "",
   kind: "",
+  status: "active",
 };
 export const noteKinds = [
   "idea",
@@ -33,6 +37,7 @@ export const filterParameters = [
   "kind",
   "from",
   "to",
+  "status",
 ] as const;
 
 /** Local dates stay in filterTimeline; API day boundaries are UTC. */
@@ -41,6 +46,7 @@ export function serverFilters(filters: BrowseFilters): NotesQuery | null {
     ...(filters.tag ? { tag: filters.tag } : {}),
     ...(filters.project ? { project: filters.project } : {}),
     ...(filters.kind ? { kind: filters.kind } : {}),
+    ...(filters.status !== "active" ? { status: filters.status } : {}),
   });
   return result.success ? result.data : null;
 }
@@ -52,13 +58,20 @@ export function readBrowseUrl(url: URL): BrowseFilters {
       return value ? [[key, value]] : [];
     }),
   );
-  const parsed = NotesQuerySchema.safeParse(candidate);
-  if (!parsed.success) return { ...emptyFilters };
+  const legacyCandidate = Object.fromEntries(
+    Object.entries(candidate).filter(([key]) => key !== "status"),
+  );
+  const parsed = NotesQuerySchema.safeParse(legacyCandidate);
+  const parsedStatus = BrowseStatusQuerySchema.safeParse(
+    candidate.status ? { status: candidate.status } : {},
+  );
+  if (!parsed.success || !parsedStatus.success) return { ...emptyFilters };
   return {
     query: "",
     tag: parsed.data.tag ?? "",
     project: parsed.data.project ?? "",
     kind: parsed.data.kind ?? "",
+    status: parsedStatus.data.status ?? "active",
     from: parsed.data.from ?? "",
     to: parsed.data.to ?? "",
   };
@@ -73,7 +86,9 @@ export function writeBrowseUrl(
   const next = new URL(url);
   for (const key of filterParameters) {
     next.searchParams.delete(key);
-    if (include && filters[key]) next.searchParams.set(key, filters[key]);
+    const value =
+      key === "status" && filters.status === "active" ? "" : filters[key];
+    if (include && value) next.searchParams.set(key, value);
   }
   return next;
 }
@@ -96,6 +111,7 @@ export function pagedFilters(filters: BrowseFilters): BrowseQuery | null {
     ...(filters.tag ? { tag: filters.tag } : {}),
     ...(filters.project ? { project: filters.project } : {}),
     ...(filters.kind ? { kind: filters.kind } : {}),
+    ...(filters.status !== "active" ? { status: filters.status } : {}),
     ...(start ? { start: start.toISOString() } : {}),
     ...(end ? { end: end.toISOString() } : {}),
   });

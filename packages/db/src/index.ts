@@ -13,6 +13,8 @@ export {
   effectiveTagsSql,
   NoteTagConflictError,
 } from "./note-tags.js";
+export { createNoteRemovalRepository } from "./note-removal.js";
+export { createNoteArchiveRepository } from "./note-archive.js";
 export {
   createTagRegistryRepository,
   APPROVED_TAG_LIMIT,
