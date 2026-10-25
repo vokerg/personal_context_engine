@@ -229,7 +229,15 @@ export function createApp(options: ApiOptions = {}) {
     const { mcp, search, capture } = options.dependencies;
     if (!sessionAuth || !search || !capture)
       throw new Error("MCP requires sessions, search and durable capture");
-    registerMcp(app, mcp, sessionAuth, search, capture);
+    registerMcp(
+      app,
+      mcp,
+      sessionAuth,
+      search,
+      capture,
+      options.dependencies.tasks,
+      options.dependencies.taskBatches,
+    );
   }
 
   app.decorateRequest("authenticatedPrincipal", null);

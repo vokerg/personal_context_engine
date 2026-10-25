@@ -12,6 +12,7 @@ describe("typed Task transport", () => {
     );
     const options = { baseUrl: "https://api.example", getAccessToken, request };
     expect(() => createTask(options, { taskId, title: " " })).toThrow();
+    expect(() => getTasks(options, { q: "a".repeat(501) })).toThrow();
     expect(getAccessToken).not.toHaveBeenCalled();
     await expect(
       changeTask(options, taskId, {
@@ -43,4 +44,15 @@ describe("typed Task transport", () => {
       ),
     ).resolves.toEqual({ tasks: [], nextCursor: null });
   });
+});
+
+it("encodes task-only queries without exposing them in transport errors", async () => {
+  const request = vi.fn(async (url: RequestInfo | URL) => {
+    expect(new URL(String(url)).searchParams.get("q")).toBe("купить фильтр");
+    return new Response(JSON.stringify({ tasks: [], nextCursor: null }));
+  });
+  await getTasks(
+    { baseUrl: "https://api.example", getAccessToken: () => "fake", request },
+    { q: "купить фильтр", status: "ALL" },
+  );
 });

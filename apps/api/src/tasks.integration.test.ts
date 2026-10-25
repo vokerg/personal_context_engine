@@ -274,6 +274,25 @@ describe.skipIf(!process.env.PCE_DB_TEST_URL)(
           .statusCode,
       ).toBe(400);
     });
+    it("exposes task-only search through the same bounded HTTP surface", async () => {
+      const token = await grant("tasks:read");
+      const response = await app.inject({
+        url: "/api/v1/tasks?q=HTTP&status=ALL",
+        headers: token,
+      });
+      expect(response.statusCode).toBe(200);
+      expect(
+        response.json().tasks.map((t: { taskId: string }) => t.taskId),
+      ).toContain(taskId);
+      expect(
+        (
+          await app.inject({
+            url: "/api/v1/tasks?q=" + "x".repeat(501),
+            headers: token,
+          })
+        ).statusCode,
+      ).toBe(400);
+    });
     it("persists a separately scoped batch after the original capture and reports independent receipts", async () => {
       const title = "Synthetic task batch original";
       const markdown = `---

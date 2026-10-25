@@ -572,3 +572,14 @@ preserved with sanitized status. Private contract changes are reviewed separatel
 this implementation does not activate the Project prompt, infer commitments in
 a worker, grant existing OAuth clients new scopes or authorize deployment. See
 [extraction operation](23-tasks.md#complete-extraction-and-dual-ingress-149).
+
+### Task retrieval and MCP checkpoint (#150; D-031)
+
+A separate bounded Task query now reuses English/Russian lexical helpers,
+creation-order pagination and immediate status filters. Authorized visible
+source context can contribute, while removed/foreign Note context cannot.
+No Task embeddings, Note ranking changes or default retrieval cutover occur.
+Optional scoped MCP Task tools are protocol-tested with the official client;
+record creation/completion/reopen use the same idempotent HTTP-domain services.
+They do not authorize external execution or prove actual ChatGPT attachment.
+See [Task retrieval](23-tasks.md#task-only-search-and-mcp-150).
