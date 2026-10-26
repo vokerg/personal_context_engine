@@ -623,3 +623,15 @@ This is local mechanism evidence; actual device/VoiceOver, installed Project
 settings/plugin, deployed connector and owner release gates remain open. No new
 rollout or external-execution authorization is implied. See
 [acceptance and staged rollout](25-task-acceptance.md).
+
+### Owner-approved Task activation (2026-10-26; D-031)
+
+The owner authorized final activation after the merged stack deployed. Hosted
+Task API/web and trusted local read-only ingress are enabled; explicit fresh
+ChatGPT/native Task consent, actual NOTES notes-v3.0 installation and private
+conversation plugin 0.2.0 publication/readback are observed. Real synthetic
+0/1/3 captures and web/native lifecycle/source/session checks passed. Native
+Release simulator acceptance is recorded separately from untested physical
+device, VoiceOver/audio and live-outage cases. This grants record persistence
+and explicit lifecycle changes, never external execution, reminders or a Note
+capture/retrieval cutover. See [live evidence](evidence/issue-154/2026-10-26-activation.md).

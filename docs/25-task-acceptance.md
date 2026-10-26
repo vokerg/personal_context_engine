@@ -1,5 +1,16 @@
 # Task acceptance and release gate (#154)
 
+## Owner-approved activation checkpoint (2026-10-26)
+
+Implementation #155–#161 and private companions are merged. Hosted API/web,
+trusted local GET-only importer, fresh Task scopes, actual NOTES notes-v3.0 and
+private plugin 0.2.0 are enabled and exercised with synthetic records. Native
+Release compilation/install, real simulator auth/session and Task workflows
+were observed. See [the executed live matrix and limits](evidence/issue-154/2026-10-26-activation.md).
+The preparation/reproduction sections below retain their historical default-off
+boundary; defaults stay off in code. This checkpoint does not claim physical
+iPhone, microphone, VoiceOver or forced live outage acceptance.
+
 The #147 implementation is a sequence of independently reviewable changes.
 Local mechanisms and synthetic acceptance do not establish a production release.
 All Task flags remain off by default; no live prompt, plugin release, OAuth
