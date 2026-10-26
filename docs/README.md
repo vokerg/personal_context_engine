@@ -54,3 +54,5 @@ Where a contract remains proposed, implement a test-backed specification before 
 - [21 — Optional approved-tag snapshot publisher](21-tag-snapshot.md) — #100 DB outbox, private GitHub read-only hint, scheduling, recovery and release gate.
 
 - [22 — Search relevance evaluation](22-search-evaluation.md) — #145 benchmark method, alternatives, synthetic evidence, regressions and reproduction.
+
+- [23 — Independent Tasks](23-tasks.md) — #148 owner-scoped records, lifecycle, retry/history, scoped HTTP API and rollout limits.

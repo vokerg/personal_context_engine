@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { NoteIdSchema } from "./ids.js";
+
+export * from "./tasks.js";
 
 /** Public liveness: does not inspect the database or reveal private state. */
 export const HealthResponseSchema = z
@@ -37,11 +40,7 @@ export const ApiErrorResponseSchema = z
 export type ApiErrorResponse = z.infer<typeof ApiErrorResponseSchema>;
 
 /** Synthetic read DTOs: IDs are canonical ULIDs or lowercase UUIDs only. */
-export const NoteIdSchema = z
-  .string()
-  .regex(
-    /^(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/,
-  );
+export { NoteIdSchema } from "./ids.js";
 export const NoteStatusSchema = z.enum(["active", "archived"]);
 export type NoteStatus = z.infer<typeof NoteStatusSchema>;
 export const BrowseStatusSchema = NoteStatusSchema.or(z.literal("all"));

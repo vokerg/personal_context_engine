@@ -71,9 +71,11 @@ model Note {
   jobs            DbProcessingJob[]
   tagOverride     NoteTagOverride?
   researchReports ResearchReport[]
+  taskSources     TaskSource[]
 
   @@unique([id, ownerSubject])
   @@unique([sourcePath, sourceRevision])
+  @@unique([id, ownerSubject, captureId])
   @@index([ownerSubject, capturedAt])
   @@index([captureId])
   @@index([state])
@@ -458,4 +460,70 @@ model ResearchIngressAttempt {
 
   @@index([ownerSubject, parentNoteId])
   @@map("research_ingress_attempts")
+}
+
+// Independent records: Markdown kind/tags never create or complete a Task.
+model Task {
+  id           String @id @db.VarChar(36)
+  ownerSubject String @db.VarChar(128)
+  title        String @db.VarChar(200)
+  description  String? @db.Text
+  status       TaskStatus @default(OPEN)
+  revision     Int @default(1)
+  completedAt  DateTime? @db.Timestamptz(3)
+  origin       String @db.VarChar(12)
+  creationHash String @db.Char(64)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+  sources      TaskSource[]
+  events       TaskEvent[]
+  commands     TaskCommand[]
+
+  @@unique([id, ownerSubject])
+  @@index([ownerSubject, status, createdAt, id])
+  @@map("tasks")
+}
+
+enum TaskStatus {
+  OPEN
+  COMPLETED
+}
+
+model TaskSource {
+  taskId       String @db.VarChar(36)
+  noteId       String @db.VarChar(36)
+  ownerSubject String @db.VarChar(128)
+  captureId    String @db.VarChar(36)
+  evidence     String? @db.Text
+  task Task @relation(fields: [taskId, ownerSubject], references: [id, ownerSubject], onDelete: Restrict, onUpdate: Restrict)
+  note Note @relation(fields: [noteId, ownerSubject, captureId], references: [id, ownerSubject, captureId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([taskId, noteId])
+  @@index([ownerSubject, noteId])
+  @@map("task_sources")
+}
+
+model TaskEvent {
+  taskId       String @db.VarChar(36)
+  ownerSubject String @db.VarChar(128)
+  revision     Int
+  type         String @db.VarChar(24)
+  status       TaskStatus
+  at           DateTime @default(now()) @db.Timestamptz(3)
+  task Task @relation(fields: [taskId, ownerSubject], references: [id, ownerSubject], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([taskId, revision])
+  @@map("task_events")
+}
+
+// Retry receipts survive subsequent lifecycle transitions, including reopen.
+model TaskCommand {
+  ownerSubject String @db.VarChar(128)
+  id           String @db.VarChar(36)
+  taskId       String @db.VarChar(36)
+  payloadHash  String @db.Char(64)
+  task Task @relation(fields: [taskId, ownerSubject], references: [id, ownerSubject], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([ownerSubject, id])
+  @@map("task_commands")
 }

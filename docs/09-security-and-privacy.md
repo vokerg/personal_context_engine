@@ -20,7 +20,7 @@ A private GitHub repository reduces public visibility; it is **not** end-to-end 
 | Threat | Mitigation |
 | --- | --- |
 | Prompt injection inside captured text | Treat note bodies and LLM output as untrusted data; never obey instructions embedded in notes as agent/system instructions |
-| LLM invents a task or deadline | Explicit `review_required`, task/reminder approval semantics, source evidence |
+| LLM invents a task or deadline | Grounded Task record creation under D-031; speculative intent creates no commitment; reminders/external actions retain separate authorization |
 | Leaked repository token | Scope to content repo, rotate, prevent logging, audit access |
 | Public CI fetches private content | No secrets in untrusted PR jobs; fake fixtures only; review workflow permissions |
 | Git retains deleted sensitive text | Restrict what enters Git; design an erasure/redaction policy before sensitive use |
@@ -52,6 +52,13 @@ A ChatGPT GitHub integration may have different read/write permissions depending
 - Document hosting jurisdictions/provider retention and allow switching adapters without data loss.
 
 See [repository operations](03-repositories-and-operations.md) and [ChatGPT setup](12-chatgpt-project.md).
+
+Independent Task routes are default-off, use `tasks:read` / `tasks:write` and
+derive owners from verified sessions/grants. Existing Note grants are unchanged.
+Source relationships enforce composite SQL owner/capture FKs; source links and
+evidence require `notes:read` and exclude hidden Notes. Task commands persist
+idempotency receipts and revisioned history; they never execute external actions.
+See [Task authorization and retry boundaries](23-tasks.md).
 
 ## Public API skeleton boundary (issue #9)
 

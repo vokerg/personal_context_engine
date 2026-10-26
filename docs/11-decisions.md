@@ -541,3 +541,22 @@ broader short-query policies were rejected after recall losses. Additional
 recall while improving returned precision; unseen weak single-word paraphrases
 remain an explicit risk. Diagnostics and the evaluation runbook record this
 conditional gate separately from the unchanged absolute cosine floor.
+
+### D-031 — First-class Tasks independent from Notes (#147)
+
+**Accepted owner-directed scope (2026-10-25).** PostgreSQL Tasks have independent
+IDs, source relationships, owner scope, lifecycle revision and audit history.
+Completing archives a Task from Open; Completed/All and reopen retain history.
+Note kind/tags, archiving and removal do not control the Task lifecycle. Clear,
+grounded actions may produce 0..N Task records during LLM-assisted capture with
+no per-task approval. This authorizes record creation only, never inferred dates,
+reminders, notifications or external execution. Deterministic native capture
+must offer explicit creation until an approved model-assisted path exists.
+
+The #148 foundation implements scoped persistence/lifecycle and typed HTTP
+contracts behind a default-off gate. Dedicated `tasks:read` / `tasks:write`
+delegation requires explicit registration and fresh OAuth consent; existing
+Note grants gain no privileges. Source text/links additionally require Note
+read permission. Private extraction artifacts, importer, MCP/search, web/iOS,
+prompt activation and actual cross-surface acceptance remain #149–#154. See
+[Task contracts and operation](23-tasks.md).

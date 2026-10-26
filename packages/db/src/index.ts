@@ -268,3 +268,9 @@ export {
 export { createResearchRepository, ResearchConflict } from "./research.js";
 
 export { createResearchEmbeddingRepository } from "./research-embeddings.js";
+export {
+  createTaskRepository,
+  TaskConflict,
+  TaskSourceUnavailable,
+  TaskCursorError,
+} from "./tasks.js";

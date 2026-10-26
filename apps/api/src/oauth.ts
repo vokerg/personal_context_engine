@@ -8,12 +8,14 @@ const scopeSchema = z.enum([
   "notes:write",
   "capture:write",
   "tags:write",
+  "tasks:read",
+  "tasks:write",
 ]);
 const clientSchema = z
   .object({
     clientId: z.string().regex(/^[A-Za-z0-9._:-]{1,128}$/),
     redirectUris: z.array(z.string().url().max(2048)).min(1).max(8),
-    scopes: z.array(scopeSchema).min(1).max(4),
+    scopes: z.array(scopeSchema).min(1).max(6),
   })
   .strict();
 export type OAuthClient = z.infer<typeof clientSchema>;
@@ -166,6 +168,8 @@ export function registerOAuth(
       "notes:write",
       "capture:write",
       "tags:write",
+      "tasks:read",
+      "tasks:write",
     ],
     client_id_metadata_document_supported: false,
   }));
@@ -181,6 +185,8 @@ export function registerOAuth(
         "notes:write",
         "capture:write",
         "tags:write",
+        "tasks:read",
+        "tasks:write",
       ],
       bearer_methods_supported: ["header"],
     }));
@@ -214,7 +220,7 @@ export function registerOAuth(
       `default-src 'none'; form-action 'self' ${callbackOrigin}; base-uri 'none'; frame-ancestors 'none'`,
     );
     return reply.type("text/html; charset=utf-8").send(
-      `<!doctype html><html><head><meta charset="utf-8"><title>Authorize PCE client</title></head><body><h1>Authorize PCE client</h1><p>Client: ${escape(p.client_id)}</p><p>Allow ${escape(p.scope)} for your notes. Read access shares retrieved private text with this client. Capture access stores only explicitly supplied text; it cannot execute actions.</p><p>This connection stays authorized until revoked, even after your browser login expires. Logging out of this authorizing session revokes its connections.</p><form method="post" action="/oauth/authorize">${Object.entries(
+      `<!doctype html><html><head><meta charset="utf-8"><title>Authorize PCE client</title></head><body><h1>Authorize PCE client</h1><p>Client: ${escape(p.client_id)}</p><p>Allow ${escape(p.scope)} for your PCE records. Read access shares retrieved private text with this client. tasks:read permits reading Tasks and history; tasks:write permits creating, completing and reopening Tasks. Capture access stores only explicitly supplied text. None of these permissions executes external actions.</p><p>This connection stays authorized until revoked, even after your browser login expires. Logging out of this authorizing session revokes its connections.</p><form method="post" action="/oauth/authorize">${Object.entries(
         fields,
       )
         .filter(([, v]) => v !== undefined)
