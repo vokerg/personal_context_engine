@@ -583,3 +583,12 @@ Optional scoped MCP Task tools are protocol-tested with the official client;
 record creation/completion/reopen use the same idempotent HTTP-domain services.
 They do not authorize external execution or prove actual ChatGPT attachment.
 See [Task retrieval](23-tasks.md#task-only-search-and-mcp-150).
+
+### Web Tasks checkpoint (#151; D-031)
+
+The default-off web Tasks view uses shared server Task queries/lifecycle with
+confirmed checkbox completion, Completed/All, reopen, provenance/history and
+explicit standalone creation. Pending state commands and creation requests keep
+stable IDs across an in-memory retry; no offline queue or automatic extraction
+is implied. Note archival remains independent. See
+[web operation](23-tasks.md#web-tasks-workspace-151).

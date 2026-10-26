@@ -23,6 +23,9 @@ export function webConfig(
       "import.meta.env.VITE_API_BASE_URL": JSON.stringify(
         env.VITE_API_BASE_URL ?? `http://127.0.0.1:${env.API_PORT ?? "3000"}`,
       ),
+      "import.meta.env.VITE_PCE_TASKS": JSON.stringify(
+        env.VITE_PCE_TASKS ?? String(env.PCE_TASKS_ENABLED === "true"),
+      ),
       "import.meta.env.VITE_PCE_DB_SEARCH": JSON.stringify(
         env.VITE_PCE_DB_SEARCH ?? String(dbSearch),
       ),

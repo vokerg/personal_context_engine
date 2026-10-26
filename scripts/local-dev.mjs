@@ -95,6 +95,10 @@ try {
   if(config.searchEnabled&&!sessionAuth)throw new Error("Search requires explicit local session mode");
   const {researchReportsEnabled}=await import("../apps/api/dist/config.js");
   const researchEnabled=researchReportsEnabled(process.env);
+  const { tasksEnabled } = await import("../apps/api/dist/tasks.js");
+  const enableTasks = tasksEnabled(process.env);
+  if(enableTasks&&!sessionAuth)throw new Error("Tasks require explicit local sessions");
+  const { createTaskRepository, createTaskExtractionRepository } = await import("@pce/db");
   if(researchEnabled&&!sessionAuth)throw new Error("Research requires explicit local sessions");
   const {createResearchRepository,createTagRegistryRepository,createNoteTagRepository}=await import("@pce/db");
   const search=config.searchEnabled?createSearchService(createSearchRepository(db,researchEnabled),randomBytes(32).toString("hex"),queryEmbeddingProvider(process.env),undefined,process.env.PCE_SEARCH_DIAGNOSTICS === "true"):undefined;
@@ -127,6 +131,7 @@ try {
       ...(search?{search,noteTagEdits:createNoteTagRepository(db)}:{}),
       ...(sessionAuth?{tagRegistry:createTagRegistryRepository(db)}:{}),
       ...(researchEnabled?{research:createResearchRepository(db)}:{}),
+      ...(enableTasks?{tasks:createTaskRepository(db),taskBatches:createTaskExtractionRepository(db)}:{}),
       ...(clients.length?{mcp:{db,clients}}:{}),
       checkDatabase: () => checkDatabase(db),
       notes: createLocalReader(db, ids, {
@@ -145,6 +150,7 @@ try {
       allowedHosts: [],
     },
     define: {
+      "import.meta.env.VITE_PCE_TASKS": JSON.stringify(String(enableTasks)),
       "import.meta.env.VITE_PCE_RESEARCH_REPORTS": JSON.stringify(String(researchEnabled)),
       "import.meta.env.VITE_PCE_DB_SEARCH": JSON.stringify(String(config.searchEnabled)),
       "import.meta.env.VITE_PCE_SESSION_AUTH": JSON.stringify(String(!!sessionAuth)),

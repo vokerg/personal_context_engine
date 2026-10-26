@@ -1,3 +1,4 @@
+import { TasksPanel } from "./TasksPanel.js";
 import { SuggestionPicker } from "./SuggestionPicker.js";
 import { NoteTagPicker } from "./NoteTagPicker.js";
 import { ResearchPanel } from "./ResearchPanel.js";
@@ -74,12 +75,14 @@ export function App({
   browseEnabled = import.meta.env.VITE_PCE_LOCAL_BROWSE === "true",
   searchEnabled = import.meta.env.VITE_PCE_DB_SEARCH === "true",
   researchEnabled = import.meta.env.VITE_PCE_RESEARCH_REPORTS === "true",
+  tasksEnabled = import.meta.env.VITE_PCE_TASKS === "true",
 }: {
   baseUrl?: string;
   localDevelopment?: boolean;
   browseEnabled?: boolean;
   searchEnabled?: boolean;
   researchEnabled?: boolean;
+  tasksEnabled?: boolean;
 }) {
   const baseUrl = useMemo(() => {
     if (!localDevelopment || typeof window === "undefined")
@@ -99,6 +102,9 @@ export function App({
   }, [configuredBaseUrl, localDevelopment]);
   const sessionAuthentication =
     import.meta.env.PROD || import.meta.env.VITE_PCE_SESSION_AUTH === "true";
+  const [workspaceView, setWorkspaceView] = useState<"notes" | "tasks">(
+    "notes",
+  );
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [authMode, setAuthMode] = useState<string | null>(null);
@@ -1127,27 +1133,31 @@ export function App({
           <p className="eyebrow">Personal workspace</p>
           <h1>Personal Context Engine</h1>
           <p className="subtitle">
-            {localDevelopment
-              ? "Browse the notes in your local workspace. Capture, editing and reminders are separate workflows."
-              : sessionAuthentication
-                ? "Sign in to browse your workspace. Editing and reminders are separate workflows."
-                : "Development preview. Production login, editing and reminders are not available."}
+            {token && tasksEnabled
+              ? "Keep your notes and commitments together."
+              : localDevelopment
+                ? "Browse the notes in your local workspace. Capture, editing and reminders are separate workflows."
+                : sessionAuthentication
+                  ? "Sign in to browse your workspace. Editing and reminders are separate workflows."
+                  : "Development preview. Production login, editing and reminders are not available."}
           </p>
         </div>
         <div className="actions header-actions">
           {token && (
             <div className="actions">
-              <button
-                className="secondary"
-                type="button"
-                onClick={() => {
-                  setBrowseCursor(undefined);
-                  setPreviousCursors([]);
-                  setReloadCount((n) => n + 1);
-                }}
-              >
-                Refresh notes
-              </button>
+              {(!tasksEnabled || workspaceView === "notes") && (
+                <button
+                  className="secondary"
+                  type="button"
+                  onClick={() => {
+                    setBrowseCursor(undefined);
+                    setPreviousCursors([]);
+                    setReloadCount((n) => n + 1);
+                  }}
+                >
+                  Refresh notes
+                </button>
+              )}
               <button
                 className="ghost"
                 type="button"
@@ -1166,6 +1176,42 @@ export function App({
         <p className="notice" role="status">
           {notice}
         </p>
+      )}
+      {token && tasksEnabled && (
+        <nav
+          className="actions workspace-navigation"
+          aria-label="Workspace views"
+        >
+          <button
+            type="button"
+            className={workspaceView === "notes" ? "primary" : "secondary"}
+            aria-pressed={workspaceView === "notes"}
+            onClick={() => setWorkspaceView("notes")}
+          >
+            Notes
+          </button>
+          <button
+            type="button"
+            className={workspaceView === "tasks" ? "primary" : "secondary"}
+            aria-pressed={workspaceView === "tasks"}
+            onClick={() => setWorkspaceView("tasks")}
+          >
+            Tasks
+          </button>
+        </nav>
+      )}
+      {token && tasksEnabled && (
+        <div hidden={workspaceView !== "tasks"}>
+          <TasksPanel
+            baseUrl={baseUrl}
+            token={token}
+            useSessionCookie={sessionAuthentication}
+            onOpenNote={(id) => {
+              navigateToNote(id);
+              setWorkspaceView("notes");
+            }}
+          />
+        </div>
       )}
       {!token ? (
         <section className="panel auth-panel" aria-label="Sign-in required">
@@ -1250,7 +1296,10 @@ export function App({
           )}
         </section>
       ) : (
-        <div className={`workspace${selectedId ? " has-selection" : ""}`}>
+        <div
+          hidden={tasksEnabled && workspaceView !== "notes"}
+          className={`workspace${selectedId ? " has-selection" : ""}`}
+        >
           <section
             className="panel controls-panel"
             aria-label="Browse controls"

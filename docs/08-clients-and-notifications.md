@@ -339,3 +339,13 @@ reload alone cannot install the native modules).
 
 Physical-device appearance, VoiceOver and the largest Dynamic Type sizes remain
 manual verification items; automated checks do not establish visual quality.
+
+## Independent web Tasks (#151)
+
+A default-off web Tasks workspace now consumes the scoped shared Task API, with
+server-backed Open/Completed/All/search, checkbox completion after acknowledgement,
+reopen, history and source Note links. Standalone creation is explicit; Task
+records never schedule a reminder or mutate source Note archival. It uses the
+existing browser auth/CSRF and system palette, with retries preserving command
+IDs. See [Task UI operation and limits](23-tasks.md#web-tasks-workspace-151).
+iOS Tasks and actual cross-surface release acceptance remain #152/#154.

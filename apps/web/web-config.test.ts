@@ -27,6 +27,7 @@ describe("web configuration boundary", () => {
       PCE_AUTH_MODE: "dev-single-user",
       PCE_DB_SEARCH: "true",
       PCE_RESEARCH_REPORTS: "true",
+      PCE_TASKS_ENABLED: "true",
       SERVER_SECRET: "synthetic-secret",
     };
     const context = { command: "serve" as const, mode: "development" };
@@ -42,6 +43,7 @@ describe("web configuration boundary", () => {
       "import.meta.env.VITE_PCE_DB_SEARCH": '"true"',
       "import.meta.env.VITE_PCE_LOCAL_BROWSE": '"true"',
       "import.meta.env.VITE_PCE_RESEARCH_REPORTS": '"true"',
+      "import.meta.env.VITE_PCE_TASKS": '"true"',
     });
     expect(JSON.stringify(config.define)).not.toContain("synthetic-secret");
     const explicit = webConfig(context, {
@@ -50,12 +52,14 @@ describe("web configuration boundary", () => {
       VITE_PCE_DB_SEARCH: "false",
       VITE_PCE_LOCAL_BROWSE: "false",
       VITE_PCE_RESEARCH_REPORTS: "false",
+      VITE_PCE_TASKS: "false",
     });
     for (const key of [
       "SESSION_AUTH",
       "DB_SEARCH",
       "LOCAL_BROWSE",
       "RESEARCH_REPORTS",
+      "TASKS",
     ])
       expect(explicit.define?.[`import.meta.env.VITE_PCE_${key}`]).toBe(
         '"false"',
