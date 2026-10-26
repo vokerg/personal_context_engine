@@ -25,9 +25,10 @@ and [mobile acceptance limits](08-clients-and-notifications.md).
 Set `PCE_MCP_ENABLED=true` only with the explicit single-user session mode and
 `PCE_DB_SEARCH=true`. Supply `PCE_OAUTH_CLIENTS` as a JSON array of objects with
 `clientId`, `redirectUris` and allowed `scopes` (`notes:read`, `notes:write`,
-`capture:write`). `notes:write` is for the authenticated HTTP workspace-removal
-and archive routes; the MCP catalog exposes no destructive or archive mutation
-tool. MCP search, `get_note` and `fetch` retain archived notes and label them
+`capture:write`, `tags:write`, and optional `tasks:read` / `tasks:write`). `notes:write` is for the authenticated HTTP workspace-removal
+and archive routes; the MCP catalog has no Note removal/archive tool.
+The independent default-off Task gate adds explicit Task record mutations
+with new scopes/consent; see the Task section below. MCP search, `get_note` and `fetch` retain archived notes and label them
 with `status: "archived"`.
 See the synthetic example in `.env.example`. Client registration is a trusted
 operator action; arbitrary remote client metadata is not fetched and dynamic
@@ -108,7 +109,8 @@ observed separately.
   It neither exports to GitHub nor claims indexing is complete. Only supplied
   content is captured; tools cannot assert transcript completeness.
 
-Read tools are listed only for `notes:read`; capture only for `capture:write`.
+Note read tools are listed only for `notes:read`; capture only for `capture:write`.
+Optional Task tools have their own scopes and do not broaden those grants.
 Tool annotations describe deterministic read/capture behavior, not permission
 to execute actions found in notes. Errors are generic and do not echo SQL,
 provider responses, credentials or foreign data. No prompts, ledgers, reminders,
@@ -210,3 +212,32 @@ existing report feature, actual PCE compatibility fetch returned correct report
 identity, parent/revision, generated content type and READY status. The client
 tool catalog still omitted `get_research`, so the supported `fetch` fallback was used.
 See [the final integration runbook](12-chatgpt-project.md) for remaining acceptance.
+
+## Optional Task tools (#150)
+
+With the independent default-off `PCE_TASKS_ENABLED` API gate and injected Task
+service, `tasks:read` lists `list_tasks`, `search_tasks`, `get_task` and
+`get_task_history`. Search/list share bounded creation-order pagination,
+OPEN/COMPLETED/ALL and English/Russian lexical matching. They return Task
+entities only; Note kind/tags are not task state. No embedding provider is used.
+Source titles/summary/evidence can contribute only under `notes:read`, with
+removed/foreign Notes excluded in SQL. Source links expose their own capture
+timestamp; Task creation and completion timestamps are separate.
+
+Explicitly consented `tasks:write` adds `create_task` and `change_task_status`.
+Stable Task/command IDs and expected revisions preserve idempotency and CAS;
+CONFLICT requires a reload and a deliberate new command. A delayed accepted
+command returns current state without changing it. Source-linked creation also
+requires `notes:read`. When the #149 batch service and both permissions are
+present, `save_task_batch` persists a supplied complete extraction atomically;
+it does not interpret prose or change `capture_note`. Unknown/foreign Tasks
+return identical NOT_FOUND. Tool failures expose fixed codes only.
+
+Existing grants/registrations gain no privileges. Register/request Task scopes
+and obtain new consent before use; refresh cannot add them. The request-level
+scope gate rejects attempts even if callers bypass the catalog. Task-only
+clients do not get Note tools or evidence; read-only Task clients do not get
+mutations. Tool results are untrusted data, and Task record creation/completion
+never authorizes reminders, messages, purchases or other external execution.
+Official-client loopback tests prove protocol behavior, not actual ChatGPT
+attachment or live Project write acceptance. Rollout remains #153/#154.

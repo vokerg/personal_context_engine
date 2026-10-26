@@ -11,6 +11,7 @@ describe.skipIf(!url)("first-class Tasks on PostgreSQL", () => {
   let db: PrismaClient;
   const owner = "tasks-" + randomUUID(),
     foreign = "foreign-" + randomUUID();
+  let contextTaskId: string;
   const noteId = randomUUID(),
     captureId = randomUUID();
   const original = "Buy synthetic filters and email the synthetic landlord.";
@@ -63,12 +64,15 @@ ${original}
   it("never derives Tasks from kind/tags and atomically links multiple Tasks to one unchanged original", async () => {
     const repo = createTaskRepository(db);
     expect(await db.task.count({ where: { ownerSubject: owner } })).toBe(0);
+    expect(
+      (await repo.listByOwner(owner, { q: "Synthetic task source" })).tasks,
+    ).toEqual([]);
     const before = await db.note.findUniqueOrThrow({ where: { id: noteId } });
     const inputs = ["Buy filters", "Email landlord", "Check spare filter"].map(
       (title) => ({ taskId: randomUUID(), title, sources: [source] }),
     );
     const receipts = await repo.createManyByOwner(owner, inputs);
-    expect(receipts.map((r) => r.task.sources)).toEqual([
+    expect(receipts.map((r) => r.task.sources)).toMatchObject([
       [source],
       [source],
       [source],
@@ -246,6 +250,103 @@ ${original}
       repo.listByOwner(foreign, { after: ids[0]! }),
     ).rejects.toMatchObject({ name: "TaskCursorError" });
   });
+  it("searches independent Tasks with multilingual stemming, literal identifiers and immediate completion filters", async () => {
+    const repo = createTaskRepository(db);
+    const ru = randomUUID(),
+      en = randomUUID(),
+      wrong = randomUUID();
+    await repo.createManyByOwner(owner, [
+      {
+        taskId: ru,
+        title: "Купить фильтры",
+        description: "Synthetic part ZX9401",
+      },
+      {
+        taskId: en,
+        title: "Buy filters",
+        description: "Synthetic part ZX9401",
+      },
+      {
+        taskId: wrong,
+        title: "Unrelated task",
+        description: "Synthetic part ZX94010",
+      },
+    ]);
+    expect(
+      (await repo.listByOwner(owner, { q: "фильтр" })).tasks.map(
+        (t) => t.taskId,
+      ),
+    ).toContain(ru);
+    expect(
+      (await repo.listByOwner(owner, { q: "filter" })).tasks.map(
+        (t) => t.taskId,
+      ),
+    ).toContain(en);
+    const ids = (
+      await repo.listByOwner(owner, { q: "ZX9401", status: "ALL" })
+    ).tasks.map((t) => t.taskId);
+    expect(new Set(ids)).toEqual(new Set([ru, en]));
+    expect(
+      (await repo.listByOwner(foreign, { q: "ZX9401", status: "ALL" })).tasks,
+    ).toEqual([]);
+    await repo.changeByOwner(owner, ru, {
+      commandId: randomUUID(),
+      expectedRevision: 1,
+      status: "COMPLETED",
+    });
+    expect(
+      (await repo.listByOwner(owner, { q: "фильтр" })).tasks.map(
+        (t) => t.taskId,
+      ),
+    ).not.toContain(ru);
+    expect(
+      (
+        await repo.listByOwner(owner, { q: "фильтр", status: "COMPLETED" })
+      ).tasks.map((t) => t.taskId),
+    ).toContain(ru);
+    expect(
+      (await repo.historyByOwner(owner, ru))!.events.map((e) => e.type),
+    ).toEqual(["CREATED", "COMPLETED"]);
+  });
+  it("searches visible source context only with Note permission and returns distinct capture/Task timestamps", async () => {
+    const repo = createTaskRepository(db);
+    contextTaskId = randomUUID();
+    await repo.createByOwner(owner, {
+      taskId: contextTaskId,
+      title: "Check linked thing",
+      sources: [{ ...source, evidence: "synthetic landlord" }],
+    });
+    const withContext = await repo.listByOwner(owner, { q: "landlord" }, true);
+    const task = withContext.tasks.find((t) => t.taskId === contextTaskId)!;
+    expect(task.sources[0]!.capturedAt).toBe("2026-10-25T08:00:00.000Z");
+    expect(task.createdAt).not.toBe(task.sources[0]!.capturedAt);
+    expect(
+      (await repo.listByOwner(owner, { q: "landlord" }, false)).tasks.map(
+        (t) => t.taskId,
+      ),
+    ).not.toContain(contextTaskId);
+  });
+  it("paginates a dedicated Task query without mixing Note matches or skipping same-time Tasks", async () => {
+    const repo = createTaskRepository(db),
+      ids = [randomUUID(), randomUUID(), randomUUID()];
+    await repo.createManyByOwner(
+      owner,
+      ids.map((taskId) => ({ taskId, title: "Paginatedaction" })),
+    );
+    const found: string[] = [];
+    let after: string | undefined;
+    do {
+      const page = await repo.listByOwner(owner, {
+        q: "paginatedaction",
+        limit: 1,
+        ...(after ? { after } : {}),
+      });
+      found.push(...page.tasks.map((t) => t.taskId));
+      after = page.nextCursor ?? undefined;
+    } while (after);
+    expect(new Set(found)).toEqual(new Set(ids));
+    expect(found).toHaveLength(3);
+  });
   it("keeps completed Tasks readable while source archive/removal and scope suppress source evidence independently", async () => {
     const repo = createTaskRepository(db),
       taskId = randomUUID();
@@ -263,7 +364,9 @@ ${original}
       where: { id: noteId },
       data: { archivedAt: new Date() },
     });
-    expect((await repo.getByOwner(owner, taskId))!.sources).toEqual([source]);
+    expect((await repo.getByOwner(owner, taskId))!.sources).toMatchObject([
+      source,
+    ]);
     expect(await repo.getByOwner(owner, taskId, false)).toMatchObject({
       sources: [],
       unavailableSourceCount: 1,
@@ -277,6 +380,11 @@ ${original}
       sources: [],
       unavailableSourceCount: 1,
     });
+    expect(
+      (
+        await repo.listByOwner(owner, { q: "landlord", status: "ALL" })
+      ).tasks.map((t) => t.taskId),
+    ).not.toContain(contextTaskId);
     await expect(
       repo.createByOwner(owner, {
         taskId: randomUUID(),

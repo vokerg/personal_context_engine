@@ -1,3 +1,9 @@
+import {
+  lexicalQueries,
+  lexicalDocuments,
+  lexicalMatch,
+  identifierPredicate,
+} from "./search-lexical.js";
 import { createHash } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import {
@@ -40,7 +46,7 @@ const ownerCheck = (owner: string) => {
 };
 const include = {
   sources: {
-    include: { note: { select: { removedAt: true } } },
+    include: { note: { select: { removedAt: true, capturedAt: true } } },
     orderBy: { noteId: "asc" as const },
   },
 } satisfies Prisma.TaskInclude;
@@ -62,6 +68,7 @@ function toTask(row: Row, canReadSources: boolean): Task {
     sources: visible.map((s) => ({
       noteId: s.noteId,
       captureId: s.captureId,
+      capturedAt: s.note.capturedAt.toISOString(),
       ...(s.evidence ? { evidence: s.evidence } : {}),
     })),
     unavailableSourceCount: row.sources.length - visible.length,
@@ -228,9 +235,34 @@ export function createTaskRepository(db: PrismaClient) {
               })
             : null;
           if (query.after && !anchor) throw new TaskCursorError();
+          const sourceContext = canReadSources
+            ? Prisma.sql`coalesce((
+            SELECT string_agg(n.title || ' ' || n.summary || ' ' || coalesce(s.evidence,''), ' ')
+            FROM task_sources s
+            JOIN notes n ON n.id=s."noteId" AND n."ownerSubject"=s."ownerSubject"
+            WHERE s."taskId"=t.id AND s."ownerSubject"=${owner}
+              AND n."ownerSubject"=${owner} AND n."removedAt" IS NULL
+          ),'')`
+            : Prisma.sql`''`;
+          const text = Prisma.sql`(t.title || ' ' || coalesce(t.description,'') || ' ' || ${sourceContext})`;
+          const matches = query.q
+            ? await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+            WITH ${lexicalQueries(query.q)}, documents AS (
+              SELECT t.id, ${text} AS text, ${lexicalDocuments(Prisma.sql`t.title`, text)}
+              FROM tasks t WHERE t."ownerSubject"=${owner}
+            )
+            SELECT f.id FROM documents f CROSS JOIN search_query q
+            JOIN tasks t ON t.id=f.id AND t."ownerSubject"=${owner}
+            WHERE ${lexicalMatch(query.q, Prisma.sql`f.text`, false)} AND ${identifierPredicate(query.q, Prisma.sql`f.text`)}
+              AND (${query.status}='ALL' OR t.status::text=${query.status})
+              ${anchor ? Prisma.sql`AND (t."createdAt",t.id)<(${anchor.createdAt},${anchor.id})` : Prisma.empty}
+            ORDER BY t."createdAt" DESC,t.id DESC LIMIT ${query.limit + 1}
+          `)
+            : null;
           const rows = await tx.task.findMany({
             where: {
               ownerSubject: owner,
+              ...(matches ? { id: { in: matches.map((r) => r.id) } } : {}),
               ...(query.status === "ALL" ? {} : { status: query.status }),
               ...(anchor
                 ? {

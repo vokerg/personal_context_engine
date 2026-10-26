@@ -38,7 +38,13 @@ export const TaskSchema = z
     updatedAt: z.string().datetime({ offset: true }),
     completedAt: z.string().datetime({ offset: true }).nullable(),
     origin: z.enum(["api", "github"]),
-    sources: z.array(TaskSourceSchema).max(20),
+    sources: z
+      .array(
+        TaskSourceSchema.extend({
+          capturedAt: z.string().datetime({ offset: true }),
+        }).strict(),
+      )
+      .max(20),
     unavailableSourceCount: z.number().int().nonnegative().max(20),
   })
   .strict();
@@ -54,6 +60,7 @@ export const TaskListQuerySchema = z
     status: TaskStatusSchema.or(z.literal("ALL")).default("OPEN"),
     limit: z.coerce.number().int().min(1).max(100).default(30),
     after: TaskIdSchema.optional(),
+    q: z.string().trim().min(1).max(500).pipe(text).optional(),
   })
   .strict();
 export const TaskPageSchema = z

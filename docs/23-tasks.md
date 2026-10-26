@@ -3,8 +3,8 @@
 Epic [#147](https://github.com/vokerg/personal_context_engine/issues/147) defines
 first-class Tasks. The #148 slice implements durable creation, lifecycle, API,
 history and shared client contracts. The #149 slice adds extraction contracts
-and gated private GitHub artifact import. Task search/MCP, web/iOS views, prompt
-activation and live acceptance remain #150–#154.
+and gated private GitHub artifact import. The #150 slice adds dedicated Task search and scoped MCP tools.
+Web/iOS views, prompt activation and live acceptance remain #151–#154.
 
 ## Record and source boundaries
 
@@ -58,7 +58,7 @@ model request, provider charge, reminder, notification or external action runs.
 
 | Route | Required scope | Contract |
 | --- | --- | --- |
-| `GET /api/v1/tasks` | `tasks:read` | `status=OPEN` (default), `COMPLETED` or `ALL`; `limit` 1–100 (default 30); optional `after` from `nextCursor` |
+| `GET /api/v1/tasks` | `tasks:read` | `status=OPEN` (default), `COMPLETED` or `ALL`; `limit` 1–100 (default 30); optional `after` from `nextCursor` and `q` (1–500 characters) |
 | `GET /api/v1/tasks/:id` | `tasks:read` | Individual Task with currently visible source links |
 | `POST /api/v1/tasks` | `tasks:write` | Strict `taskId`, `title`, optional `description` and `sources`; receipt confirms `DB_PERSISTED` |
 | `PATCH /api/v1/tasks/:id` | `tasks:write` | Strict `commandId`, `expectedRevision`, `status`; response has Task, `changed`, `replayed` |
@@ -175,3 +175,33 @@ was performed. Disable either independent gate to withdraw that path; keep
 batch receipts, Tasks and events. Prompt rollback or ingress disablement cannot
 remove Tasks or erase completion history. Live hosted/Project acceptance is
 separate from synthetic PostgreSQL and fake-GitHub tests.
+
+## Task-only search and MCP (#150)
+
+The shared `getTasks` HTTP client passes `q` to the owner-scoped Task repository.
+PostgreSQL English/Russian stemming, simple token/literal matching and explicit
+alphanumeric identifier boundaries reuse the existing lexical helpers. Matching
+uses Task title/description plus visible source Note titles, summaries and
+stored evidence only when the verified grant includes `notes:read`. Task-only
+grants search their Task text and receive no Note evidence/IDs. Removed/foreign
+Note context cannot contribute; archived Notes can still provide authorized
+context. Returned source links include `capturedAt` from the Note, separately
+from Task `createdAt` and `completedAt`.
+
+Results are Task records in stable creation-time/ID order, with bounded live
+pagination and immediate OPEN/COMPLETED/ALL filtering. They are never a
+`kind: task` Note search or a filtered window of Note hits. No task embedding,
+provider call, reindex, Note ranking change or retrieval cutover is added.
+Empty results are an empty Task page. Literal identifier constraints and shared
+lexical fallback semantics are inherited; there is no semantic paraphrase claim.
+Query text appears in the authenticated GET URL and is not placed in shared
+browser navigation/storage or logs. Clients should use the shared encoded client.
+
+The independent gate also injects the Task service into optional MCP. Task read
+scopes expose list/search/get/history; Task write scopes expose explicit create
+and complete/reopen, and with Note permission the supplied-batch save tool.
+See [MCP authorization and tool contract](18-mcp.md#optional-task-tools-150).
+Existing Note tools and `capture_note` schemas remain unchanged. Synthetic
+PostgreSQL and official MCP client tests cover multilingual queries, identifiers,
+pagination, completion history, owner/scope isolation and source removal; live
+ChatGPT usage is a separate release gate.

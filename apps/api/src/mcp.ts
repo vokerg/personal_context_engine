@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerTaskTools, scopesForTaskTool } from "./task-mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 import {
@@ -41,6 +42,8 @@ export function registerMcp(
   auth: SessionAuth,
   search: NonNullable<ApiDependencies["search"]>,
   capture: NonNullable<ApiDependencies["capture"]>,
+  tasks?: ApiDependencies["tasks"],
+  taskBatches?: ApiDependencies["taskBatches"],
 ) {
   app.route({
     method: ["GET", "POST", "DELETE"],
@@ -70,13 +73,18 @@ export function registerMcp(
           .send({ error: "UNAUTHORIZED" });
       const body = request.body as
         { method?: unknown; params?: { name?: unknown } } | undefined;
-      const scope =
+      const baseScope =
         body?.method === "tools/call" && body.params?.name === "capture_note"
           ? "capture:write"
           : "notes:read";
+      const requiredScopes =
+        typeof body?.params?.name === "string"
+          ? (scopesForTaskTool(body.params.name) ?? [baseScope])
+          : [baseScope];
+      const scope = requiredScopes.find((s) => !principal.scopes.includes(s));
       if (
         (body?.method === "tools/call" || body?.method === "resources/read") &&
-        !principal.scopes.includes(scope)
+        scope !== undefined
       )
         return reply
           .header(
@@ -107,6 +115,7 @@ export function registerMcp(
         idempotentHint: true,
         openWorldHint: false,
       };
+      registerTaskTools(server, principal, tasks, taskBatches);
       const url = (id: string, reportId?: string) => {
         const target = new URL(auth.config.origin);
         target.searchParams.set("note", id);
