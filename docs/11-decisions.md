@@ -592,3 +592,12 @@ explicit standalone creation. Pending state commands and creation requests keep
 stable IDs across an in-memory retry; no offline queue or automatic extraction
 is implied. Note archival remains independent. See
 [web operation](23-tasks.md#web-tasks-workspace-151).
+
+### Native Tasks checkpoint (#152; D-031)
+
+The existing iOS-only Expo shell now has a default-off Task tab, server-backed
+Task search/lifecycle/history and explicit creation. An enabled build requests
+separate Task scopes with fresh consent; Note capture/removal, reminders and
+push are independent. Pending requests remain in memory with stable retry IDs.
+Synthetic tests/iOS JavaScript bundling do not establish real native/device
+acceptance; that remains #131/#154. See [native Tasks](23-tasks.md#native-ios-tasks-152).

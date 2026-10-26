@@ -2,7 +2,7 @@ import { isNoteId } from "@pce/api-client";
 import { parseNoteDeepLink } from "./links";
 import type { SessionPhase } from "./session";
 
-export type MobileTab = "notes" | "search" | "capture" | "settings";
+export type MobileTab = "notes" | "tasks" | "search" | "capture" | "settings";
 export const MOBILE_TABS: readonly MobileTab[] = [
   "notes",
   "search",

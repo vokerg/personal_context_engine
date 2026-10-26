@@ -4,8 +4,8 @@ Epic [#147](https://github.com/vokerg/personal_context_engine/issues/147) define
 first-class Tasks. The #148 slice implements durable creation, lifecycle, API,
 history and shared client contracts. The #149 slice adds extraction contracts
 and gated private GitHub artifact import. The #150 slice adds dedicated Task search and scoped MCP tools.
-The #151 slice adds the gated web workspace. iOS, prompt activation and live
-acceptance remain #152–#154.
+The #151 slice adds the gated web workspace. The #152 slice adds native iOS Tasks behind a build flag. Prompt activation
+and actual cross-surface release acceptance remain #153/#154.
 
 ## Record and source boundaries
 
@@ -243,3 +243,31 @@ cover one-of-three completion, archive/reopen, source retention, literal renderi
 search/pages, duplicate taps, conflicts, stable mutation/creation retries and
 401/403/404. [Browser evidence](evidence/issue-151/browser.md) records actual
 synthetic desktop/narrow checks and remaining live acceptance limits.
+
+## Native iOS Tasks (#152)
+
+The existing React Native/Expo app has an independently gated native Tasks tab,
+virtualized server-backed Open/Completed/All/search, checkbox completion/reopen,
+source Note navigation, paged detail/history and explicit standalone creation.
+The Note source opens through the existing authenticated navigator; Back returns
+to the mounted Task view. Task status does not archive the Note or create a
+Reminder. Deterministic capture never runs an LLM or fabricates a commitment.
+
+`EXPO_PUBLIC_PCE_TASKS` defaults false. An enabled build requests explicit
+`tasks:read` / `tasks:write` scopes alongside existing native permissions, subject
+to operator registration and fresh OAuth consent. Existing credentials/refresh
+are not upgraded. Secure-store and logout behavior stay in the existing native
+session boundary; Task state and pending requests are memory-only. API scopes,
+source access and CAS/idempotency are enforced server-side as on web/MCP.
+
+Native controls wait for acknowledgement, synchronously block duplicate presses,
+retry exact cached requests after uncertainty and reload stale revisions for a
+new decision. Error messages distinguish expired/missing access, unavailable
+Tasks and connectivity without private exception text. Read requests cancel
+when their context changes; old pages/detail cannot replace a later query.
+
+The normal Expo/iOS SDK, palette, menu fallback and keyboard/text controls are
+reused. Synthetic native component/transport tests and iOS JS export pass; actual
+native compilation, device/simulator, VoiceOver/font/safe-area/auth/background
+checks are **not inferred** and remain #131/#154. See
+[native configuration and limits](../apps/mobile/README.md#optional-native-tasks-152).

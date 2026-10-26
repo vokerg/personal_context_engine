@@ -188,3 +188,46 @@ in light and dark app appearance; all four tabs opened, and system appearance
 was restored afterward. No personal screenshots are stored in the repository.
 Synthetic menu tests cover live transparency changes, unsupported-build fallback,
 accessible selected labels, tab dispatch and subscription cleanup.
+
+## Optional native Tasks (#152)
+
+`EXPO_PUBLIC_PCE_TASKS=true` adds a native Tasks tab to the existing iOS shell.
+It defaults off. Open, Completed and All use dedicated server Task queries;
+source Notes, Note kind/tags and reminders remain independent. The virtualized
+list supports server search/paging, checkbox completion after acknowledgement,
+reopen, detail/history and authenticated source Note navigation. Returning from
+a source preserves the Task view. The existing menu/Reduce Transparency fallback
+and system/light/dark palettes are reused; no platform router or signing change.
+
+Task creation is an explicit title/optional description form. Keyboard dictation
+fills these fields; there is no model, NLP heuristic, automatic extraction,
+inferred date, reminder or provider charge in this native path. Quick Note capture
+#126 and Note management #127 remain separate existing work; this feature does
+not complete them or the App v1 epic #121.
+
+Before release, explicitly enable the API Task gate and extend only the reviewed
+native OAuth registration with `tasks:read` and `tasks:write`, preserving the
+registered `pce://oauth/callback`. The enabled build requests those scopes alongside
+its existing scopes and the user must reconnect/consent. Existing grants and
+refresh never gain privileges; missing access shows reconnect guidance. Disabling
+the build flag restores the existing four tabs and requested scopes; a previously
+broader saved grant may require fresh sign-in. Never change production registration
+or user credentials just to satisfy a synthetic test.
+
+Duplicate taps are blocked before a request can be issued twice. An uncertain
+completion/creation retains its exact command/Task ID and payload for an explicit
+in-memory retry. A 409 clears the stale command and reloads for a new decision;
+no completed state is shown before acknowledgement. Requests use the existing
+secure session's refresh-aware token provider, typed HTTPS transport and safe
+errors. No Task text, query or pending command is persisted outside memory. On
+restart/logout inspect server Tasks before manually recreating an uncertain
+creation; this is not an offline queue. Completion history stays in PostgreSQL.
+
+Synthetic tests cover native controls, archive/reopen/search, source navigation,
+auth scope selection, stale revisions, stable retry IDs and duplicate presses.
+`expo export --platform ios` with explicit synthetic public config and dotenv
+loading disabled passed. This is JavaScript bundling, **not native compilation or
+iPhone/Simulator acceptance**. Actual font scaling, VoiceOver announcements,
+five-tab safe areas, keychain/auth refresh, offline/background/restart and real
+Task writes belong to the final #131/#154 approved synthetic device pass. No
+TestFlight, push or Android acceptance work is included.

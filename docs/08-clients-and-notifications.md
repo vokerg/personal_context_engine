@@ -349,3 +349,13 @@ records never schedule a reminder or mutate source Note archival. It uses the
 existing browser auth/CSRF and system palette, with retries preserving command
 IDs. See [Task UI operation and limits](23-tasks.md#web-tasks-workspace-151).
 iOS Tasks and actual cross-surface release acceptance remain #152/#154.
+
+## Native iOS Tasks (#152)
+
+An explicit build flag adds Tasks to the existing Expo shell, with dedicated
+server queries, acknowledgement-based completion, Completed/All/reopen,
+source Note navigation, history and explicit creation. New Task OAuth scopes
+require registration/consent; existing grants remain unchanged. No reminders,
+push or native LLM extraction is added. Synthetic component/contracts and iOS JS
+bundling are verified separately from the pending #131/#154 device acceptance.
+See [native Task operation](23-tasks.md#native-ios-tasks-152).

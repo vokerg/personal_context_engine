@@ -68,13 +68,14 @@ afterEach(async () => {
 });
 
 describe("native menu accessibility and compatibility", () => {
-  async function mount() {
+  async function mount(tasksEnabled = false) {
     root = createRoot(container);
     const onSelect = vi.fn();
     await act(async () => {
       root.render(
         <TabBar
           active="notes"
+          tasksEnabled={tasksEnabled}
           palette={paletteFor("light", "light")}
           onSelect={onSelect}
           onHeight={() => undefined}
@@ -109,5 +110,15 @@ describe("native menu accessibility and compatibility", () => {
         .click();
     });
     expect(onSelect).toHaveBeenCalledWith("search");
+  });
+  it("adds the separately enabled Tasks tab without replacing existing navigation", async () => {
+    const onSelect = await mount(true);
+    expect(container.querySelectorAll("button")).toHaveLength(5);
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="Tasks"]')!
+        .click(),
+    );
+    expect(onSelect).toHaveBeenCalledWith("tasks");
   });
 });
