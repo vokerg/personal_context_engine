@@ -1,4 +1,18 @@
-# Conversation-capture Task candidate (#153)
+# Conversation-capture Task integration (#153)
+
+## Activated checkpoint (2026-10-26)
+
+The owner approved final activation after the implementation stack deployed.
+The existing private plugin is now **0.2.0**, with guarded publication and exact
+source/version/preservation readback. The live NOTES Project has the reviewed
+**notes-v3.0** block installed and verified after reload. Actual NOTES captures
+persisted 0 and 3 Tasks; a fresh selected-plugin Brief capture persisted 1 Task.
+The hosted Task API/web and trusted local Task importer are enabled. Fresh
+ChatGPT/native Task scopes and actual Task retrieval were verified. See the
+[live evidence and remaining device limits](../../docs/evidence/issue-154/2026-10-26-activation.md).
+The sections below describe the earlier preparation checkpoint, not current
+installation status. The plugin remains instructions-only and retains its
+identity, private audience, default prompts and GitHub fallback.
 
 This directory owns the review source for the existing conversation-capture
 plugin's changed skill. It does not install a plugin, change Project settings,

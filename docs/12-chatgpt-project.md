@@ -282,7 +282,7 @@ precede candidate promotion, plugin publication and manual Project installation.
 Keep exact prior installed text privately for rollback. Preserve all Note/Task
 records and completion history when withdrawing prompts or either ingress gate.
 
-### Task-specific acceptance matrix
+### Task-specific acceptance matrix (preparation checkpoint, 2026-10-25)
 
 | Scenario | Supplied-output/contract evidence | Actual host gate |
 | --- | --- | --- |
@@ -299,3 +299,21 @@ The expected-output fixtures do not establish model behavior, voice fidelity,
 actual connector acceptance or complete transcript availability. #154 records
 actual pass/fail and owner go/no-go separately. No production prompt/settings,
 personal content or provider spend was changed during candidate preparation.
+
+### Owner-approved Task activation (2026-10-26)
+
+The reviewed notes-v3.0/tasks-v1 block is now promoted in the private repository
+and installed in actual NOTES settings. Reload/readback confirmed all 7,804
+characters; the exact previous installed text was backed up privately. The owned
+conversation plugin is published at 0.2.0 with preserved identity/presentation and
+private audience. Real NOTES 0/3 captures and a selected-plugin 1-Task capture
+persisted with faithful originals and separate receipts. One initial Note write
+was blocked by ChatGPT safety review; the safe same-ID recovery succeeded without
+overwrite or a duplicate repair Note.
+
+Hosted Task API/web and trusted local GET-only ingress are explicitly enabled;
+fresh ChatGPT/iOS scope consent was verified. A fresh ChatGPT conversation used
+dedicated Task search/list tools, independently from Note retrieval. The earlier
+candidate matrix remains a record of preparation, not a claim that every live
+failure/device scenario now passed. See [actual evidence and limits](evidence/issue-154/2026-10-26-activation.md).
+No ordinary capture requires PCE app selection or a channel cutover.

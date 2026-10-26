@@ -303,3 +303,14 @@ The combined authenticated HTTP/typed-client test covers three independent Tasks
 one completion, source archive/removal and reversible feature disable/reactivation
 without changing originals or history. See [acceptance and release gates](25-task-acceptance.md)
 for reproduction, review order and the actual native/host checks still required.
+
+### Approved live activation (2026-10-26)
+
+The owner approved enabling hosted API/web Tasks, the separate trusted local
+Task importer, fresh ChatGPT/native Task scopes, NOTES notes-v3.0 settings and
+the private conversation plugin 0.2.0. Actual 0/1/3 captures, deployed web/native
+lifecycle/source preservation, native Release installation and session checks
+are recorded in [the live evidence](evidence/issue-154/2026-10-26-activation.md).
+Earlier default-off/candidate statements describe preparation; public/default
+startup stays off. Physical-device, VoiceOver/audio and forced live outage checks
+remain explicitly unverified. Existing Note capture/search remains independent.
