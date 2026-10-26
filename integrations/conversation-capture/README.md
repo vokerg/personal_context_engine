@@ -1,5 +1,7 @@
 # Conversation-capture Task integration (#153)
 
+> **Next plugin candidate (not published):** This repository now tracks both release manifests alongside the reviewed skill, targeting `0.3.0` only after an explicit guarded release. See [ChatGPT surface rollout map](../chatgpt/README.md). The live plugin remains `0.2.0` until read-back verifies publication.
+
 ## Activated checkpoint (2026-10-26)
 
 The owner approved final activation after the implementation stack deployed.

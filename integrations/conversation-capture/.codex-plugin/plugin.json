@@ -1,0 +1,24 @@
+{
+  "interface": {
+    "capabilities": [],
+    "category": "Productivity",
+    "defaultPrompt": [
+      "Save this conversation",
+      "Save the full conversation",
+      "Save the key decisions from this chat"
+    ],
+    "developerName": "Dmitri Grecov",
+    "displayName": "PCE Conversation Capture",
+    "longDescription": "Save a brief, full available transcript, or selected topic from the current chat to the private Personal Context Engine repository. Requires connected GitHub read and create-file tools; produces an unsaved draft when prerequisites are missing.",
+    "shortDescription": "Save chats to your PCE inbox"
+  },
+  "name": "pce-conversation-capture",
+  "version": "0.3.0",
+  "description": "Capture conversation knowledge as validated Markdown v1 notes in vokerg's private Personal Context Engine inbox using connected GitHub tools.",
+  "author": {
+    "name": "Dmitri Grecov",
+    "email": "vokerg@gmail.com"
+  },
+  "keywords": [],
+  "skills": "./skills"
+}
