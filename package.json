@@ -44,6 +44,7 @@
     "openai:check": "node scripts/check-openai-setup.mjs",
     "capture:validate": "npm run build -w @pce/core && node scripts/validate-capture.mjs",
     "capture:verify": "npm run build -w @pce/core && node scripts/verify-chatgpt-capture.mjs",
+    "tasks:verify": "node scripts/verify-tasks.mjs",
     "embeddings:watch": "node scripts/run-worker.mjs embeddings-loop",
     "db-jobs:watch": "node scripts/run-worker.mjs db-jobs-loop",
     "db-jobs:once": "node scripts/run-worker.mjs db-jobs-once"
