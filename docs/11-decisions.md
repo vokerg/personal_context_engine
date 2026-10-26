@@ -601,3 +601,14 @@ separate Task scopes with fresh consent; Note capture/removal, reminders and
 push are independent. Pending requests remain in memory with stable retry IDs.
 Synthetic tests/iOS JavaScript bundling do not establish real native/device
 acceptance; that remains #131/#154. See [native Tasks](23-tasks.md#native-ios-tasks-152).
+
+### Shared extraction policy and inactive host candidates (#153; D-031)
+
+NOTES and conversation-capture candidates now reference one tasks-v1 policy,
+preserving faithful Notes, clear-commitment 0..N Tasks, explicit opt-out and
+separate reminder/execution boundaries. A current-source plugin audit established
+its instructions-only capability; absent Task writes use the reviewed private
+artifact fallback after activation. Prepared source/archive and supplied-output
+DB tests are not actual model, deployment, installed-prompt or connector proof.
+No account release or live settings were changed. See
+[policy and release boundaries](24-task-extraction-policy.md).
