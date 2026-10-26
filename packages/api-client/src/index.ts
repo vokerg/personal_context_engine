@@ -1,4 +1,9 @@
 import {
+  TaskExtractionBatchSchema,
+  TaskBatchReceiptSchema,
+  type TaskExtractionBatch,
+} from "@pce/contracts";
+import {
   TaskCreateSchema,
   TaskIdSchema,
   TaskSchema,
@@ -597,3 +602,16 @@ export type {
   TaskHistory,
   TaskHistoryQuery,
 } from "@pce/contracts";
+
+export function saveTaskBatch(
+  options: AuthenticatedRequestOptions,
+  input: TaskExtractionBatch,
+) {
+  return authenticatedGet(
+    options,
+    "/api/v1/task-batches",
+    TaskBatchReceiptSchema.parse,
+    TaskExtractionBatchSchema.parse(input),
+  );
+}
+export type { TaskExtractionBatch, TaskBatchReceipt } from "@pce/contracts";

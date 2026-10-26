@@ -2,6 +2,7 @@ import { z } from "zod";
 import { NoteIdSchema } from "./ids.js";
 
 export * from "./tasks.js";
+export * from "./task-extraction.js";
 
 /** Public liveness: does not inspect the database or reveal private state. */
 export const HealthResponseSchema = z

@@ -1,6 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { PrismaClient, createTaskRepository } from "@pce/db";
+import {
+  PrismaClient,
+  createTaskRepository,
+  createTaskExtractionRepository,
+  createApiCaptureRepository,
+} from "@pce/db";
 import { createApp } from "./app.js";
 import { createSessionAuth } from "./session-auth.js";
 import { tasksEnabled } from "./tasks.js";
@@ -21,6 +26,8 @@ describe.skipIf(!process.env.PCE_DB_TEST_URL)(
     let db: PrismaClient, app: ReturnType<typeof createApp>;
     let headers: Record<string, string>, cookie: string;
     const taskId = randomUUID();
+    const noteId = randomUUID(),
+      captureId = randomUUID();
     const grant = async (scope: string) => {
       const result = await app.inject({
         method: "POST",
@@ -56,6 +63,8 @@ describe.skipIf(!process.env.PCE_DB_TEST_URL)(
         dependencies: {
           sessionAuth: auth,
           tasks: createTaskRepository(db),
+          taskBatches: createTaskExtractionRepository(db),
+          capture: createApiCaptureRepository(db),
           oauth: {
             db,
             clients: [
@@ -89,9 +98,16 @@ describe.skipIf(!process.env.PCE_DB_TEST_URL)(
     afterAll(async () => {
       if (app) await app.close();
       if (!db) return;
+      await db.taskExtractionBatch.deleteMany({
+        where: { ownerSubject: owner },
+      });
+      await db.taskSource.deleteMany({ where: { ownerSubject: owner } });
       await db.taskCommand.deleteMany({ where: { ownerSubject: owner } });
       await db.taskEvent.deleteMany({ where: { ownerSubject: owner } });
       await db.task.deleteMany({ where: { ownerSubject: owner } });
+      await db.apiCaptureReceipt.deleteMany({ where: { ownerSubject: owner } });
+      await db.note.deleteMany({ where: { id: noteId } });
+      await db.capture.deleteMany({ where: { id: captureId } });
       await db.authSession.deleteMany({ where: { ownerSubject: owner } });
       await db.$disconnect();
     });
@@ -257,6 +273,110 @@ describe.skipIf(!process.env.PCE_DB_TEST_URL)(
         (await app.inject({ url: "/api/v1/tasks?limit=101", headers: token }))
           .statusCode,
       ).toBe(400);
+    });
+    it("persists a separately scoped batch after the original capture and reports independent receipts", async () => {
+      const title = "Synthetic task batch original";
+      const markdown = `---
+schema_version: 1
+id: ${noteId}
+capture_id: ${captureId}
+captured_at: 2026-10-25T09:00:00+01:00
+source: chatgpt_text
+kind: memo
+domains: []
+projects: []
+tags: []
+action_hint: none
+review_required: false
+title: ${title}
+---
+
+# ${title}
+
+## Summary
+
+Synthetic batch source.
+
+## Original input
+
+Buy synthetic filters
+`;
+      const batch = {
+        schemaVersion: 1,
+        batchId: randomUUID(),
+        captureId,
+        sourceNoteIds: [noteId],
+        classifier: {
+          method: "llm",
+          policyVersion: "tasks-v1",
+          agent: "Synthetic",
+        },
+        tasks: [
+          {
+            taskId: randomUUID(),
+            title: "Buy filters",
+            sources: [{ noteId, captureId, evidence: "Buy synthetic filters" }],
+          },
+        ],
+      };
+      const write = await grant("tasks:write"),
+        scoped = await grant("tasks:write notes:read");
+      expect(
+        (
+          await app.inject({
+            method: "POST",
+            url: "/api/v1/task-batches",
+            headers: write,
+            payload: batch,
+          })
+        ).statusCode,
+      ).toBe(403);
+      expect(
+        (
+          await app.inject({
+            method: "POST",
+            url: "/api/v1/task-batches",
+            headers: scoped,
+            payload: batch,
+          })
+        ).statusCode,
+      ).toBe(404);
+      const captured = await app.inject({
+        method: "POST",
+        url: "/api/v1/captures",
+        headers,
+        payload: { idempotencyKey: "batch-original", notes: [markdown] },
+      });
+      expect(captured.statusCode).toBe(200);
+      expect(captured.json().status).toBe("DB_PERSISTED");
+      expect(
+        await db.taskExtractionBatch.count({ where: { id: batch.batchId } }),
+      ).toBe(0);
+      const results = await Promise.all(
+        [1, 2].map(() =>
+          app.inject({
+            method: "POST",
+            url: "/api/v1/task-batches",
+            headers: scoped,
+            payload: batch,
+          }),
+        ),
+      );
+      expect(results.map((r) => r.statusCode)).toEqual([200, 200]);
+      expect(results.map((r) => r.json().replayed).sort()).toEqual([
+        false,
+        true,
+      ]);
+      expect(
+        (
+          await app.inject({
+            method: "POST",
+            url: "/api/v1/task-batches",
+            headers: scoped,
+            payload: { ...batch, tasks: [] },
+          })
+        ).statusCode,
+      ).toBe(409);
     });
     it("requires new explicit task OAuth consent; existing notes clients cannot request task access", async () => {
       const params = {

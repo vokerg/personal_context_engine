@@ -81,3 +81,9 @@ export interface ResearchIngressStore {
   /** Reads an immutable observed revision; caller verifies it still matches. */
   readResearch(path: string): Promise<ContentFile>;
 }
+
+/** Independent create-only artifact reader; never writes completion to GitHub. */
+export interface TaskIngressStore {
+  listTaskBatches(options?: ListPendingOptions): Promise<PendingPage>;
+  readTaskBatch(path: string): Promise<ContentFile>;
+}

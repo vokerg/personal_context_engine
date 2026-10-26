@@ -527,3 +527,36 @@ model TaskCommand {
   @@id([ownerSubject, id])
   @@map("task_commands")
 }
+
+// One immutable complete 0..N extraction per owner/capture; commit with Tasks.
+model TaskExtractionBatch {
+  id             String @id @db.VarChar(36)
+  ownerSubject   String @db.VarChar(128)
+  captureId      String @db.VarChar(36)
+  payloadHash    String @db.Char(64)
+  artifact       Json
+  origin         String @db.VarChar(12)
+  sourcePath     String? @db.Text
+  sourceRevision String? @db.VarChar(128)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([ownerSubject, captureId])
+  @@map("task_extraction_batches")
+}
+
+model TaskIngressAttempt {
+  id             String @id @db.Char(64)
+  checkpointKey  String @db.Char(64)
+  ownerSubject   String @db.VarChar(128)
+  sourcePath     String @db.Text
+  sourceRevision String @db.VarChar(128)
+  batchId        String? @db.VarChar(36)
+  status         String @db.VarChar(24)
+  attemptCount   Int @default(0)
+  nextRetryAt    DateTime? @db.Timestamptz(3)
+  lastErrorCode  String? @db.VarChar(64)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([ownerSubject, batchId])
+  @@map("task_ingress_attempts")
+}

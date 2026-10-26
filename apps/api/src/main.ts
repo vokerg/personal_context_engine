@@ -15,6 +15,7 @@ import {
   createNoteTagRepository,
   createResearchRepository,
   createTaskRepository,
+  createTaskExtractionRepository,
 } from "@pce/db";
 import { createApp } from "./app.js";
 import { loadApiConfig, researchReportsEnabled } from "./config.js";
@@ -79,7 +80,11 @@ async function start(): Promise<void> {
                     sessionAuth: createSessionAuth(connected, sessionOptions),
                     capture: createApiCaptureRepository(connected),
                     ...(enableTasks
-                      ? { tasks: createTaskRepository(connected) }
+                      ? {
+                          tasks: createTaskRepository(connected),
+                          taskBatches:
+                            createTaskExtractionRepository(connected),
+                        }
                       : {}),
                     ...(enableResearchReports
                       ? { research: createResearchRepository(connected) }

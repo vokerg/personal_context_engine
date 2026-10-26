@@ -144,3 +144,11 @@ and source citations. The research artifact contract, strict validation,
 private GitHub path allowlist, ingestion/recovery and DB schema are to be
 implemented under #104; do not instruct ChatGPT to write research files using
 the current v1-only capture contract. Final NOTES prompt update waits for #105.
+
+## Separate Task extraction interchange (#149)
+
+Markdown v1 is unchanged. Independent Tasks use strict TaskExtractionBatch JSON
+v1, at a separate create-only private path or scoped API route; no new frontmatter
+or appended original-input sections. One original can support 0..20 Tasks without
+one redundant Note per action. See [the extraction contract](23-tasks.md#complete-extraction-and-dual-ingress-149).
+The deterministic importer never infers actions; live prompt activation is #153.
