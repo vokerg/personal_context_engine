@@ -1,5 +1,8 @@
 # 12 — NOTES Project integration and acceptance (#105)
 
+> **Next configuration candidate (not installed):** [`integrations/chatgpt/NOTES_PROJECT_INSTRUCTIONS.md`](../integrations/chatgpt/NOTES_PROJECT_INSTRUCTIONS.md) contains proposed `notes-v3.1`; the source/version/deployment mapping and browser-release steps are in [`integrations/chatgpt/README.md`](../integrations/chatgpt/README.md). This does not change the verified live `notes-v3.0` baseline or the private installed snapshot. All historical acceptance evidence below describes the versions observed at the time.
+
+
 **2026-10-23:** #99, #100, #103 and #104 and their private contracts are merged.
 The reviewed `notes-v2.0` prompt was installed in the actual NOTES Project with
 explicit owner authorization. Reloading Project settings returned the exact
