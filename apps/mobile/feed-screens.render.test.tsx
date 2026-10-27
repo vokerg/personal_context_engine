@@ -1,6 +1,13 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+vi.mock("@react-native-community/datetimepicker", () => ({
+  default: () => null,
+}));
+vi.mock("expo-secure-store", () => ({
+  getItemAsync: async () => null,
+  setItemAsync: async () => undefined,
+}));
 vi.mock("react-native", async () => {
   const { createElement: element } = await import("react");
   type HostProps = {

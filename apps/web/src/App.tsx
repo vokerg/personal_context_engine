@@ -5,6 +5,8 @@ import { NoteTagPicker } from "./NoteTagPicker.js";
 import { ResearchPanel } from "./ResearchPanel.js";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
+  datePresets,
+  presetDates,
   ApiRequestError,
   describeNotesError,
   getNote,
@@ -1330,11 +1332,43 @@ export function App({
                   }
                 />
               </div>
+              <div
+                className="filter-field date-presets"
+                role="group"
+                aria-label="Quick date range"
+              >
+                <span>Period</span>
+                <div className="date-preset-buttons">
+                  {datePresets.map((preset) => {
+                    const range = presetDates(preset.id);
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        aria-label={preset.label + " date range"}
+                        aria-pressed={
+                          filters.from === range.from && filters.to === range.to
+                        }
+                        onClick={() => changeFilter(presetDates(preset.id))}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               <div className="filter-field filter-date">
                 <label htmlFor="from-date">From (local date)</label>
                 <input
                   id="from-date"
                   type="date"
+                  onClick={(event) => {
+                    try {
+                      event.currentTarget.showPicker?.();
+                    } catch {
+                      /* Native input remains usable. */
+                    }
+                  }}
                   value={filters.from}
                   onChange={(event) =>
                     changeFilter({ from: event.target.value })
@@ -1346,6 +1380,13 @@ export function App({
                 <input
                   id="to-date"
                   type="date"
+                  onClick={(event) => {
+                    try {
+                      event.currentTarget.showPicker?.();
+                    } catch {
+                      /* Native input remains usable. */
+                    }
+                  }}
                   value={filters.to}
                   onChange={(event) => changeFilter({ to: event.target.value })}
                 />
