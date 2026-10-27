@@ -705,6 +705,8 @@ export function TimelineScreen({
       ) : null}
       <FlatList
         alwaysBounceVertical
+        automaticallyAdjustKeyboardInsets
+        contentInsetAdjustmentBehavior="never"
         style={{ flex: 1 }}
         data={prepared.query ? rows : []}
         keyExtractor={(item) => item.key}
@@ -933,6 +935,8 @@ export function SearchScreen({
       ) : null}
       <FlatList
         alwaysBounceVertical
+        automaticallyAdjustKeyboardInsets
+        contentInsetAdjustmentBehavior="never"
         style={{ flex: 1 }}
         data={prepared.valid && queryIsCurrent ? feed.state.items : []}
         keyExtractor={(item) => item.id}

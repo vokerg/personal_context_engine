@@ -342,6 +342,8 @@ export function TasksScreen({
       >
         <FlatList
           alwaysBounceVertical
+          automaticallyAdjustKeyboardInsets
+          contentInsetAdjustmentBehavior="never"
           refreshing={loading}
           onRefresh={() => setReload((v) => v + 1)}
           data={tasks}
@@ -583,6 +585,8 @@ export function TasksScreen({
         <ScrollView
           {...backGesture.panHandlers}
           alwaysBounceVertical
+          automaticallyAdjustKeyboardInsets
+          contentInsetAdjustmentBehavior="never"
           refreshControl={
             <RefreshControl
               refreshing={!detail && !detailError}

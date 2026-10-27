@@ -415,6 +415,7 @@ export function NoteDetailScreen({
     <ScrollView
       style={{ flex: 1 }}
       alwaysBounceVertical
+      automaticallyAdjustKeyboardInsets
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={{ padding: 20, gap: 14, flexGrow: 1 }}
       refreshControl={

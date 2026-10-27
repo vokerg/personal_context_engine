@@ -6,13 +6,12 @@ no Android verification is required for the beta.
 
 ## Shell and navigation (#123)
 
-The app uses **one dependency-free, typed native tab/detail navigator** built
-from React Native `Pressable`/`View` and a pure `reduceNavigation` state
-machine. This navigator is compatible with the current Expo SDK without adding
-native navigation packages or changing the root npm lockfile. It provides a bounded note/source stack with a deliberate rightward swipe
-from the left edge to go Back, alongside the accessible Back button. It does
-not implement interactive native-stack animations. Introducing a library navigator requires a separate
-deliberate migration, not an unreviewed mix of navigators.
+The typed `reduceNavigation` state machine owns authenticated tab selection,
+note/source detail and deep-link intent. The visible menu now uses the native
+system tab controller through pinned `react-native-bottom-tabs` (#165), rather
+than custom React Native tab buttons. Its standalone adapter keeps the existing
+screen components and does not introduce Expo Router or React Navigation.
+Note/source detail retains a bounded stack, left-edge back swipe and Back button.
 
 - `App.tsx`: root safe area, tab bar, OS back handling, auth gate and incoming
   external links. No `react-dom` or cookies.
@@ -189,31 +188,39 @@ keep machine-specific signing configuration and all private artifacts local.
 
 ## Floating iOS menu (#142)
 
-The existing typed tab/detail navigator now renders a floating rounded menu
-with SF Symbols and an `expo-glass-effect` native glass surface on supported
-iOS 26+ builds. This is a custom menu, not a migration to a system tab-bar
-controller: system tab morphing and minimize-on-scroll are not implemented.
-Opaque item backgrounds are removed so scrolling content can show through.
-Timeline/search and the Capture/Settings scroll views reserve a bottom inset
-based on the measured menu height, including when text size changes. Detail
-continues to hide the menu; session and navigation behavior are unchanged.
+The original #142 custom rounded GlassView menu is superseded by the owner's
+#165 request for the **system** iOS tab bar. `tab-bar.tsx` adapts the existing
+typed selected tab to `react-native-bottom-tabs` 1.5.0. Its native implementation
+uses SwiftUI `TabView` and the underlying `UITabBarController`/`UITabBar`.
+iOS 26 owns Liquid Glass, selection interaction, SF Symbol rendering and
+accessibility appearance; older iOS versions use their system tab style.
+There is no custom glass surface, painted selection pill, fixed bar position,
+translucency override or JS transparency fallback. The unused
+`expo-glass-effect` and `expo-symbols` dependencies are removed.
 
-The menu starts opaque until the Reduce Transparency preference is known and
-follows live preference changes. Unsupported systems/builds and reduced
-transparency use the existing theme's opaque surface. Light/dark app appearance
-is passed to the glass view. Native dependencies use Expo SDK54-compatible
-versions; rebuild the iOS development app after pulling this change (a Metro
-reload alone cannot install the native modules).
+The build-time Tasks gate selects four or five stable routes. Search uses the
+system search role and is last in the route order. All scenes stay mounted
+until sign-out, preserving query, scroll and Task form state across selection.
+The native bar hides and its underlying scenes become inaccessible while a
+note/source detail overlay is open; Back returns to the selected tab.
 
-Physical-device appearance, VoiceOver and the largest Dynamic Type sizes remain
-manual verification items; automated checks do not establish visual quality.
+A safe-area provider reserves top/side insets; the native controller extends to
+the bottom screen edge. Lists use the measured native bar height for manual
+bottom padding and disable automatic container inset adjustment to avoid double
+padding. Keyboard insets are handled on scroll views, not by moving the system
+bar with the entire shell. Theme selection updates native appearance as well as
+React content. Bar minimization is explicitly disabled; minimize-on-scroll is
+not an acceptance claim for these virtualized lists.
 
-Local verification on 2026-10-25: the Xcode 26.6 build installed and launched on
-an iPhone 17 / iOS 26.5 simulator. The floating material was visually inspected
-in light and dark app appearance; all four tabs opened, and system appearance
-was restored afterward. No personal screenshots are stored in the repository.
-Synthetic menu tests cover live transparency changes, unsupported-build fallback,
-accessible selected labels, tab dispatch and subscription cleanup.
+Rebuild the native app after dependency/config changes. Synthetic adapter tests
+cover controlled selection, native metadata/search role, measured insets,
+retained scene state, optional Tasks and hidden-detail navigation guards.
+Actual iPhone appearance, keyboard/safe areas, VoiceOver and large Dynamic Type
+still require focused runtime inspection beyond basic presence. The native
+Release build/install completed on the connected physical iPhone on 2026-10-27;
+the owner confirmed that the system menu appeared. This does not establish full
+keyboard, Dynamic Type, VoiceOver or all tab/detail acceptance. Historical #142 simulator observations concerned the old
+custom glass menu and do not validate this replacement.
 
 ## Optional native Tasks (#152)
 
@@ -222,8 +229,8 @@ It defaults off. Open, Completed and All use dedicated server Task queries;
 source Notes, Note kind/tags and reminders remain independent. The virtualized
 list supports server search/paging, checkbox completion after acknowledgement,
 reopen, detail/history and authenticated source Note navigation. Returning from
-a source preserves the Task view. The existing menu/Reduce Transparency fallback
-and system/light/dark palettes are reused; no platform router or signing change.
+a source preserves the Task view. System tab appearance/accessibility and
+system/light/dark palettes are reused; no platform router or signing change.
 
 Task creation is an explicit title/optional description form. Keyboard dictation
 fills these fields; there is no model, NLP heuristic, automatic extraction,
@@ -262,11 +269,10 @@ TestFlight, push or Android acceptance work is included.
 
 The generated opaque 1024×1024 icon is tracked in `assets/icon.png` and selected
 by Expo configuration. Regenerate/rebuild the native app to install it.
-The menu's GlassView now contains the tab buttons and owns their measured
-layout, rather than using a separate absolutely positioned glass sibling.
-Its outer view anchors it 12 points above the shell's bottom safe area; list
-insets continue to follow the actual menu height. Opaque accessibility fallback
-is retained.
+The owner rejected the first custom-glass-container correction after inspecting
+the phone. The final #165 implementation replaces that menu with system native
+tabs as documented above; no claim of visual acceptance is inferred from the
+first successful Release installation.
 
 Note/source and Task detail accept a one-finger rightward edge swipe (starting within
 36 points of the left edge). Short, vertical and non-edge gestures do not pop
