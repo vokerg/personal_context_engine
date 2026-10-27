@@ -63,15 +63,27 @@ these artifact checks alone.
 The initial invocation also revealed that this Expo CLI starts Metro by default
 even with Release. The helper now adds its supported `--no-bundler` flag, covered
 by the command assertion. The incidental Metro-generated `tsconfig.json` rewrite
-was restored; native/generated configuration is excluded from the PR. Repeat
-installation and launch with no Metro are pending verification after device trust.
+was restored; native/generated configuration is excluded from the PR.
 
 After the device trust step, a direct `devicectl device process launch` succeeded
-for `dev.pce.mobile`. There was no listener on Metro port 8081. This verifies
-installation and native launch of the embedded Release artifact without Metro;
-the updated helper's complete `--no-bundler` build/install/launch invocation has
-not yet been repeated. The supported CLI option was verified against the locally
-installed Expo CLI's help, and all nine helper tests passed with Node 22.
+for `dev.pce.mobile`. There was no listener on Metro port 8081. The owner confirmed
+successful sign-in on the physical phone.
+
+The updated helper was then repeated end to end with `--no-bundler`: native
+Release build, signing, installation and launch completed with exit code **0**,
+zero native errors/warnings and no Metro listener on port 8081. The local Expo
+CLI help confirms the supported option. Metro still transiently bundles the
+embedded JS during compilation; that build-time message is not a persistent
+development server. No further tracked Expo configuration rewrites occurred.
+
+A separate `devicectl` launch with `--terminate-existing` completed successfully
+and the device process inventory confirmed the app running after cold launch.
+The owner then confirmed that the app remained functional after this relaunch,
+including the requested check that the signed-in notes screen opens without
+another login. This is owner-observed runtime acceptance, not an inference from
+the process inventory.
+
+All nine helper tests passed with Node 22.
 
 `npm run docs:check` and `git diff --check` passed. The broader application
 workspace checks are delegated to synthetic PR CI; local personal configuration
@@ -79,8 +91,8 @@ and raw device artifacts are not used in public CI.
 
 ## Remaining product acceptance
 
-Physical-phone OAuth/callback, secure session restoration after cold relaunch,
-cellular/Wi-Fi behavior, accessibility, detailed screen QA, capture/removal and
-notification checks remain pending unless separately observed. No personal
+Physical-phone sign-in and session retention after cold relaunch were confirmed
+by the owner. Cellular/Wi-Fi behavior, accessibility, detailed screen QA,
+capture/removal and notification checks remain pending unless separately observed. No personal
 content was created or changed as a deployment test. Raw build logs, screenshots,
 device/account identifiers, certificates, profiles and credentials remain local.

@@ -178,7 +178,7 @@ test("device selection refuses no device, multiple devices, or wrong requested I
   assert.throws(() => selectIphone([first], "simulator-id"), /physical iPhone/);
 });
 
-test("Release command selects the device and skips Metro", () => {
+test("Release command selects the device and disables the development server", () => {
   assert.deepEqual(releaseArgs(iphone.identifier), [
     "run",
     "ios",
