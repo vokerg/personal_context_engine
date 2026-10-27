@@ -6,13 +6,31 @@ import { afterEach, expect, it, vi } from "vitest";
 const server = vi.hoisted(() => ({
   title: "Before worker import",
   browse: vi.fn(),
+  search: vi.fn(),
   facets: vi.fn(),
   registry: vi.fn(),
   change: vi.fn<(state: string) => void>(),
 }));
+vi.mock("@react-native-community/datetimepicker", () => ({
+  default: ({
+    onChange,
+  }: {
+    onChange: (event: { type: string }, date: Date) => void;
+  }) =>
+    React.createElement(
+      "button",
+      { onClick: () => onChange({ type: "set" }, new Date(2026, 9, 3, 12)) },
+      "Pick synthetic date",
+    ),
+}));
+vi.mock("expo-secure-store", () => ({
+  getItemAsync: async () => null,
+  setItemAsync: async () => undefined,
+}));
 vi.mock("@pce/api-client", async (original) => ({
   ...(await original<typeof import("@pce/api-client")>()),
   getBrowsePage: server.browse,
+  searchContext: server.search,
   getBrowseFacets: server.facets,
   getTagRegistry: server.registry,
 }));
@@ -20,10 +38,25 @@ vi.mock("react-native", () => {
   const host = ({ children }: { children?: React.ReactNode }) =>
     React.createElement("div", null, children);
   return {
+    Platform: { OS: "ios" },
     View: host,
     Text: host,
     ScrollView: host,
-    TextInput: () => null,
+    TextInput: ({
+      value,
+      onChangeText,
+      accessibilityLabel,
+    }: {
+      value: string;
+      onChangeText: (value: string) => void;
+      accessibilityLabel: string;
+    }) =>
+      React.createElement("input", {
+        value,
+        "aria-label": accessibilityLabel,
+        onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+          onChangeText(event.target.value),
+      }),
     AppState: {
       currentState: "active",
       addEventListener: (_event: string, fn: (state: string) => void) => {
@@ -66,7 +99,7 @@ vi.mock("react-native", () => {
       ),
   };
 });
-import { TimelineScreen } from "./feed-screens";
+import { SearchScreen, TimelineScreen } from "./feed-screens";
 import { paletteFor } from "./theme";
 import type { MobileSession } from "./session";
 let root: ReturnType<typeof createRoot>;
@@ -139,4 +172,150 @@ it("shows newly imported server data without a relaunch and refreshes facets on 
     root.render(React.createElement(TimelineScreen, props)),
   );
   expect(container.textContent).toContain("Updated in background");
+});
+
+it("presets and native calendar edits send actual bounds and All clears them", async () => {
+  server.browse.mockResolvedValue({ notes: [], nextCursor: null });
+  server.facets.mockResolvedValue({
+    projects: [],
+    kinds: [],
+    truncated: false,
+  });
+  server.registry.mockResolvedValue({
+    approved: [],
+    revision: 1,
+    nextCursor: null,
+    truncated: false,
+  });
+  const container = document.createElement("div");
+  root = createRoot(container);
+  await act(async () =>
+    root.render(
+      React.createElement(TimelineScreen, {
+        session: {
+          config: { apiOrigin: "https://api.example" },
+        } as MobileSession,
+        palette: paletteFor("dark", "dark"),
+        onOpenNote: vi.fn(),
+      }),
+    ),
+  );
+  const click = async (text: string) => {
+    const button = [...container.querySelectorAll("button")].find(
+      (b) => b.textContent === text,
+    )!;
+    expect(button).toBeDefined();
+    await act(async () => button.click());
+  };
+  await click("Filters");
+  for (const [label, days] of [
+    ["Today", 1],
+    ["Week", 7],
+    ["Month", 30],
+    ["Year", 365],
+  ] as const) {
+    await click(label);
+    const now = new Date();
+    expect(server.browse.mock.calls.at(-1)![1]).toMatchObject({
+      start: new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() - days + 1,
+      ).toISOString(),
+      end: new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1,
+      ).toISOString(),
+    });
+  }
+  const open = [...container.querySelectorAll("button")].find((b) =>
+    b.textContent?.startsWith("From date:"),
+  )!;
+  await act(async () => open.click());
+  await click("Pick synthetic date");
+  const before = server.browse.mock.calls.length;
+  await click("Cancel from date");
+  expect(server.browse.mock.calls).toHaveLength(before);
+  await act(async () => open.click());
+  await click("Pick synthetic date");
+  await click("Apply from date");
+  expect(server.browse.mock.calls.at(-1)![1].start).toBe(
+    new Date(2026, 9, 3).toISOString(),
+  );
+  await click("Clear from date");
+  expect(server.browse.mock.calls.at(-1)![1].start).toBeUndefined();
+  await click("All");
+  expect(server.browse.mock.calls.at(-1)![1]).not.toHaveProperty("start");
+  expect(server.browse.mock.calls.at(-1)![1]).not.toHaveProperty("end");
+});
+
+it("applies presets to server search rather than only filtering visible hits", async () => {
+  vi.useFakeTimers();
+  server.search.mockResolvedValue({
+    results: [],
+    nextCursor: null,
+    mode: "lexical",
+    degradation: null,
+    truncated: false,
+  });
+  server.facets.mockResolvedValue({
+    projects: [],
+    kinds: [],
+    truncated: false,
+  });
+  server.registry.mockResolvedValue({
+    approved: [],
+    revision: 1,
+    nextCursor: null,
+    truncated: false,
+  });
+  const container = document.createElement("div");
+  root = createRoot(container);
+  await act(async () =>
+    root.render(
+      React.createElement(SearchScreen, {
+        session: {
+          config: { apiOrigin: "https://api.example" },
+        } as MobileSession,
+        palette: paletteFor("light", "light"),
+        onOpenNote: vi.fn(),
+      }),
+    ),
+  );
+  const field = container.querySelector("input")!;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )!.set!.call(field, "synthetic");
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await act(async () => vi.advanceTimersByTime(350));
+  const click = async (label: string) => {
+    const button = [...container.querySelectorAll("button")].find(
+      (b) => b.textContent === label,
+    )!;
+    expect(button).toBeDefined();
+    await act(async () => button.click());
+  };
+  await click("Filters");
+  await click("Today");
+  const now = new Date();
+  expect(server.search.mock.calls.at(-1)![1]).toMatchObject({
+    query: "synthetic",
+    start: new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    ).toISOString(),
+    end: new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 1,
+    ).toISOString(),
+  });
+  await click("All");
+  expect(server.search.mock.calls.at(-1)![1]).not.toHaveProperty("start");
+  expect(server.search.mock.calls.at(-1)![1]).not.toHaveProperty("end");
 });

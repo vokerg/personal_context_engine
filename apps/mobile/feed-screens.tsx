@@ -1,3 +1,5 @@
+import { DateFilter } from "./date-filter";
+import { datePresets, presetDates } from "@pce/api-client";
 import { useLiveRefresh } from "./live-refresh";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -436,35 +438,33 @@ function FilterControls({
           >
             Captured on local dates (inclusive)
           </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {datePresets.map((preset) => {
+              const range = presetDates(preset.id);
+              return (
+                <Chip
+                  key={preset.id}
+                  label={preset.label}
+                  selected={
+                    filters.from === range.from && filters.to === range.to
+                  }
+                  onPress={() =>
+                    update({ ...filters, ...presetDates(preset.id) })
+                  }
+                  palette={palette}
+                />
+              );
+            })}
+          </View>
           <View style={{ gap: 8 }}>
             {(["from", "to"] as const).map((key) => (
-              <View key={key} style={{ gap: 4 }}>
-                <Text style={{ color: palette.secondary }}>
-                  {key === "from" ? "From date" : "Through date"} (YYYY-MM-DD)
-                </Text>
-                <TextInput
-                  accessibilityLabel={
-                    key === "from" ? "From date" : "Through date"
-                  }
-                  value={filters[key]}
-                  onChangeText={(text) =>
-                    update({ ...filters, [key]: text.trim() })
-                  }
-                  keyboardType="numbers-and-punctuation"
-                  autoCorrect={false}
-                  maxLength={10}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={palette.secondary}
-                  style={{
-                    borderColor: palette.border,
-                    borderWidth: 1,
-                    borderRadius: 10,
-                    minHeight: 44,
-                    paddingHorizontal: 12,
-                    color: palette.text,
-                  }}
-                />
-              </View>
+              <DateFilter
+                key={key}
+                label={key === "from" ? "From date" : "Through date"}
+                value={filters[key]}
+                onChange={(value) => update({ ...filters, [key]: value })}
+                palette={palette}
+              />
             ))}
           </View>
           {dates ? (

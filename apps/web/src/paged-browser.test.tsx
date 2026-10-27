@@ -313,3 +313,63 @@ it("bounds project suggestions, narrows matches and applies keyboard selection o
   await click("Reset filters");
   expect(project.value).toBe("");
 });
+
+it("date presets update both input values and server bounds, reset cursors and preserve other filters", async () => {
+  await connect();
+  await input("project-filter", "project-local");
+  await click("Next page");
+  for (const [label, days] of [
+    ["Today", 1],
+    ["Week", 7],
+    ["Month", 30],
+    ["Year", 365],
+  ] as const) {
+    await click(label);
+    const now = new Date();
+    const from = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - days + 1,
+    );
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const last = requests
+      .filter((r) => r.pathname === "/api/v1/browse")
+      .at(-1)!;
+    expect(last.searchParams.get("start")).toBe(from.toISOString());
+    expect(last.searchParams.get("end")).toBe(end.toISOString());
+    expect(last.searchParams.has("cursor")).toBe(false);
+    expect(last.searchParams.get("project")).toBe("project-local");
+    expect(
+      container.querySelector<HTMLInputElement>("#from-date")!.value,
+    ).not.toBe("");
+    expect(
+      container.querySelector<HTMLInputElement>("#to-date")!.value,
+    ).not.toBe("");
+  }
+  await input("from-date", "2026-01-02");
+  expect(
+    container.querySelector('button[aria-pressed="true"]')?.textContent,
+  ).not.toBe("Year");
+  await click("All date range");
+  const last = requests.filter((r) => r.pathname === "/api/v1/browse").at(-1)!;
+  expect(last.searchParams.has("start")).toBe(false);
+  expect(last.searchParams.has("end")).toBe(false);
+  expect(container.querySelector<HTMLInputElement>("#from-date")!.value).toBe(
+    "",
+  );
+  expect(container.querySelector<HTMLInputElement>("#to-date")!.value).toBe("");
+});
+
+it("opens the native web calendar on input click when supported", async () => {
+  await connect();
+  const showPicker = vi.fn();
+  const field = container.querySelector<HTMLInputElement>("#from-date")!;
+  field.showPicker = showPicker;
+  await act(async () => field.click());
+  expect(showPicker).toHaveBeenCalledOnce();
+  field.showPicker = () => {
+    throw new Error("Unavailable");
+  };
+  await act(async () => field.click());
+  expect(field.type).toBe("date");
+});

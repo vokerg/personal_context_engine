@@ -21,7 +21,9 @@ import { SettingsScreen, UpcomingScreen } from "./screens";
 import { NoteDetailScreen } from "./detail-screen";
 import type { SessionView } from "./session";
 import { SearchScreen, TimelineScreen } from "./feed-screens";
-import { paletteFor, type Appearance } from "./theme";
+import { paletteFor } from "./theme";
+import { useSavedAppearance } from "./appearance";
+import { appearanceStore } from "./native-appearance";
 import { ActionButton, StatusMessage } from "./ui";
 import { claimsBackSwipe, completesBackSwipe } from "./back-gesture";
 import { NativeTabs } from "./tab-bar";
@@ -51,7 +53,11 @@ export default function App() {
       }),
     [],
   );
-  const [appearance, setAppearance] = useState<Appearance>("system");
+  const {
+    appearance,
+    choose: setAppearance,
+    error: appearanceError,
+  } = useSavedAppearance(appearanceStore);
   const systemAppearance = useColorScheme();
   const palette = paletteFor(appearance, systemAppearance);
   useEffect(() => {
@@ -165,6 +171,14 @@ export default function App() {
               </Text>
             </View>
             <View style={{ flex: 1, minHeight: 0 }}>
+              {appearanceError ? (
+                <Text
+                  accessibilityRole="alert"
+                  style={{ color: palette.danger, paddingHorizontal: 20 }}
+                >
+                  {appearanceError}
+                </Text>
+              ) : null}
               {!signedIn || !session ? (
                 <ScrollView
                   keyboardShouldPersistTaps="handled"
