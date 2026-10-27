@@ -156,6 +156,7 @@ export function releaseArgs(deviceId) {
     deviceId,
     "--configuration",
     "Release",
+    "--no-bundler",
   ];
 }
 

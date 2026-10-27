@@ -182,6 +182,11 @@ A free Personal Team install generally needs re-signing and reinstalling after 7
 
 Synthetic helper tests (portable; no device needed): `node --test .agents/skills/ios-device-release/scripts/validate.mjs`. They verify command arguments, public configuration parsing and physical-device selection, **not** a successful iPhone installation. Continue tracking real-device acceptance in #131.
 
+The [2026-10-27 physical-iPhone checkpoint](../../docs/evidence/issue-131/2026-10-27-iphone-release.md)
+records first-time Apple Account/Personal Team setup, missing WWDR G3 recovery
+and the actual local deployment results. Use the linked skill for repeat installs;
+keep machine-specific signing configuration and all private artifacts local.
+
 ## Floating iOS menu (#142)
 
 The existing typed tab/detail navigator now renders a floating rounded menu

@@ -178,7 +178,7 @@ test("device selection refuses no device, multiple devices, or wrong requested I
   assert.throws(() => selectIphone([first], "simulator-id"), /physical iPhone/);
 });
 
-test("Release command cannot silently target a simulator or Debug configuration", () => {
+test("Release command selects the device and skips Metro", () => {
   assert.deepEqual(releaseArgs(iphone.identifier), [
     "run",
     "ios",
@@ -189,5 +189,6 @@ test("Release command cannot silently target a simulator or Debug configuration"
     iphone.identifier,
     "--configuration",
     "Release",
+    "--no-bundler",
   ]);
 });
