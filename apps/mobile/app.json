@@ -12,6 +12,7 @@
     },
     "android": {
       "package": "dev.pce.mobile"
-    }
+    },
+    "icon": "./assets/icon.png"
   }
 }

@@ -9,9 +9,9 @@ no Android verification is required for the beta.
 The app uses **one dependency-free, typed native tab/detail navigator** built
 from React Native `Pressable`/`View` and a pure `reduceNavigation` state
 machine. This navigator is compatible with the current Expo SDK without adding
-native navigation packages or changing the root npm lockfile. It intentionally
-provides a simple single-level note detail stack rather than gesture-based
-native-stack animations. Introducing a library navigator requires a separate
+native navigation packages or changing the root npm lockfile. It provides a bounded note/source stack with a deliberate rightward swipe
+from the left edge to go Back, alongside the accessible Back button. It does
+not implement interactive native-stack animations. Introducing a library navigator requires a separate
 deliberate migration, not an unreviewed mix of navigators.
 
 - `App.tsx`: root safe area, tab bar, OS back handling, auth gate and incoming
@@ -257,3 +257,42 @@ iPhone/Simulator acceptance**. Actual font scaling, VoiceOver announcements,
 five-tab safe areas, keychain/auth refresh, offline/background/restart and real
 Task writes belong to the final #131/#154 approved synthetic device pass. No
 TestFlight, push or Android acceptance work is included.
+
+## iOS usability fixes (#165)
+
+The generated opaque 1024×1024 icon is tracked in `assets/icon.png` and selected
+by Expo configuration. Regenerate/rebuild the native app to install it.
+The menu's GlassView now contains the tab buttons and owns their measured
+layout, rather than using a separate absolutely positioned glass sibling.
+Its outer view anchors it 12 points above the shell's bottom safe area; list
+insets continue to follow the actual menu height. Opaque accessibility fallback
+is retained.
+
+Note/source and Task detail accept a one-finger rightward edge swipe (starting within
+36 points of the left edge). Short, vertical and non-edge gestures do not pop
+the existing stack. The visible Back control remains available. This is a JS
+responder gesture, not an interactive UIKit navigation transition.
+
+Visible Notes/Search/Tasks revalidate on tab/detail return, foreground return,
+and every 30 seconds while the app is active. Background/hidden screens do not
+poll. Busy list requests are not replaced by periodic refresh; Tasks also avoids
+polling during mutation, detail viewing and creation. Notes/Search retain the
+visible list while the first page refreshes, invalidate older pagination and
+reload facets/approved tags. Tasks retains its list during revalidation and
+supports pull-to-refresh on both the list and detail/history. All three
+lists enable vertical bounce for short or empty results. Note detail also
+supports pull-to-refresh, re-reading the owner-scoped note and its research
+history with the existing cancellation guards. This is bounded polling,
+not worker push or an offline cache; no worker/service change is needed.
+
+After password sign-in (or restoration of a browser session), the web login
+resumes the pending authorization request automatically at the configured API's
+fixed OAuth path. Server-side callback/scope/PKCE validation and CSRF-protected
+Allow/Deny remain mandatory. Consent includes a mobile viewport and 52-point
+minimum button height. No second native Sign in press is required by this flow.
+
+Synthetic checks cover gesture thresholds, active/hidden refresh subscription
+lifecycle, pagination cancellation, login continuation and mobile consent/CSRF.
+Physical-device swipe behavior, exact glass placement, safe areas, Dynamic Type
+and the complete hosted system-browser login need validation on a rebuilt app;
+a JavaScript bundle or synthetic test cannot establish these outcomes.

@@ -1,8 +1,12 @@
+import { claimsBackSwipe, completesBackSwipe } from "./back-gesture";
+import { useLiveRefresh } from "./live-refresh";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   FlatList,
   Pressable,
+  PanResponder,
+  RefreshControl,
   ScrollView,
   Text,
   TextInput,
@@ -65,6 +69,19 @@ export function TasksScreen({
   const [retryChange, setRetryChange] = useState(false);
   const [reload, setReload] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
+  const backGesture = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponderCapture: (_event, gesture) =>
+          claimsBackSwipe(gesture),
+        onPanResponderRelease: (_event, gesture) => {
+          if (completesBackSwipe(gesture)) setSelected(null);
+        },
+        onPanResponderTerminationRequest: () => false,
+      }),
+    [],
+  );
+  const queryIdentity = useRef("");
   const [detail, setDetail] = useState<Task | null>(null);
   const [history, setHistory] = useState<TaskHistory>({
     events: [],
@@ -81,6 +98,10 @@ export function TasksScreen({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [createError, setCreateError] = useState("");
+  useLiveRefresh(!hidden && !selected && !createOpen, () => {
+    if (!loading && !more && !busy && !creating && !selected && !createOpen)
+      setReload((v) => v + 1);
+  });
   useEffect(() => {
     live.current = true;
     return () => {
@@ -91,7 +112,9 @@ export function TasksScreen({
     const controller = new AbortController();
     const version = ++epoch.current;
     setLoading(true);
-    setTasks([]);
+    const identity = JSON.stringify([status, query]);
+    if (queryIdentity.current !== identity) setTasks([]);
+    queryIdentity.current = identity;
     setNext(null);
     setError("");
     loadingMore.current = false;
@@ -318,6 +341,9 @@ export function TasksScreen({
         accessibilityElementsHidden={Boolean(selected)}
       >
         <FlatList
+          alwaysBounceVertical
+          refreshing={loading}
+          onRefresh={() => setReload((v) => v + 1)}
           data={tasks}
           keyExtractor={(t) => t.taskId}
           keyboardShouldPersistTaps="handled"
@@ -555,6 +581,14 @@ export function TasksScreen({
       </View>
       {selected ? (
         <ScrollView
+          {...backGesture.panHandlers}
+          alwaysBounceVertical
+          refreshControl={
+            <RefreshControl
+              refreshing={!detail && !detailError}
+              onRefresh={() => setReload((v) => v + 1)}
+            />
+          }
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
             padding: 20,

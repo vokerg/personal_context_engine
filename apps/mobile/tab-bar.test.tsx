@@ -10,7 +10,8 @@ const native = vi.hoisted(() => ({
   remove: vi.fn(),
 }));
 vi.mock("expo-glass-effect", () => ({
-  GlassView: () => React.createElement("div", { "data-glass": true }),
+  GlassView: ({ children }: { children?: React.ReactNode }) =>
+    React.createElement("div", { "data-glass": true }, children),
   isLiquidGlassAvailable: () => native.available,
   isGlassEffectAPIAvailable: () => native.available,
 }));
@@ -113,7 +114,7 @@ describe("native menu accessibility and compatibility", () => {
   });
   it("adds the separately enabled Tasks tab without replacing existing navigation", async () => {
     const onSelect = await mount(true);
-    expect(container.querySelectorAll("button")).toHaveLength(5);
+    expect(container.querySelectorAll("[data-glass] button")).toHaveLength(5);
     await act(async () =>
       container
         .querySelector<HTMLButtonElement>('[aria-label="Tasks"]')!

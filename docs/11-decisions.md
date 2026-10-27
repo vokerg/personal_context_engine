@@ -511,7 +511,10 @@ The Expo SDK54 custom tab navigator remains in place. Its floating menu uses
 SDK-compatible `expo-glass-effect` and `expo-symbols`, with opaque fallback for
 unsupported builds and Reduce Transparency. No router migration or platform
 system tab-bar behavior is implied. This changes presentation and scroll insets
-only, with no API, storage, session or content contract changes. See the
+only, with no API, storage, session or content contract changes. The #165
+follow-up keeps this navigator and adds a JS edge-back responder, active-screen
+30-second polling/foreground revalidation and a glass container that owns tab
+layout. It does not introduce push or a UIKit navigation controller. See the
 [mobile documentation](../apps/mobile/README.md#floating-ios-menu-142).
 
 ### D-030 — Measured multilingual lexical evidence in shared retrieval (#145)

@@ -1,3 +1,4 @@
+import { resumeAuthorization } from "./authorization-continuation";
 import { TasksPanel } from "./TasksPanel.js";
 import { SuggestionPicker } from "./SuggestionPicker.js";
 import { NoteTagPicker } from "./NoteTagPicker.js";
@@ -384,6 +385,11 @@ export function App({
       window.history.replaceState(null, "", url);
     }
   }
+
+  useEffect(() => {
+    if (!token || !sessionAuthentication) return;
+    resumeAuthorization(baseUrl);
+  }, [token, sessionAuthentication, baseUrl]);
 
   async function passwordLogin(event: FormEvent) {
     event.preventDefault();

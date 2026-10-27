@@ -194,4 +194,28 @@ describe("paged native feed lifecycle", () => {
     await settled(() => last().items[0]?.id === id3);
     expect(last().refreshing).toBe(false);
   });
+  it("pull refresh cancels an in-flight older page when worker data changes", async () => {
+    let finishOld!: (value: FeedPage<Item>) => void;
+    let first = true;
+    const { feed, last } = makeFeed(async (cursor) => {
+      if (cursor)
+        return new Promise((resolve) => {
+          finishOld = resolve;
+        });
+      if (first) {
+        first = false;
+        return page([id1], "old_cursor");
+      }
+      return page([id3], null);
+    });
+    feed.restart();
+    await settled(() => !last().loading);
+    feed.loadMore();
+    feed.restart(true);
+    await settled(() => !last().refreshing);
+    finishOld(page([id2], "stale_next"));
+    await Promise.resolve();
+    expect(last().items.map((item) => item.id)).toEqual([id3]);
+    expect(last().nextCursor).toBeNull();
+  });
 });

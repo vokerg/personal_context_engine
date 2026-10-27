@@ -88,93 +88,98 @@ export function TabBar({
     isLiquidGlassAvailable() &&
     isGlassEffectAPIAvailable();
 
+  const Surface = glass ? GlassView : View;
   return (
     <View
       accessibilityRole="tablist"
       onLayout={(event) => onHeight(event.nativeEvent.layout.height)}
-      style={[
-        styles.bar,
-        {
-          backgroundColor: glass ? "transparent" : palette.surface,
-          borderColor: glass ? "transparent" : palette.border,
-        },
-      ]}
+      style={styles.position}
     >
-      {glass ? (
-        <GlassView
-          key={palette.dark ? "dark" : "light"}
-          pointerEvents="none"
-          accessible={false}
-          glassEffectStyle="regular"
-          colorScheme={palette.dark ? "dark" : "light"}
-          style={[StyleSheet.absoluteFill, styles.glass]}
-        />
-      ) : null}
-      {(tasksEnabled
-        ? (["notes", "tasks", "search", "capture", "settings"] as const)
-        : MOBILE_TABS
-      ).map((tab) => {
-        const selected = active === tab;
-        const item = items[tab];
-        const color = selected ? palette.primary : palette.secondary;
-        return (
-          <Pressable
-            key={tab}
-            accessibilityRole="tab"
-            accessibilityLabel={item.label}
-            accessibilityState={{ selected }}
-            onPress={() => onSelect(tab)}
-            style={({ pressed }) => [
-              styles.tab,
-              {
-                backgroundColor:
-                  selected || pressed
-                    ? glass
-                      ? palette.dark
-                        ? "rgba(255,255,255,0.12)"
-                        : "rgba(23,79,137,0.09)"
-                      : palette.subtle
-                    : "transparent",
-              },
-            ]}
-          >
-            <SymbolView
-              name={selected ? item.selected : item.icon}
-              tintColor={color}
-              size={23}
-              weight={selected ? "semibold" : "regular"}
-              style={styles.icon}
-              accessible={false}
-            />
-            <Text
-              style={{
-                color,
-                fontSize: 12,
-                fontWeight: selected ? "700" : "500",
-              }}
+      <Surface
+        key={glass ? (palette.dark ? "glass-dark" : "glass-light") : "opaque"}
+        {...(glass
+          ? {
+              glassEffectStyle: "regular" as const,
+              colorScheme: palette.dark
+                ? ("dark" as const)
+                : ("light" as const),
+            }
+          : {})}
+        style={[
+          styles.bar,
+          {
+            backgroundColor: glass ? "transparent" : palette.surface,
+            borderColor: glass ? "transparent" : palette.border,
+          },
+        ]}
+      >
+        {(tasksEnabled
+          ? (["notes", "tasks", "search", "capture", "settings"] as const)
+          : MOBILE_TABS
+        ).map((tab) => {
+          const selected = active === tab;
+          const item = items[tab];
+          const color = selected ? palette.primary : palette.secondary;
+          return (
+            <Pressable
+              key={tab}
+              accessibilityRole="tab"
+              accessibilityLabel={item.label}
+              accessibilityState={{ selected }}
+              onPress={() => onSelect(tab)}
+              style={({ pressed }) => [
+                styles.tab,
+                {
+                  backgroundColor:
+                    selected || pressed
+                      ? glass
+                        ? palette.dark
+                          ? "rgba(255,255,255,0.12)"
+                          : "rgba(23,79,137,0.09)"
+                        : palette.subtle
+                      : "transparent",
+                },
+              ]}
             >
-              {item.label}
-            </Text>
-          </Pressable>
-        );
-      })}
+              <SymbolView
+                name={selected ? item.selected : item.icon}
+                tintColor={color}
+                size={23}
+                weight={selected ? "semibold" : "regular"}
+                style={styles.icon}
+                accessible={false}
+              />
+              <Text
+                style={{
+                  color,
+                  fontSize: 12,
+                  fontWeight: selected ? "700" : "500",
+                }}
+              >
+                {item.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </Surface>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  bar: {
+  position: {
     position: "absolute",
     bottom: 12,
     left: 16,
     right: 16,
+  },
+  bar: {
     borderRadius: 32,
     borderWidth: 1,
     padding: 6,
     flexDirection: "row",
     gap: 4,
   },
-  glass: { borderRadius: 32 },
   tab: {
     flex: 1,
     minWidth: 0,

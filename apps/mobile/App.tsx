@@ -6,6 +6,7 @@ import {
   BackHandler,
   KeyboardAvoidingView,
   Linking,
+  PanResponder,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -21,6 +22,7 @@ import type { SessionView } from "./session";
 import { SearchScreen, TimelineScreen } from "./feed-screens";
 import { paletteFor, type Appearance } from "./theme";
 import { ActionButton, StatusMessage } from "./ui";
+import { claimsBackSwipe, completesBackSwipe } from "./back-gesture";
 import { TabBar } from "./tab-bar";
 
 /**
@@ -35,6 +37,18 @@ export default function App() {
   const [navigation, dispatch] = useReducer(
     reduceNavigation,
     initialNavigation,
+  );
+  const backGesture = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponderCapture: (_event, gesture) =>
+          claimsBackSwipe(gesture),
+        onPanResponderRelease: (_event, gesture) => {
+          if (completesBackSwipe(gesture)) dispatch({ type: "back" });
+        },
+        onPanResponderTerminationRequest: () => false,
+      }),
+    [],
   );
   const [menuInset, setMenuInset] = useState(112);
   const [appearance, setAppearance] = useState<Appearance>("system");
@@ -77,7 +91,7 @@ export default function App() {
     };
   }, []);
 
-  // iOS uses the visible Back button. Keep Android scaffold's hardware
+  // iOS supports the edge gesture and visible Back button. Keep Android scaffold's hardware
   // back semantics safe without treating Android as an App v1 target.
   useEffect(() => {
     if (!navigation.noteId || navigation.phase !== "signed-in") return;
@@ -262,7 +276,8 @@ export default function App() {
                   </ScrollView>
                 ) : null}
                 {navigation.noteId ? (
-                  <ScrollView
+                  <View
+                    {...backGesture.panHandlers}
                     style={{
                       position: "absolute",
                       top: 0,
@@ -270,12 +285,6 @@ export default function App() {
                       right: 0,
                       bottom: 0,
                       backgroundColor: palette.background,
-                    }}
-                    keyboardShouldPersistTaps="handled"
-                    contentContainerStyle={{
-                      padding: 20,
-                      gap: 14,
-                      flexGrow: 1,
                     }}
                   >
                     <NoteDetailScreen
@@ -288,7 +297,7 @@ export default function App() {
                         dispatch({ type: "open-source", id })
                       }
                     />
-                  </ScrollView>
+                  </View>
                 ) : null}
               </>
             )}

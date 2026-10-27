@@ -34,6 +34,7 @@ vi.mock("react-native", async () => {
         children,
       );
   return {
+    PanResponder: { create: () => ({ panHandlers: {} }) },
     Pressable: host("button"),
     Text: host("span"),
     View: host("div"),
