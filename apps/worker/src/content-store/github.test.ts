@@ -37,6 +37,7 @@ class FakeGitHub {
   failOnce?: { status: number; headers?: Record<string, string> };
   forbidden = false;
   truncated = false;
+  privateRepo = true;
 
   constructor() {
     const tree = this.saveTree(new Map());
@@ -88,6 +89,12 @@ class FakeGitHub {
     const headers = new Headers(init?.headers);
     const authorization = headers.get("authorization");
     this.calls.push({ path, method, authorization });
+    if (
+      url.origin === "https://api.github.com" &&
+      path === "/repos/owner/synthetic-repo" &&
+      method === "GET"
+    )
+      return json({ private: this.privateRepo });
     const contentsPrefix = "/repos/owner/synthetic-repo/contents/";
     if (
       url.origin !== "https://api.github.com" ||
@@ -466,5 +473,78 @@ describe("dedicated GitHub research ingress", () => {
       code: "UNSAFE_ENTRY",
     });
     expect((await store.readResearch(next)).content).toBe("{}");
+  });
+});
+
+describe("dedicated GitHub task batch ingress", () => {
+  const validPath = "tasks/inbox/33333333-3333-4333-8333-333333333333.json";
+
+  it("reads only allowlisted JSON task batch, without moving or deleting it", async () => {
+    const fake = new FakeGitHub();
+    fake.put(validPath, '{"schemaVersion":1}');
+    fake.put("tasks/history/33333333-3333-4333-8333-333333333333.json", "old");
+    fake.put("inbox/note.md", "capture");
+    const store = fake.store();
+    const page = await store.listTaskBatches();
+    expect(page.files).toHaveLength(1);
+    expect(page.files[0]!.path).toBe(validPath);
+    expect((await store.readTaskBatch(validPath)).content).toBe(
+      '{"schemaVersion":1}',
+    );
+    await expect(store.readTaskBatch("inbox/note.md")).rejects.toMatchObject({
+      code: "INVALID_PATH",
+    });
+    await expect(
+      store.readTaskBatch("tasks/inbox/../README.md"),
+    ).rejects.toMatchObject({ code: "INVALID_PATH" });
+    await expect(
+      store.listTaskBatches({ cursor: "inbox/note.md" }),
+    ).rejects.toMatchObject({ code: "INVALID_CURSOR" });
+    expect(fake.calls.every((call) => call.method === "GET")).toBe(true);
+    expect((await store.readTaskBatch(validPath)).path).toBe(validPath);
+    expect(
+      fake.calls.filter((call) => call.path.includes("/contents/")).length,
+    ).toBe(2);
+  });
+
+  it("rejects oversized and unsafe task batch blobs without changing sources", async () => {
+    const fake = new FakeGitHub();
+    fake.put(validPath, "x".repeat(65537));
+    const store = fake.store();
+    await expect(store.readTaskBatch(validPath)).rejects.toMatchObject({
+      code: "INVALID_CONTENT",
+    });
+    fake.put(validPath, "data", "120000");
+    await expect(store.readTaskBatch(validPath)).rejects.toMatchObject({
+      code: "UNSAFE_ENTRY",
+    });
+  });
+  it("keeps scanning healthy task batch after an unsafe entry and pins reads to the observed commit", async () => {
+    const fake = new FakeGitHub();
+    const next = "tasks/inbox/44444444-4444-4444-8444-444444444444.json";
+    fake.put(validPath, "unsafe", "120000");
+    fake.put(next, "{}");
+    const store = fake.store();
+    const page = await store.listTaskBatches();
+    expect(page.files).toHaveLength(2);
+    await expect(store.readTaskBatch(validPath)).rejects.toMatchObject({
+      code: "UNSAFE_ENTRY",
+    });
+    expect((await store.readTaskBatch(next)).content).toBe("{}");
+  });
+});
+
+it("task batch adapter fails closed when repository visibility changes", async () => {
+  const fake = new FakeGitHub();
+  const path = "tasks/inbox/33333333-3333-4333-8333-333333333333.json";
+  fake.put(path, "{}");
+  const store = fake.store();
+  await store.listTaskBatches();
+  fake.privateRepo = false;
+  await expect(store.readTaskBatch(path)).rejects.toMatchObject({
+    code: "PERMISSION_DENIED",
+  });
+  await expect(store.listTaskBatches()).rejects.toMatchObject({
+    code: "PERMISSION_DENIED",
   });
 });

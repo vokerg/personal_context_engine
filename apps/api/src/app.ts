@@ -1,4 +1,10 @@
 import { TagRegistryQuerySchema, type TagRegistryQuery } from "@pce/contracts";
+import {
+  registerTaskRoutes,
+  registerTaskBatchRoutes,
+  type TaskService,
+  type TaskExtractionService,
+} from "./tasks.js";
 import { registerMcp, type McpOptions } from "./mcp.js";
 import { registerOAuth, type OAuthClient } from "./oauth.js";
 import type { PrismaClient } from "@pce/db";
@@ -102,6 +108,8 @@ export interface PrivateNoteReader {
 }
 
 export interface ApiDependencies {
+  tasks?: TaskService;
+  taskBatches?: TaskExtractionService;
   mcp?: McpOptions;
   oauth?: { db: PrismaClient; clients: OAuthClient[] };
   sessionAuth?: SessionAuth;
@@ -221,7 +229,15 @@ export function createApp(options: ApiOptions = {}) {
     const { mcp, search, capture } = options.dependencies;
     if (!sessionAuth || !search || !capture)
       throw new Error("MCP requires sessions, search and durable capture");
-    registerMcp(app, mcp, sessionAuth, search, capture);
+    registerMcp(
+      app,
+      mcp,
+      sessionAuth,
+      search,
+      capture,
+      options.dependencies.tasks,
+      options.dependencies.taskBatches,
+    );
   }
 
   app.decorateRequest("authenticatedPrincipal", null);
@@ -317,6 +333,14 @@ export function createApp(options: ApiOptions = {}) {
   );
 
   if (sessionAuth) registerSessionRoutes(app, sessionAuth);
+  if (options.dependencies?.taskBatches) {
+    if (!sessionAuth) throw new Error("Task batches require scoped sessions");
+    registerTaskBatchRoutes(app, sessionAuth, options.dependencies.taskBatches);
+  }
+  if (options.dependencies?.tasks) {
+    if (!sessionAuth) throw new Error("Tasks require scoped sessions");
+    registerTaskRoutes(app, sessionAuth, options.dependencies.tasks);
+  }
   if (options.dependencies?.search) {
     if (!sessionAuth) throw new Error("DB search requires scoped sessions");
     const search = options.dependencies.search;

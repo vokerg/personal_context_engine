@@ -1,5 +1,28 @@
 # 19 — Vercel web and Render API (#79)
 
+## Owner-approved independent Tasks (#147/#154)
+
+The 2026-10-26 rollout enables `PCE_TASKS_ENABLED=true` in the existing Render
+service and production-only `VITE_PCE_TASKS=true` in Vercel, with redeployment and
+actual authenticated UI verification. The public/default configuration remains
+off. Additive Task migrations are retained on rollback.
+
+The existing ChatGPT client allows `notes:read tasks:read tasks:write`; the
+existing native client retains read/capture/tag scopes and additionally allows
+`tasks:read tasks:write`. Keep exact existing client IDs, redirects, issuer and
+audience. Registration is permission to request scopes, not an upgrade of stored
+grants. Verify a **fresh consent page explicitly names the Task scopes**, and
+refresh the ChatGPT tool catalog after reconnecting. The old ChatGPT connection
+initially requested only notes:read; this required an explicit Task-scope request
+at consent, not a silent server-side grant expansion. Task writes mutate records
+only and never execute their text.
+
+GitHub Task ingress is a separate trusted **local** DB-jobs loop, using private
+visibility checks and the GET-only adapter. No worker, scheduler, provider spend
+or GitHub credential was added to Render/Vercel. The Mac/runtime must run for DB
+import; GitHub batches remain durable and reconcile after downtime. See
+[actual activation, native checks and rollback limits](evidence/issue-154/2026-10-26-activation.md).
+
 ## Scope and status
 
 Owner-selected deployment: Vercel hosts the static React web app; Render hosts

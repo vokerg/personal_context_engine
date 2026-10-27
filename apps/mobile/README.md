@@ -181,3 +181,73 @@ The helper selects only a connected available **physical** iPhone; if several ar
 A free Personal Team install generally needs re-signing and reinstalling after 7 days. Re-run the helper when it expires. Preserve the app identity and signing team to retain data; data preservation across certificate/profile changes is not guaranteed. Validate OAuth callback, cold relaunch, iPhone connectivity and accessibility on the actual phone; none of these can be proven remotely.
 
 Synthetic helper tests (portable; no device needed): `node --test .agents/skills/ios-device-release/scripts/validate.mjs`. They verify command arguments, public configuration parsing and physical-device selection, **not** a successful iPhone installation. Continue tracking real-device acceptance in #131.
+## Floating iOS menu (#142)
+
+The existing typed tab/detail navigator now renders a floating rounded menu
+with SF Symbols and an `expo-glass-effect` native glass surface on supported
+iOS 26+ builds. This is a custom menu, not a migration to a system tab-bar
+controller: system tab morphing and minimize-on-scroll are not implemented.
+Opaque item backgrounds are removed so scrolling content can show through.
+Timeline/search and the Capture/Settings scroll views reserve a bottom inset
+based on the measured menu height, including when text size changes. Detail
+continues to hide the menu; session and navigation behavior are unchanged.
+
+The menu starts opaque until the Reduce Transparency preference is known and
+follows live preference changes. Unsupported systems/builds and reduced
+transparency use the existing theme's opaque surface. Light/dark app appearance
+is passed to the glass view. Native dependencies use Expo SDK54-compatible
+versions; rebuild the iOS development app after pulling this change (a Metro
+reload alone cannot install the native modules).
+
+Physical-device appearance, VoiceOver and the largest Dynamic Type sizes remain
+manual verification items; automated checks do not establish visual quality.
+
+Local verification on 2026-10-25: the Xcode 26.6 build installed and launched on
+an iPhone 17 / iOS 26.5 simulator. The floating material was visually inspected
+in light and dark app appearance; all four tabs opened, and system appearance
+was restored afterward. No personal screenshots are stored in the repository.
+Synthetic menu tests cover live transparency changes, unsupported-build fallback,
+accessible selected labels, tab dispatch and subscription cleanup.
+
+## Optional native Tasks (#152)
+
+`EXPO_PUBLIC_PCE_TASKS=true` adds a native Tasks tab to the existing iOS shell.
+It defaults off. Open, Completed and All use dedicated server Task queries;
+source Notes, Note kind/tags and reminders remain independent. The virtualized
+list supports server search/paging, checkbox completion after acknowledgement,
+reopen, detail/history and authenticated source Note navigation. Returning from
+a source preserves the Task view. The existing menu/Reduce Transparency fallback
+and system/light/dark palettes are reused; no platform router or signing change.
+
+Task creation is an explicit title/optional description form. Keyboard dictation
+fills these fields; there is no model, NLP heuristic, automatic extraction,
+inferred date, reminder or provider charge in this native path. Quick Note capture
+#126 and Note management #127 remain separate existing work; this feature does
+not complete them or the App v1 epic #121.
+
+Before release, explicitly enable the API Task gate and extend only the reviewed
+native OAuth registration with `tasks:read` and `tasks:write`, preserving the
+registered `pce://oauth/callback`. The enabled build requests those scopes alongside
+its existing scopes and the user must reconnect/consent. Existing grants and
+refresh never gain privileges; missing access shows reconnect guidance. Disabling
+the build flag restores the existing four tabs and requested scopes; a previously
+broader saved grant may require fresh sign-in. Never change production registration
+or user credentials just to satisfy a synthetic test.
+
+Duplicate taps are blocked before a request can be issued twice. An uncertain
+completion/creation retains its exact command/Task ID and payload for an explicit
+in-memory retry. A 409 clears the stale command and reloads for a new decision;
+no completed state is shown before acknowledgement. Requests use the existing
+secure session's refresh-aware token provider, typed HTTPS transport and safe
+errors. No Task text, query or pending command is persisted outside memory. On
+restart/logout inspect server Tasks before manually recreating an uncertain
+creation; this is not an offline queue. Completion history stays in PostgreSQL.
+
+Synthetic tests cover native controls, archive/reopen/search, source navigation,
+auth scope selection, stale revisions, stable retry IDs and duplicate presses.
+`expo export --platform ios` with explicit synthetic public config and dotenv
+loading disabled passed. This is JavaScript bundling, **not native compilation or
+iPhone/Simulator acceptance**. Actual font scaling, VoiceOver announcements,
+five-tab safe areas, keychain/auth refresh, offline/background/restart and real
+Task writes belong to the final #131/#154 approved synthetic device pass. No
+TestFlight, push or Android acceptance work is included.

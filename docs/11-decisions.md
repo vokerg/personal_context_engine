@@ -504,3 +504,134 @@ state (`archivedAt`/`archivedBy`) is toggled through the owner-scoped
 API/MCP/search with `status: "archived"`; web browse defaults to active and
 offers archived/all selection. Removal still takes precedence and cannot be
 undone by archive toggles.
+
+## Implemented native menu constraint (#142; D-005)
+
+The Expo SDK54 custom tab navigator remains in place. Its floating menu uses
+SDK-compatible `expo-glass-effect` and `expo-symbols`, with opaque fallback for
+unsupported builds and Reduce Transparency. No router migration or platform
+system tab-bar behavior is implied. This changes presentation and scroll insets
+only, with no API, storage, session or content contract changes. See the
+[mobile documentation](../apps/mobile/README.md#floating-ios-menu-142).
+
+### D-030 — Measured multilingual lexical evidence in shared retrieval (#145)
+
+**Accepted owner-requested implementation scope (2026-10-25).** Tune the gated
+shared Web/MCP/iOS backend using frozen corpus judgments and synthetic
+confirmation, keeping personal evaluation artifacts outside the public code
+repository. Built-in English/Russian stemming and title weighting complement
+exact `simple` matching. Complete lexical evidence receives a hybrid RRF vote;
+partial OR candidates remain retrievable without that extra vote, and keep
+normal votes in lexical fallback. Explicit alphanumeric identifiers constrain
+both branches with literal token boundaries. Saved reports share these rules.
+Keep equal RRF k=60, strict cosine >0.15 and existing budgets/eligibility/filters;
+reject higher/relative cutoffs after observed recall losses. No schema migration,
+reindex, reranker service, deployment or ChatGPT cutover. Small-sample results,
+regressions, diagnostic changes and reproduction are documented in the
+[evaluation runbook](22-search-evaluation.md).
+
+
+**#145 precision follow-up (2026-10-25):** owner feedback showed unrelated
+semantic tails for literal keyword searches. V3 additionally uses the weakest
+current indexed title match as a semantic-only admission floor for single-token
+lookups, preserving complete lexical candidates. No indexed title anchor or a
+multi-token question/phrase retains broad semantic retrieval. Body-anchored and
+broader short-query policies were rejected after recall losses. Additional
+20-query synthetic confirmation and original-set rechecks preserved judged
+recall while improving returned precision; unseen weak single-word paraphrases
+remain an explicit risk. Diagnostics and the evaluation runbook record this
+conditional gate separately from the unchanged absolute cosine floor.
+
+### D-031 — First-class Tasks independent from Notes (#147)
+
+**Accepted owner-directed scope (2026-10-25).** PostgreSQL Tasks have independent
+IDs, source relationships, owner scope, lifecycle revision and audit history.
+Completing archives a Task from Open; Completed/All and reopen retain history.
+Note kind/tags, archiving and removal do not control the Task lifecycle. Clear,
+grounded actions may produce 0..N Task records during LLM-assisted capture with
+no per-task approval. This authorizes record creation only, never inferred dates,
+reminders, notifications or external execution. Deterministic native capture
+must offer explicit creation until an approved model-assisted path exists.
+
+The #148 foundation implements scoped persistence/lifecycle and typed HTTP
+contracts behind a default-off gate. Dedicated `tasks:read` / `tasks:write`
+delegation requires explicit registration and fresh OAuth consent; existing
+Note grants gain no privileges. Source text/links additionally require Note
+read permission. Private extraction artifacts, importer, MCP/search, web/iOS,
+prompt activation and actual cross-surface acceptance remain #149–#154. See
+[Task contracts and operation](23-tasks.md).
+
+### Task extraction implementation checkpoint (#149; D-031)
+
+A strict complete TaskExtractionBatch v1 and atomic DB projection now share the
+Task creation operation across scoped HTTP and a separately gated read-only
+private GitHub adapter. One immutable batch per owner/capture bounds extraction
+to 0..20 grounded Tasks and preserves original Notes and later lifecycle changes.
+Missing source Notes defer durably; invalid/conflicting artifacts remain
+preserved with sanitized status. Private contract changes are reviewed separately;
+this implementation does not activate the Project prompt, infer commitments in
+a worker, grant existing OAuth clients new scopes or authorize deployment. See
+[extraction operation](23-tasks.md#complete-extraction-and-dual-ingress-149).
+
+### Task retrieval and MCP checkpoint (#150; D-031)
+
+A separate bounded Task query now reuses English/Russian lexical helpers,
+creation-order pagination and immediate status filters. Authorized visible
+source context can contribute, while removed/foreign Note context cannot.
+No Task embeddings, Note ranking changes or default retrieval cutover occur.
+Optional scoped MCP Task tools are protocol-tested with the official client;
+record creation/completion/reopen use the same idempotent HTTP-domain services.
+They do not authorize external execution or prove actual ChatGPT attachment.
+See [Task retrieval](23-tasks.md#task-only-search-and-mcp-150).
+
+### Web Tasks checkpoint (#151; D-031)
+
+The default-off web Tasks view uses shared server Task queries/lifecycle with
+confirmed checkbox completion, Completed/All, reopen, provenance/history and
+explicit standalone creation. Pending state commands and creation requests keep
+stable IDs across an in-memory retry; no offline queue or automatic extraction
+is implied. Note archival remains independent. See
+[web operation](23-tasks.md#web-tasks-workspace-151).
+
+### Native Tasks checkpoint (#152; D-031)
+
+The existing iOS-only Expo shell now has a default-off Task tab, server-backed
+Task search/lifecycle/history and explicit creation. An enabled build requests
+separate Task scopes with fresh consent; Note capture/removal, reminders and
+push are independent. Pending requests remain in memory with stable retry IDs.
+Synthetic tests/iOS JavaScript bundling do not establish real native/device
+acceptance; that remains #131/#154. See [native Tasks](23-tasks.md#native-ios-tasks-152).
+
+### Shared extraction policy and inactive host candidates (#153; D-031)
+
+NOTES and conversation-capture candidates now reference one tasks-v1 policy,
+preserving faithful Notes, clear-commitment 0..N Tasks, explicit opt-out and
+separate reminder/execution boundaries. A current-source plugin audit established
+its instructions-only capability; absent Task writes use the reviewed private
+artifact fallback after activation. Prepared source/archive and supplied-output
+DB tests are not actual model, deployment, installed-prompt or connector proof.
+No account release or live settings were changed. See
+[policy and release boundaries](24-task-extraction-policy.md).
+
+### Task acceptance checkpoint (#154; D-031)
+
+The consolidated synthetic verifier checks additive migration replay/drift and
+existing cross-surface suites against an explicit disposable loopback database.
+Combined authenticated HTTP acceptance preserves originals, source privacy and
+Task history through source archive/removal and feature disable/reactivation.
+This is local mechanism evidence; actual device/VoiceOver, installed Project
+settings/plugin, deployed connector and owner release gates remain open. No new
+rollout or external-execution authorization is implied. See
+[acceptance and staged rollout](25-task-acceptance.md).
+
+### Owner-approved Task activation (2026-10-26; D-031)
+
+The owner authorized final activation after the merged stack deployed. Hosted
+Task API/web and trusted local read-only ingress are enabled; explicit fresh
+ChatGPT/native Task consent, actual NOTES notes-v3.0 installation and private
+conversation plugin 0.2.0 publication/readback are observed. Real synthetic
+0/1/3 captures and web/native lifecycle/source/session checks passed. Native
+Release simulator acceptance is recorded separately from untested physical
+device, VoiceOver/audio and live-outage cases. This grants record persistence
+and explicit lifecycle changes, never external execution, reminders or a Note
+capture/retrieval cutover. See [live evidence](evidence/issue-154/2026-10-26-activation.md).

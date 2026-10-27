@@ -1,10 +1,11 @@
+import { TasksScreen } from "./task-screen";
+import { TASKS_ENABLED } from "./task-feature";
 import { useEffect, useMemo, useReducer, useState } from "react";
 import {
   AppState,
   BackHandler,
   KeyboardAvoidingView,
   Linking,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -12,26 +13,15 @@ import {
   useColorScheme,
   View,
 } from "react-native";
-import {
-  initialNavigation,
-  MOBILE_TABS,
-  reduceNavigation,
-  type MobileTab,
-} from "./navigation";
+import { initialNavigation, reduceNavigation } from "./navigation";
 import { createNativeSession } from "./native-auth";
 import { SettingsScreen, UpcomingScreen } from "./screens";
 import { NoteDetailScreen } from "./detail-screen";
 import type { SessionView } from "./session";
 import { SearchScreen, TimelineScreen } from "./feed-screens";
-import { paletteFor, type Appearance, type Palette } from "./theme";
+import { paletteFor, type Appearance } from "./theme";
 import { ActionButton, StatusMessage } from "./ui";
-
-const TAB_LABELS: Record<MobileTab, string> = {
-  notes: "Notes",
-  search: "Search",
-  capture: "Capture",
-  settings: "Settings",
-};
+import { TabBar } from "./tab-bar";
 
 /**
  * Expo SDK54 / iOS shell. A small typed reducer drives the tab + detail stack;
@@ -46,6 +36,7 @@ export default function App() {
     reduceNavigation,
     initialNavigation,
   );
+  const [menuInset, setMenuInset] = useState(112);
   const [appearance, setAppearance] = useState<Appearance>("system");
   const systemAppearance = useColorScheme();
   const palette = paletteFor(appearance, systemAppearance);
@@ -213,14 +204,27 @@ export default function App() {
                 <TimelineScreen
                   session={session}
                   palette={palette}
+                  bottomInset={menuInset}
                   hidden={
                     Boolean(navigation.noteId) || navigation.tab !== "notes"
                   }
                   onOpenNote={(id) => dispatch({ type: "open-note", id })}
                 />
+                {TASKS_ENABLED ? (
+                  <TasksScreen
+                    session={session}
+                    palette={palette}
+                    bottomInset={menuInset}
+                    hidden={
+                      Boolean(navigation.noteId) || navigation.tab !== "tasks"
+                    }
+                    onOpenNote={(id) => dispatch({ type: "open-note", id })}
+                  />
+                ) : null}
                 <SearchScreen
                   session={session}
                   palette={palette}
+                  bottomInset={menuInset}
                   hidden={
                     Boolean(navigation.noteId) || navigation.tab !== "search"
                   }
@@ -228,7 +232,11 @@ export default function App() {
                 />
                 {!navigation.noteId && navigation.tab === "capture" ? (
                   <ScrollView
-                    contentContainerStyle={{ padding: 20, flexGrow: 1 }}
+                    contentContainerStyle={{
+                      padding: 20,
+                      paddingBottom: menuInset,
+                      flexGrow: 1,
+                    }}
                   >
                     <UpcomingScreen
                       name="Capture"
@@ -239,7 +247,11 @@ export default function App() {
                 ) : null}
                 {!navigation.noteId && navigation.tab === "settings" ? (
                   <ScrollView
-                    contentContainerStyle={{ padding: 20, flexGrow: 1 }}
+                    contentContainerStyle={{
+                      padding: 20,
+                      paddingBottom: menuInset,
+                      flexGrow: 1,
+                    }}
                   >
                     <SettingsScreen
                       appearance={appearance}
@@ -283,6 +295,8 @@ export default function App() {
           </View>
           {signedIn && !navigation.noteId ? (
             <TabBar
+              tasksEnabled={TASKS_ENABLED}
+              onHeight={(height) => setMenuInset(height + 24)}
               active={navigation.tab}
               palette={palette}
               onSelect={(tab) => dispatch({ type: "tab", tab })}
@@ -291,63 +305,5 @@ export default function App() {
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
-  );
-}
-
-function TabBar({
-  active,
-  palette,
-  onSelect,
-}: {
-  active: MobileTab;
-  palette: Palette;
-  onSelect: (tab: MobileTab) => void;
-}) {
-  return (
-    <View
-      accessibilityRole="tablist"
-      style={{
-        flexDirection: "row",
-        borderTopWidth: 1,
-        borderTopColor: palette.border,
-        backgroundColor: palette.surface,
-        paddingHorizontal: 8,
-        paddingVertical: 8,
-        gap: 4,
-      }}
-    >
-      {MOBILE_TABS.map((tab) => {
-        const selected = tab === active;
-        return (
-          <Pressable
-            key={tab}
-            accessibilityRole="tab"
-            accessibilityLabel={TAB_LABELS[tab]}
-            accessibilityState={{ selected }}
-            onPress={() => onSelect(tab)}
-            style={({ pressed }) => ({
-              flex: 1,
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: 48,
-              paddingVertical: 9,
-              borderRadius: 12,
-              backgroundColor: selected ? palette.subtle : palette.surface,
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <Text
-              style={{
-                color: selected ? palette.text : palette.secondary,
-                fontSize: 14,
-                fontWeight: selected ? "700" : "500",
-              }}
-            >
-              {TAB_LABELS[tab]}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
   );
 }

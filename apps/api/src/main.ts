@@ -1,4 +1,5 @@
 import { mcpTransportHost } from "./mcp.js";
+import { tasksEnabled } from "./tasks.js";
 import { createDatabaseNoteReader } from "./database-reader.js";
 import { oauthClients } from "./oauth.js";
 import { randomBytes } from "node:crypto";
@@ -13,6 +14,8 @@ import {
   createTagRegistryRepository,
   createNoteTagRepository,
   createResearchRepository,
+  createTaskRepository,
+  createTaskExtractionRepository,
 } from "@pce/db";
 import { createApp } from "./app.js";
 import { loadApiConfig, researchReportsEnabled } from "./config.js";
@@ -23,6 +26,7 @@ async function start(): Promise<void> {
   try {
     const config = loadApiConfig();
     const enableResearchReports = researchReportsEnabled(process.env);
+    const enableTasks = tasksEnabled(process.env);
     if (config.requiresDatabase) {
       // Never start an API with mandatory DB configuration without a live DB.
       db = createDatabaseClient();
@@ -48,6 +52,8 @@ async function start(): Promise<void> {
       throw new Error("Search requires configured sessions");
     if (sessionOptions && !connected)
       throw new Error("Sessions require a database");
+    if (enableTasks && (!sessionOptions || !connected))
+      throw new Error("Tasks require configured database sessions");
     if (enableResearchReports && (!sessionOptions || !connected))
       throw new Error("Research reports require configured database sessions");
     app = createApp({
@@ -73,6 +79,13 @@ async function start(): Promise<void> {
                 ? {
                     sessionAuth: createSessionAuth(connected, sessionOptions),
                     capture: createApiCaptureRepository(connected),
+                    ...(enableTasks
+                      ? {
+                          tasks: createTaskRepository(connected),
+                          taskBatches:
+                            createTaskExtractionRepository(connected),
+                        }
+                      : {}),
                     ...(enableResearchReports
                       ? { research: createResearchRepository(connected) }
                       : {}),

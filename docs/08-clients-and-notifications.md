@@ -318,3 +318,44 @@ remain in API and MCP detail/search results with `status: "archived"`. The web
 timeline defaults to active notes and exposes an Active notes / Archived notes /
 Active and archived status dropdown; browse, facets and tag counts follow the
 selected status.
+
+## Native menu material (#142)
+
+The existing typed tab/detail navigator now renders a floating rounded menu
+with SF Symbols and an `expo-glass-effect` native glass surface on supported
+iOS 26+ builds. This is a custom menu, not a migration to a system tab-bar
+controller: system tab morphing and minimize-on-scroll are not implemented.
+Opaque item backgrounds are removed so scrolling content can show through.
+Timeline/search and the Capture/Settings scroll views reserve a bottom inset
+based on the measured menu height, including when text size changes. Detail
+continues to hide the menu; session and navigation behavior are unchanged.
+
+The menu starts opaque until the Reduce Transparency preference is known and
+follows live preference changes. Unsupported systems/builds and reduced
+transparency use the existing theme's opaque surface. Light/dark app appearance
+is passed to the glass view. Native dependencies use Expo SDK54-compatible
+versions; rebuild the iOS development app after pulling this change (a Metro
+reload alone cannot install the native modules).
+
+Physical-device appearance, VoiceOver and the largest Dynamic Type sizes remain
+manual verification items; automated checks do not establish visual quality.
+
+## Independent web Tasks (#151)
+
+A default-off web Tasks workspace now consumes the scoped shared Task API, with
+server-backed Open/Completed/All/search, checkbox completion after acknowledgement,
+reopen, history and source Note links. Standalone creation is explicit; Task
+records never schedule a reminder or mutate source Note archival. It uses the
+existing browser auth/CSRF and system palette, with retries preserving command
+IDs. See [Task UI operation and limits](23-tasks.md#web-tasks-workspace-151).
+iOS Tasks and actual cross-surface release acceptance remain #152/#154.
+
+## Native iOS Tasks (#152)
+
+An explicit build flag adds Tasks to the existing Expo shell, with dedicated
+server queries, acknowledgement-based completion, Completed/All/reopen,
+source Note navigation, history and explicit creation. New Task OAuth scopes
+require registration/consent; existing grants remain unchanged. No reminders,
+push or native LLM extraction is added. Synthetic component/contracts and iOS JS
+bundling are verified separately from the pending #131/#154 device acceptance.
+See [native Task operation](23-tasks.md#native-ios-tasks-152).

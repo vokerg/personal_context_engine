@@ -118,3 +118,18 @@ describe("native navigator authorization boundary", () => {
     ).toEqual([]);
   });
 });
+
+it("returns from an authenticated Task source Note to the Tasks tab", () => {
+  let state = step(initialNavigation, { type: "session", phase: "signed-in" });
+  state = step(state, { type: "tab", tab: "tasks" });
+  state = step(state, { type: "open-note", id });
+  expect(state).toMatchObject({ tab: "tasks", noteId: id });
+  expect(step(state, { type: "back" })).toMatchObject({
+    tab: "tasks",
+    noteId: null,
+  });
+  expect(step(state, { type: "session", phase: "signed-out" })).toMatchObject({
+    tab: "notes",
+    noteId: null,
+  });
+});

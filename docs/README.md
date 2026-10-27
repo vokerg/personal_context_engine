@@ -52,3 +52,11 @@ Where a contract remains proposed, implement a test-backed specification before 
 - [20 — Ordinary contextual research capture](20-research-capture.md) — implemented gated MCP-grounded interactive research, linked versioned reports and private GitHub compatibility contract (#104).
 
 - [21 — Optional approved-tag snapshot publisher](21-tag-snapshot.md) — #100 DB outbox, private GitHub read-only hint, scheduling, recovery and release gate.
+
+- [22 — Search relevance evaluation](22-search-evaluation.md) — #145 benchmark method, alternatives, synthetic evidence, regressions and reproduction.
+
+- [23 — Independent Tasks](23-tasks.md) — #148 owner-scoped records, lifecycle, retry/history, scoped HTTP API and rollout limits.
+
+- [24 — Shared Task extraction policy](24-task-extraction-policy.md) — tasks-v1 normative model decisions and inactive prompt/plugin integration boundaries.
+
+- [25 — Task acceptance and rollout](25-task-acceptance.md) — reproducible synthetic cross-surface verification, staged review, retained-data rollback and outstanding live gates.

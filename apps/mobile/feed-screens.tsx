@@ -627,11 +627,13 @@ export function TimelineScreen({
   session,
   palette,
   onOpenNote,
+  bottomInset = 24,
   hidden,
 }: {
   session: MobileSession;
   palette: Palette;
   onOpenNote: (id: string) => void;
+  bottomInset?: number;
   hidden?: boolean;
 }) {
   const [filters, setFilters] = useState<Filters>(emptyFilters);
@@ -711,7 +713,7 @@ export function TimelineScreen({
         }
         contentContainerStyle={{
           paddingHorizontal: 20,
-          paddingBottom: 24,
+          paddingBottom: bottomInset,
           gap: 9,
           flexGrow: 1,
         }}
@@ -772,11 +774,13 @@ export function SearchScreen({
   session,
   palette,
   onOpenNote,
+  bottomInset = 24,
   hidden,
 }: {
   session: MobileSession;
   palette: Palette;
   onOpenNote: (id: string) => void;
+  bottomInset?: number;
   hidden?: boolean;
 }) {
   const [input, setInput] = useState("");
@@ -959,7 +963,7 @@ export function SearchScreen({
         )}
         contentContainerStyle={{
           paddingHorizontal: 20,
-          paddingBottom: 24,
+          paddingBottom: bottomInset,
           gap: 9,
           flexGrow: 1,
         }}

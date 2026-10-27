@@ -256,3 +256,64 @@ It does **not** verify the actual ChatGPT Project's tool permissions, tool write
 | Injection inside dictated text | Verbatim note content; no unauthorized external side effects | Offline + manual |
 
 Successful schema validation is **necessary but not sufficient** for faithful capture or confirmed persistence. If the actual Project cannot create files, record the exact surface and reproducible permission failure as **no-go**; later authenticated API/mobile capture can replace the channel without changing Markdown identity.
+
+## First-class Task integration candidate (#153)
+
+The existing working notes-v2.0 prompt and capture-only rollback were audited
+alongside private AGENTS and the actual conversation-capture plugin source. A
+separate private **inactive** notes-v3.0 candidate (7,804 characters) preserves
+ordinary one-send capture, tags, explicit PCE-grounded research and Reminder
+boundaries while referring to the single [tasks-v1 policy](24-task-extraction-policy.md).
+Repository edits do not install Project settings. Public feature PRs/local
+protocol tests do not prove a deployed/attached write tool.
+
+The conversation plugin currently supplies instructions, not an MCP/App server.
+The inspected PCE connection exposed read tools only. A prepared guarded 0.2.0
+archive changes only the skill/version while preserving identity, audience,
+metadata and complete default prompts. It was **not published or installed**;
+see [integration source/capability audit](../integrations/conversation-capture/README.md).
+When Task tools are absent, an activated capture uses the reviewed private
+create-only batch artifact. Never invent tool execution or require PCE app
+selection for an ordinary GitHub memo. Direct DB capture still needs no GitHub
+mirror. Missing Task prerequisites preserve a valid independently saved Note.
+
+Task write/import readiness, reviewed contracts and explicit owner activation
+precede candidate promotion, plugin publication and manual Project installation.
+Keep exact prior installed text privately for rollback. Preserve all Note/Task
+records and completion history when withdrawing prompts or either ingress gate.
+
+### Task-specific acceptance matrix (preparation checkpoint, 2026-10-25)
+
+| Scenario | Supplied-output/contract evidence | Actual host gate |
+| --- | --- | --- |
+| 0/1/3 clear actions and one Note/many Tasks | Synthetic PostgreSQL fixture matrix, stable IDs/source quotes | Fresh/successive one-send NOTES chats pending |
+| Russian/English/mixed, idea plus action, quoted/conditional intent | Human-authored expected outputs validated/persisted; no classifier run | Real ChatGPT classification pending |
+| Explicit no Tasks / unclear requested action | No batch for opt-out; zero-Task reason for unclear fixture | Actual response/wording pending |
+| Note saved, Task batch write fails or source import is delayed | Durable retry/partial-status contracts and importer tests | Live denied-write/outage pending |
+| Duplicate/reordered import after Task completion | Shared receipt and lifecycle replay tests | Hosted observation pending |
+| Task-only source permissions and consent | Official-client OAuth/MCP/HTTP tests | Actual connector Task scopes/attachment pending |
+| Tags, normal capture and explicit research | Existing regression suites and retained prompt rules | Multi-feature live prompt check pending |
+| Plugin/Project candidate and rollback | Exact source/readback/version/prompt-length checks | Publication, manual install/readback and rollback approval pending |
+
+The expected-output fixtures do not establish model behavior, voice fidelity,
+actual connector acceptance or complete transcript availability. #154 records
+actual pass/fail and owner go/no-go separately. No production prompt/settings,
+personal content or provider spend was changed during candidate preparation.
+
+### Owner-approved Task activation (2026-10-26)
+
+The reviewed notes-v3.0/tasks-v1 block is now promoted in the private repository
+and installed in actual NOTES settings. Reload/readback confirmed all 7,804
+characters; the exact previous installed text was backed up privately. The owned
+conversation plugin is published at 0.2.0 with preserved identity/presentation and
+private audience. Real NOTES 0/3 captures and a selected-plugin 1-Task capture
+persisted with faithful originals and separate receipts. One initial Note write
+was blocked by ChatGPT safety review; the safe same-ID recovery succeeded without
+overwrite or a duplicate repair Note.
+
+Hosted Task API/web and trusted local GET-only ingress are explicitly enabled;
+fresh ChatGPT/iOS scope consent was verified. A fresh ChatGPT conversation used
+dedicated Task search/list tools, independently from Note retrieval. The earlier
+candidate matrix remains a record of preparation, not a claim that every live
+failure/device scenario now passed. See [actual evidence and limits](evidence/issue-154/2026-10-26-activation.md).
+No ordinary capture requires PCE app selection or a channel cutover.

@@ -259,8 +259,19 @@ export type {
   ChunkDiagnostic,
 } from "./search-diagnostics.js";
 
-export { SEARCH_COSINE_THRESHOLD, SEARCH_RRF_K } from "./search-ranking.js";
+export {
+  SEARCH_COSINE_THRESHOLD,
+  SEARCH_RRF_K,
+  SEARCH_RANKING_VERSION,
+} from "./search-ranking.js";
 
 export { createResearchRepository, ResearchConflict } from "./research.js";
 
 export { createResearchEmbeddingRepository } from "./research-embeddings.js";
+export {
+  createTaskRepository,
+  TaskConflict,
+  TaskSourceUnavailable,
+  TaskCursorError,
+} from "./tasks.js";
+export { createTaskExtractionRepository } from "./task-extraction.js";

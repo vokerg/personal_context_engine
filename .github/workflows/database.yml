@@ -68,6 +68,7 @@ jobs:
         run: npx prisma migrate diff --from-schema-datamodel packages/db/prisma/schema.prisma --to-url "$DATABASE_URL" --exit-code
       - run: npm run build -w @pce/core
       - run: npm run build -w @pce/contracts
+      - run: npm run build -w @pce/api-client
       - run: npm run build -w @pce/db
       - run: npm run build -w @pce/api
       - run: npm run build -w @pce/worker
@@ -82,4 +83,4 @@ jobs:
           done
           node -e 'const v=require("/tmp/pce-db-ready.json"); if(v.status!=="ready")process.exit(1)'
       - name: PostgreSQL integration tests (synthetic records only)
-        run: npx vitest run --no-file-parallelism apps/api/src/mcp.integration.test.ts apps/api/src/notes-integration.integration.test.ts apps/api/src/tag-registry.integration.test.ts apps/api/src/note-tags.integration.test.ts apps/api/src/session-auth.integration.test.ts packages/db/src/search.integration.test.ts packages/db/src/api-capture.integration.test.ts packages/db/src/research.integration.test.ts packages/db/src/index.integration.test.ts packages/db/src/tag-registry.integration.test.ts packages/db/src/note-tags.integration.test.ts packages/db/src/note-removal.integration.test.ts packages/db/src/browse.integration.test.ts packages/db/src/hosted-reader.integration.test.ts packages/db/src/chunks.integration.test.ts packages/db/src/embedding-jobs.integration.test.ts apps/worker/src/worker.integration.test.ts scripts/local-runtime.test.mjs scripts/local-ingestion.test.mjs
+        run: npx vitest run --no-file-parallelism apps/api/src/task-acceptance.integration.test.ts apps/api/src/tasks.integration.test.ts packages/db/src/tasks.integration.test.ts packages/db/src/task-policy.integration.test.ts apps/worker/src/task-ingress.integration.test.ts apps/api/src/mcp.integration.test.ts apps/api/src/notes-integration.integration.test.ts apps/api/src/tag-registry.integration.test.ts apps/api/src/note-tags.integration.test.ts apps/api/src/session-auth.integration.test.ts packages/db/src/search.integration.test.ts packages/db/src/api-capture.integration.test.ts packages/db/src/research.integration.test.ts packages/db/src/index.integration.test.ts packages/db/src/tag-registry.integration.test.ts packages/db/src/note-tags.integration.test.ts packages/db/src/note-removal.integration.test.ts packages/db/src/browse.integration.test.ts packages/db/src/hosted-reader.integration.test.ts packages/db/src/chunks.integration.test.ts packages/db/src/embedding-jobs.integration.test.ts apps/worker/src/worker.integration.test.ts scripts/local-runtime.test.mjs scripts/local-ingestion.test.mjs

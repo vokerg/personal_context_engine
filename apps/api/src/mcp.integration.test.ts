@@ -9,6 +9,8 @@ import {
   createSearchRepository,
   createApiCaptureRepository,
   createResearchRepository,
+  createTaskRepository,
+  createTaskExtractionRepository,
 } from "@pce/db";
 import { createApp } from "./app.js";
 import {
@@ -175,6 +177,8 @@ ${text}
             true,
           ),
           capture: createApiCaptureRepository(db),
+          tasks: createTaskRepository(db),
+          taskBatches: createTaskExtractionRepository(db),
           mcp: {
             db,
             transportHost: "trusted-backend.example",
@@ -184,7 +188,12 @@ ${text}
                 {
                   clientId: "synthetic-client",
                   redirectUris: [redirect],
-                  scopes: ["notes:read", "capture:write"],
+                  scopes: [
+                    "notes:read",
+                    "capture:write",
+                    "tasks:read",
+                    "tasks:write",
+                  ],
                 },
               ]),
             }),
@@ -208,6 +217,21 @@ ${text}
     afterAll(async () => {
       if (app) await app.close();
       if (db) {
+        await db.taskExtractionBatch.deleteMany({
+          where: { ownerSubject: { in: [owner, foreign] } },
+        });
+        await db.taskCommand.deleteMany({
+          where: { ownerSubject: { in: [owner, foreign] } },
+        });
+        await db.taskEvent.deleteMany({
+          where: { ownerSubject: { in: [owner, foreign] } },
+        });
+        await db.taskSource.deleteMany({
+          where: { ownerSubject: { in: [owner, foreign] } },
+        });
+        await db.task.deleteMany({
+          where: { ownerSubject: { in: [owner, foreign] } },
+        });
         await db.authSession.deleteMany({ where: { ownerSubject: owner } });
         await db.apiCaptureReceipt.deleteMany({
           where: { ownerSubject: { in: [owner, foreign] } },
@@ -790,6 +814,248 @@ ${text}
         expect((await refresh(replacement.refresh_token)).statusCode).toBe(400);
       } finally {
         clock = originalClock;
+      }
+    });
+    it("uses independently consented Task tools with the official client, preserving source originals and delayed retries", async () => {
+      const noteId = await seed(owner, "Купить синтетические фильтры");
+      const note = await db.note.findFirstOrThrow({
+        where: { id: noteId, ownerSubject: owner },
+      });
+      const taskId = randomUUID(),
+        foreignId = randomUUID();
+      await createTaskRepository(db).createByOwner(foreign, {
+        taskId: foreignId,
+        title: "Foreign filters",
+      });
+      const { pair } = await token("tasks:read tasks:write notes:read");
+      const client = new Client({ name: "task-test", version: "1.0" });
+      const value = (reply: Awaited<ReturnType<typeof client.callTool>>) =>
+        JSON.parse((reply.content as Array<{ text: string }>)[0]!.text);
+      try {
+        await client.connect(
+          new StreamableHTTPClientTransport(new URL(issuer + "/mcp"), {
+            requestInit: {
+              headers: { Authorization: "Bearer " + pair.access_token },
+            },
+          }),
+        );
+        expect((await client.listTools()).tools.map((t) => t.name)).toEqual(
+          expect.arrayContaining([
+            "list_tasks",
+            "search_tasks",
+            "get_task",
+            "get_task_history",
+            "create_task",
+            "change_task_status",
+            "save_task_batch",
+          ]),
+        );
+        const input = {
+          taskId,
+          title: "Buy synthetic filters",
+          sources: [
+            {
+              noteId,
+              captureId: note.captureId,
+              evidence: "Купить синтетические фильтры",
+            },
+          ],
+        };
+        expect(
+          value(
+            await client.callTool({ name: "create_task", arguments: input }),
+          ),
+        ).toMatchObject({ status: "DB_PERSISTED", replayed: false });
+        expect(
+          value(
+            await client.callTool({
+              name: "search_tasks",
+              arguments: { q: "фильтр" },
+            }),
+          ).tasks.map((t: { taskId: string }) => t.taskId),
+        ).toContain(taskId);
+        const complete = {
+          taskId,
+          commandId: randomUUID(),
+          expectedRevision: 1,
+          status: "COMPLETED",
+        };
+        expect(
+          value(
+            await client.callTool({
+              name: "change_task_status",
+              arguments: complete,
+            }),
+          ),
+        ).toMatchObject({ task: { status: "COMPLETED", revision: 2 } });
+        expect(
+          value(
+            await client.callTool({ name: "list_tasks", arguments: {} }),
+          ).tasks.map((t: { taskId: string }) => t.taskId),
+        ).not.toContain(taskId);
+        expect(
+          value(
+            await client.callTool({
+              name: "search_tasks",
+              arguments: { q: "filter", status: "COMPLETED" },
+            }),
+          ).tasks.map((t: { taskId: string }) => t.taskId),
+        ).toContain(taskId);
+        expect(
+          value(
+            await client.callTool({
+              name: "change_task_status",
+              arguments: {
+                ...complete,
+                commandId: randomUUID(),
+                status: "OPEN",
+              },
+            }),
+          ),
+        ).toEqual({ error: "CONFLICT" });
+        await client.callTool({
+          name: "change_task_status",
+          arguments: {
+            taskId,
+            commandId: randomUUID(),
+            expectedRevision: 2,
+            status: "OPEN",
+          },
+        });
+        expect(
+          value(
+            await client.callTool({
+              name: "change_task_status",
+              arguments: complete,
+            }),
+          ),
+        ).toMatchObject({
+          replayed: true,
+          task: { status: "OPEN", revision: 3 },
+        });
+        expect(
+          value(
+            await client.callTool({
+              name: "get_task_history",
+              arguments: { taskId },
+            }),
+          ).events.map((e: { type: string }) => e.type),
+        ).toEqual(["CREATED", "COMPLETED", "REOPENED"]);
+        expect(
+          value(
+            await client.callTool({
+              name: "get_task",
+              arguments: { taskId: foreignId },
+            }),
+          ),
+        ).toEqual({ error: "NOT_FOUND" });
+        expect(
+          value(
+            await client.callTool({
+              name: "get_task",
+              arguments: { taskId: randomUUID() },
+            }),
+          ),
+        ).toEqual({ error: "NOT_FOUND" });
+        expect(
+          value(
+            await client.callTool({
+              name: "change_task_status",
+              arguments: { ...complete, taskId: foreignId },
+            }),
+          ),
+        ).toEqual({ error: "NOT_FOUND" });
+        const batch = {
+          schemaVersion: 1,
+          batchId: randomUUID(),
+          captureId: note.captureId,
+          sourceNoteIds: [noteId],
+          classifier: {
+            method: "explicit",
+            policyVersion: "tasks-v1",
+            agent: "Synthetic official client",
+          },
+          tasks: [input],
+        };
+        expect(
+          value(
+            await client.callTool({
+              name: "save_task_batch",
+              arguments: batch,
+            }),
+          ),
+        ).toMatchObject({ taskIds: [taskId], replayed: false });
+        expect(
+          value(
+            await client.callTool({
+              name: "save_task_batch",
+              arguments: batch,
+            }),
+          ),
+        ).toMatchObject({ taskIds: [taskId], replayed: true });
+        expect(await db.note.findUnique({ where: { id: noteId } })).toEqual(
+          note,
+        );
+        const taskRead = await token("tasks:read");
+        const restricted = new Client({
+          name: "task-only-read",
+          version: "1.0",
+        });
+        try {
+          await restricted.connect(
+            new StreamableHTTPClientTransport(new URL(issuer + "/mcp"), {
+              requestInit: {
+                headers: {
+                  Authorization: "Bearer " + taskRead.pair.access_token,
+                },
+              },
+            }),
+          );
+          const names = (await restricted.listTools()).tools.map((t) => t.name);
+          expect(names).toEqual(
+            expect.arrayContaining(["search_tasks", "get_task"]),
+          );
+          expect(names).not.toContain("get_note");
+          expect(names).not.toContain("create_task");
+          expect(
+            value(
+              await restricted.callTool({
+                name: "get_task",
+                arguments: { taskId },
+              }),
+            ),
+          ).toMatchObject({ sources: [], unavailableSourceCount: 1 });
+          expect(
+            value(
+              await restricted.callTool({
+                name: "search_tasks",
+                arguments: { q: "фильтр" },
+              }),
+            ).tasks,
+          ).toEqual([]);
+        } finally {
+          await restricted.close();
+        }
+        const denied = await fetch(issuer + "/mcp", {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + taskRead.pair.access_token,
+            "Content-Type": "application/json",
+            Accept: "application/json, text/event-stream",
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 99,
+            method: "tools/call",
+            params: { name: "change_task_status", arguments: complete },
+          }),
+        });
+        expect(denied.status).toBe(403);
+        expect(denied.headers.get("www-authenticate")).toContain(
+          'scope="tasks:write"',
+        );
+      } finally {
+        await client.close();
       }
     });
     it("restricts write tools and HTTP scope, rotates refresh and revokes access and parent sessions", async () => {
