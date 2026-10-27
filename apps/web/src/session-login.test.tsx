@@ -4,6 +4,11 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { App } from "./App.js";
 
+const continuation = vi.hoisted(() => ({ resume: vi.fn() }));
+vi.mock("./authorization-continuation", () => ({
+  resumeAuthorization: continuation.resume,
+}));
+
 let root: Root;
 let container: HTMLDivElement;
 const json = (body: unknown, status = 200) =>
@@ -23,6 +28,7 @@ async function click(text: string) {
   });
 }
 beforeEach(() => {
+  continuation.resume.mockClear();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubEnv("PROD", true);
   vi.stubEnv("DEV", false);
@@ -160,5 +166,46 @@ it.each(["http", "network"])(
     expect(container.textContent).not.toContain("Clear session");
     expect(container.textContent).toContain("Username");
     document.cookie = "pce_csrf=; Max-Age=0; Path=/";
+  },
+);
+
+it.each([false, true])(
+  "automatically resumes OAuth after authentication (existing session: %s)",
+  async (existing) => {
+    window.history.replaceState(
+      null,
+      "",
+      "/?authorize=client_id%3Dsynthetic-ios%26state%3Doriginal-state",
+    );
+    const fetcher = vi.fn(async (target: URL | string) => {
+      const path = new URL(String(target)).pathname;
+      if (path === "/auth/config") return json({ mode: "single-user" });
+      if (path === "/auth/session") return json({}, existing ? 200 : 401);
+      if (path === "/auth/password") return json({ authenticated: true });
+      if (path.endsWith("/tags")) return json({ tags: [], truncated: false });
+      return json({ notes: [] });
+    });
+    vi.stubGlobal("fetch", fetcher);
+    await render();
+    if (!existing) {
+      expect(continuation.resume).not.toHaveBeenCalled();
+      await act(async () => {
+        container
+          .querySelector("form")!
+          .dispatchEvent(
+            new Event("submit", { bubbles: true, cancelable: true }),
+          );
+      });
+      expect(
+        fetcher.mock.calls.some(([url]) =>
+          String(url).endsWith("/auth/password"),
+        ),
+      ).toBe(true);
+    }
+    expect(continuation.resume).toHaveBeenCalledOnce();
+    expect(continuation.resume).toHaveBeenCalledWith("https://web.example");
+    expect(new URL(window.location.href).searchParams.get("authorize")).toBe(
+      "client_id=synthetic-ios&state=original-state",
+    );
   },
 );

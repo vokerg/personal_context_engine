@@ -12,6 +12,8 @@
     },
     "android": {
       "package": "dev.pce.mobile"
-    }
+    },
+    "icon": "./assets/icon.png",
+    "plugins": ["react-native-bottom-tabs"]
   }
 }

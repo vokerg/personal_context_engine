@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { Alert, Linking, Pressable, Text, View } from "react-native";
+import {
+  Alert,
+  Linking,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import {
   ApiRequestError,
   describeNotesError,
@@ -404,7 +412,19 @@ export function NoteDetailScreen({
   }, [session, noteId, selected, research.kind]);
 
   return (
-    <View style={{ gap: 14 }}>
+    <ScrollView
+      style={{ flex: 1 }}
+      alwaysBounceVertical
+      automaticallyAdjustKeyboardInsets
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={{ padding: 20, gap: 14, flexGrow: 1 }}
+      refreshControl={
+        <RefreshControl
+          refreshing={noteLoading}
+          onRefresh={() => setNoteRevision((v) => v + 1)}
+        />
+      }
+    >
       <ActionButton label="Back" palette={palette} secondary onPress={onBack} />
       <SectionTitle palette={palette}>Note detail</SectionTitle>
       {noteLoading ? (
@@ -563,6 +583,6 @@ export function NoteDetailScreen({
           ) : null}
         </>
       ) : null}
-    </View>
+    </ScrollView>
   );
 }

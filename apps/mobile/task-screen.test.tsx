@@ -49,6 +49,12 @@ vi.mock("react-native", async () => {
         children,
       );
   return {
+    AppState: {
+      currentState: "active",
+      addEventListener: () => ({ remove: vi.fn() }),
+    },
+    PanResponder: { create: () => ({ panHandlers: {} }) },
+    RefreshControl: () => null,
     View: host("div"),
     Text: host("span"),
     Pressable: host("button"),

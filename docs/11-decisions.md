@@ -505,14 +505,24 @@ API/MCP/search with `status: "archived"`; web browse defaults to active and
 offers archived/all selection. Removal still takes precedence and cannot be
 undone by archive toggles.
 
-## Implemented native menu constraint (#142; D-005)
+## Native menu decision (#142/#165; D-005)
 
-The Expo SDK54 custom tab navigator remains in place. Its floating menu uses
-SDK-compatible `expo-glass-effect` and `expo-symbols`, with opaque fallback for
-unsupported builds and Reduce Transparency. No router migration or platform
-system tab-bar behavior is implied. This changes presentation and scroll insets
-only, with no API, storage, session or content contract changes. See the
-[mobile documentation](../apps/mobile/README.md#floating-ios-menu-142).
+**Owner-directed revision, 2026-10-27:** the #142 custom GlassView menu and its
+initial #165 container correction did not satisfy the request for the standard
+iOS Liquid Glass menu. The owner explicitly selected the real system tab bar.
+Replace the custom menu with a pinned standalone `react-native-bottom-tabs`
+adapter using SwiftUI `TabView`/`UITabBarController`; preserve the typed
+session/detail/deep-link state machine and existing screen components. This
+supersedes the earlier constraint to retain custom tab presentation, without
+requiring a whole-app router migration.
+
+The OS owns tab material, selection interaction and accessibility appearance.
+No hand-drawn glass/selection fallback or forced transparency is added. Preserve
+mounted screen state, optional Tasks routes, private-state reset, safe areas,
+note back gestures and active-screen polling. No API, ownership, storage,
+feature-gate or hosted configuration changes are authorized by this decision.
+Native build/install and actual device appearance must be evidenced separately.
+See [mobile operation](../apps/mobile/README.md#floating-ios-menu-142).
 
 ### D-030 — Measured multilingual lexical evidence in shared retrieval (#145)
 

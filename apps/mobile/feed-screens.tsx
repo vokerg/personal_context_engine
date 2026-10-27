@@ -1,3 +1,4 @@
+import { useLiveRefresh } from "./live-refresh";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
@@ -663,6 +664,18 @@ export function TimelineScreen({
       return { items: result.notes, nextCursor: result.nextCursor };
     },
   );
+  const refresh = () => {
+    feed.refresh();
+    facets.reload();
+  };
+  useLiveRefresh(!hidden, () => {
+    if (
+      !feed.state.loading &&
+      !feed.state.refreshing &&
+      !feed.state.loadingMore
+    )
+      refresh();
+  });
   const rows = useMemo(() => grouped(feed.state.items), [feed.state.items]);
   return (
     <View
@@ -691,6 +704,9 @@ export function TimelineScreen({
         />
       ) : null}
       <FlatList
+        alwaysBounceVertical
+        automaticallyAdjustKeyboardInsets
+        contentInsetAdjustmentBehavior="never"
         style={{ flex: 1 }}
         data={prepared.query ? rows : []}
         keyExtractor={(item) => item.key}
@@ -724,7 +740,7 @@ export function TimelineScreen({
         refreshControl={
           <RefreshControl
             refreshing={feed.state.refreshing}
-            onRefresh={feed.refresh}
+            onRefresh={refresh}
           />
         }
         ListEmptyComponent={
@@ -841,7 +857,17 @@ export function SearchScreen({
   const refreshSearch = () => {
     setMeta(null);
     feed.refresh();
+    facets.reload();
   };
+  useLiveRefresh(!hidden, () => {
+    if (
+      queryIsCurrent &&
+      !feed.state.loading &&
+      !feed.state.refreshing &&
+      !feed.state.loadingMore
+    )
+      refreshSearch();
+  });
   const retrySearch = () => {
     setMeta(null);
     feed.retry();
@@ -908,6 +934,9 @@ export function SearchScreen({
         />
       ) : null}
       <FlatList
+        alwaysBounceVertical
+        automaticallyAdjustKeyboardInsets
+        contentInsetAdjustmentBehavior="never"
         style={{ flex: 1 }}
         data={prepared.valid && queryIsCurrent ? feed.state.items : []}
         keyExtractor={(item) => item.id}

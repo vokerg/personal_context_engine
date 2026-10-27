@@ -1,3 +1,4 @@
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { TasksScreen } from "./task-screen";
 import { TASKS_ENABLED } from "./task-feature";
 import { useEffect, useMemo, useReducer, useState } from "react";
@@ -6,7 +7,8 @@ import {
   BackHandler,
   KeyboardAvoidingView,
   Linking,
-  SafeAreaView,
+  PanResponder,
+  Appearance as NativeAppearance,
   ScrollView,
   StatusBar,
   Text,
@@ -21,7 +23,8 @@ import type { SessionView } from "./session";
 import { SearchScreen, TimelineScreen } from "./feed-screens";
 import { paletteFor, type Appearance } from "./theme";
 import { ActionButton, StatusMessage } from "./ui";
-import { TabBar } from "./tab-bar";
+import { claimsBackSwipe, completesBackSwipe } from "./back-gesture";
+import { NativeTabs } from "./tab-bar";
 
 /**
  * Expo SDK54 / iOS shell. A small typed reducer drives the tab + detail stack;
@@ -36,10 +39,26 @@ export default function App() {
     reduceNavigation,
     initialNavigation,
   );
-  const [menuInset, setMenuInset] = useState(112);
+  const backGesture = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponderCapture: (_event, gesture) =>
+          claimsBackSwipe(gesture),
+        onPanResponderRelease: (_event, gesture) => {
+          if (completesBackSwipe(gesture)) dispatch({ type: "back" });
+        },
+        onPanResponderTerminationRequest: () => false,
+      }),
+    [],
+  );
   const [appearance, setAppearance] = useState<Appearance>("system");
   const systemAppearance = useColorScheme();
   const palette = paletteFor(appearance, systemAppearance);
+  useEffect(() => {
+    NativeAppearance.setColorScheme(
+      appearance === "system" ? null : appearance,
+    );
+  }, [appearance]);
 
   useEffect(() => {
     if (!session) return;
@@ -77,7 +96,7 @@ export default function App() {
     };
   }, []);
 
-  // iOS uses the visible Back button. Keep Android scaffold's hardware
+  // iOS supports the edge gesture and visible Back button. Keep Android scaffold's hardware
   // back semantics safe without treating Android as an App v1 target.
   useEffect(() => {
     if (!navigation.noteId || navigation.phase !== "signed-in") return;
@@ -102,208 +121,220 @@ export default function App() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: palette.background }}>
-      <StatusBar
-        barStyle={palette.dark ? "light-content" : "dark-content"}
-        backgroundColor={palette.background}
-      />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-        <View
-          style={{
-            flex: 1,
-            width: "100%",
-            maxWidth: 860,
-            alignSelf: "center",
-          }}
+    <SafeAreaProvider>
+      <SafeAreaView
+        edges={
+          signedIn
+            ? ["top", "left", "right"]
+            : ["top", "bottom", "left", "right"]
+        }
+        style={{ flex: 1, backgroundColor: palette.background }}
+      >
+        <StatusBar
+          barStyle={palette.dark ? "light-content" : "dark-content"}
+          backgroundColor={palette.background}
+        />
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={signedIn ? undefined : "padding"}
         >
           <View
             style={{
-              paddingHorizontal: 20,
-              paddingVertical: 14,
-              borderBottomWidth: 1,
-              borderBottomColor: palette.border,
+              flex: 1,
+              width: "100%",
+              alignSelf: "center",
             }}
           >
-            <Text
-              accessibilityRole="header"
+            <View
               style={{
-                color: palette.text,
-                fontSize: 22,
-                fontWeight: "700",
+                paddingHorizontal: 20,
+                paddingVertical: 14,
+                borderBottomWidth: 1,
+                borderBottomColor: palette.border,
               }}
             >
-              Personal Context Engine
-            </Text>
-          </View>
-          <View style={{ flex: 1, minHeight: 0 }}>
-            {!signedIn || !session ? (
-              <ScrollView
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ padding: 20, gap: 14, flexGrow: 1 }}
+              <Text
+                accessibilityRole="header"
+                style={{
+                  color: palette.text,
+                  fontSize: 22,
+                  fontWeight: "700",
+                }}
               >
-                {!session ? (
-                  <StatusMessage
-                    palette={palette}
-                    heading="Native sign-in needs configuration"
-                    description="Configure the HTTPS API origin and registered iOS public OAuth client. An iOS development build is needed; Expo Go cannot receive the private callback."
-                    alert
-                  />
-                ) : auth.phase === "restoring" ? (
-                  <StatusMessage
-                    palette={palette}
-                    heading="Restoring secure session…"
-                  />
-                ) : auth.phase !== "signed-in" ? (
-                  <View style={{ gap: 16 }}>
+                Personal Context Engine
+              </Text>
+            </View>
+            <View style={{ flex: 1, minHeight: 0 }}>
+              {!signedIn || !session ? (
+                <ScrollView
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={{ padding: 20, gap: 14, flexGrow: 1 }}
+                >
+                  {!session ? (
                     <StatusMessage
                       palette={palette}
-                      heading="Sign-in required"
-                      description="Use the system browser and your existing PCE account. No developer token is needed."
+                      heading="Native sign-in needs configuration"
+                      description="Configure the HTTPS API origin and registered iOS public OAuth client. An iOS development build is needed; Expo Go cannot receive the private callback."
+                      alert
                     />
-                    {navigation.pendingNoteId ? (
-                      <Text style={{ color: palette.secondary }}>
-                        A note link is waiting for authentication.
-                      </Text>
-                    ) : null}
-                    {auth.notice ? (
-                      <Text
-                        accessibilityRole="alert"
-                        style={{ color: palette.danger }}
-                      >
-                        {auth.notice}
-                      </Text>
-                    ) : null}
-                    <ActionButton
-                      label="Sign in"
+                  ) : auth.phase === "restoring" ? (
+                    <StatusMessage
                       palette={palette}
-                      onPress={() => void session.signIn()}
+                      heading="Restoring secure session…"
                     />
-                    <ActionButton
-                      label="Retry saved session"
+                  ) : auth.phase !== "signed-in" ? (
+                    <View style={{ gap: 16 }}>
+                      <StatusMessage
+                        palette={palette}
+                        heading="Sign-in required"
+                        description="Use the system browser and your existing PCE account. No developer token is needed."
+                      />
+                      {navigation.pendingNoteId ? (
+                        <Text style={{ color: palette.secondary }}>
+                          A note link is waiting for authentication.
+                        </Text>
+                      ) : null}
+                      {auth.notice ? (
+                        <Text
+                          accessibilityRole="alert"
+                          style={{ color: palette.danger }}
+                        >
+                          {auth.notice}
+                        </Text>
+                      ) : null}
+                      <ActionButton
+                        label="Sign in"
+                        palette={palette}
+                        onPress={() => void session.signIn()}
+                      />
+                      <ActionButton
+                        label="Retry saved session"
+                        palette={palette}
+                        secondary
+                        onPress={() => void session.restore()}
+                      />
+                    </View>
+                  ) : (
+                    <StatusMessage
                       palette={palette}
-                      secondary
-                      onPress={() => void session.restore()}
+                      heading="Ending session…"
                     />
-                  </View>
-                ) : (
-                  <StatusMessage palette={palette} heading="Ending session…" />
-                )}
-              </ScrollView>
-            ) : (
-              <>
-                {auth.notice ? (
-                  <Text
-                    accessibilityRole="alert"
-                    style={{ color: palette.danger, paddingHorizontal: 20 }}
-                  >
-                    {auth.notice}
-                  </Text>
-                ) : null}
-                {/* Keep both virtualized lists mounted under note detail so back retains scroll/query state.
-                    Neither list is nested inside a ScrollView. Unmount both on sign-out. */}
-                <TimelineScreen
-                  session={session}
-                  palette={palette}
-                  bottomInset={menuInset}
-                  hidden={
-                    Boolean(navigation.noteId) || navigation.tab !== "notes"
-                  }
-                  onOpenNote={(id) => dispatch({ type: "open-note", id })}
-                />
-                {TASKS_ENABLED ? (
-                  <TasksScreen
-                    session={session}
+                  )}
+                </ScrollView>
+              ) : (
+                <>
+                  {auth.notice ? (
+                    <Text
+                      accessibilityRole="alert"
+                      style={{ color: palette.danger, paddingHorizontal: 20 }}
+                    >
+                      {auth.notice}
+                    </Text>
+                  ) : null}
+                  <NativeTabs
+                    active={navigation.tab}
                     palette={palette}
-                    bottomInset={menuInset}
-                    hidden={
-                      Boolean(navigation.noteId) || navigation.tab !== "tasks"
-                    }
-                    onOpenNote={(id) => dispatch({ type: "open-note", id })}
+                    tasksEnabled={TASKS_ENABLED}
+                    hidden={Boolean(navigation.noteId)}
+                    onSelect={(tab) => dispatch({ type: "tab", tab })}
+                    renderScene={(tab, bottomInset) => {
+                      const hidden =
+                        Boolean(navigation.noteId) || navigation.tab !== tab;
+                      if (tab === "notes")
+                        return (
+                          <TimelineScreen
+                            session={session}
+                            palette={palette}
+                            bottomInset={bottomInset}
+                            hidden={hidden}
+                            onOpenNote={(id) =>
+                              dispatch({ type: "open-note", id })
+                            }
+                          />
+                        );
+                      if (tab === "tasks")
+                        return (
+                          <TasksScreen
+                            session={session}
+                            palette={palette}
+                            bottomInset={bottomInset}
+                            hidden={hidden}
+                            onOpenNote={(id) =>
+                              dispatch({ type: "open-note", id })
+                            }
+                          />
+                        );
+                      if (tab === "search")
+                        return (
+                          <SearchScreen
+                            session={session}
+                            palette={palette}
+                            bottomInset={bottomInset}
+                            hidden={hidden}
+                            onOpenNote={(id) =>
+                              dispatch({ type: "open-note", id })
+                            }
+                          />
+                        );
+                      return (
+                        <ScrollView
+                          automaticallyAdjustKeyboardInsets
+                          contentInsetAdjustmentBehavior="never"
+                          contentContainerStyle={{
+                            padding: 20,
+                            paddingBottom: bottomInset,
+                            flexGrow: 1,
+                          }}
+                        >
+                          {tab === "settings" ? (
+                            <SettingsScreen
+                              appearance={appearance}
+                              onAppearance={setAppearance}
+                              palette={palette}
+                              onSignOut={signOut}
+                            />
+                          ) : (
+                            <UpcomingScreen
+                              name="Capture"
+                              explanation="Direct text capture and persisted receipts arrive in native issue #126. Nothing is uploaded from this screen."
+                              palette={palette}
+                            />
+                          )}
+                        </ScrollView>
+                      );
+                    }}
                   />
-                ) : null}
-                <SearchScreen
-                  session={session}
-                  palette={palette}
-                  bottomInset={menuInset}
-                  hidden={
-                    Boolean(navigation.noteId) || navigation.tab !== "search"
-                  }
-                  onOpenNote={(id) => dispatch({ type: "open-note", id })}
-                />
-                {!navigation.noteId && navigation.tab === "capture" ? (
-                  <ScrollView
-                    contentContainerStyle={{
-                      padding: 20,
-                      paddingBottom: menuInset,
-                      flexGrow: 1,
-                    }}
-                  >
-                    <UpcomingScreen
-                      name="Capture"
-                      explanation="Direct text capture and persisted receipts arrive in native issue #126. Nothing is uploaded from this screen."
-                      palette={palette}
-                    />
-                  </ScrollView>
-                ) : null}
-                {!navigation.noteId && navigation.tab === "settings" ? (
-                  <ScrollView
-                    contentContainerStyle={{
-                      padding: 20,
-                      paddingBottom: menuInset,
-                      flexGrow: 1,
-                    }}
-                  >
-                    <SettingsScreen
-                      appearance={appearance}
-                      onAppearance={setAppearance}
-                      palette={palette}
-                      onSignOut={signOut}
-                    />
-                  </ScrollView>
-                ) : null}
-                {navigation.noteId ? (
-                  <ScrollView
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      backgroundColor: palette.background,
-                    }}
-                    keyboardShouldPersistTaps="handled"
-                    contentContainerStyle={{
-                      padding: 20,
-                      gap: 14,
-                      flexGrow: 1,
-                    }}
-                  >
-                    <NoteDetailScreen
-                      key={navigation.noteId}
-                      noteId={navigation.noteId}
-                      session={session}
-                      palette={palette}
-                      onBack={() => dispatch({ type: "back" })}
-                      onOpenSource={(id) =>
-                        dispatch({ type: "open-source", id })
-                      }
-                    />
-                  </ScrollView>
-                ) : null}
-              </>
-            )}
+                  {navigation.noteId ? (
+                    <SafeAreaView
+                      edges={["bottom"]}
+                      {...backGesture.panHandlers}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: palette.background,
+                      }}
+                    >
+                      <NoteDetailScreen
+                        key={navigation.noteId}
+                        noteId={navigation.noteId}
+                        session={session}
+                        palette={palette}
+                        onBack={() => dispatch({ type: "back" })}
+                        onOpenSource={(id) =>
+                          dispatch({ type: "open-source", id })
+                        }
+                      />
+                    </SafeAreaView>
+                  ) : null}
+                </>
+              )}
+            </View>
           </View>
-          {signedIn && !navigation.noteId ? (
-            <TabBar
-              tasksEnabled={TASKS_ENABLED}
-              onHeight={(height) => setMenuInset(height + 24)}
-              active={navigation.tab}
-              palette={palette}
-              onSelect={(tab) => dispatch({ type: "tab", tab })}
-            />
-          ) : null}
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }

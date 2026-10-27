@@ -29,6 +29,8 @@ vi.mock("react-native", async () => {
       );
   return {
     View: host("div"),
+    ScrollView: host("section"),
+    RefreshControl: () => null,
     Text: host("span"),
     Pressable: host("button"),
     Alert: { alert: () => undefined },
