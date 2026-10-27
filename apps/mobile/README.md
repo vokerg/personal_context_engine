@@ -161,6 +161,27 @@ belong to the local #131 release gate.
 Next screen owners: #126 capture, #127 tags/removal;
 add Reminders navigation only after #128–#130.
 
+### Physical iPhone standalone Release (free Apple ID)
+
+To install the PCE app for personal use without Expo Go, EAS, TestFlight or a paid Apple Developer account, run the repository-local Codex skill [ios-device-release](../../.agents/skills/ios-device-release/SKILL.md) **on the Mac with the phone attached**. You can invoke it in Codex with `$ios-device-release` or run the helper directly.
+
+Prerequisites: full Xcode with accepted license, CocoaPods, Node 22, `npm ci`, and an unlocked iPhone trusted by the Mac. Enable Settings > Privacy & Security > Developer Mode on the phone, restart it, then confirm enabling the mode after reboot. Let Xcode > Window > Devices and Simulators finish preparing its developer disk image (DDI). Sign into Xcode > Settings > Apple Accounts with your free Apple ID. Open the ignored `apps/mobile/ios/*.xcworkspace`, select the PCE target > Signing & Capabilities > Automatically manage signing > your **Personal Team** for Release (or all configurations). If the workspace is absent, first generate it with `npm exec -w @pce/mobile -- expo prebuild --platform ios` without `--clean`; inspect and exclude incidental tracked-file changes. Complete any certificate/profile/device registration in Apple's UI. Keep the existing `dev.pce.mobile` bundle identifier and native `pce://oauth/callback` scheme, and do not disable signing (Keychain entitlements are needed for session restoration).
+
+Keep `EXPO_PUBLIC_API_BASE_URL` pointing at your hosted HTTPS API origin and `EXPO_PUBLIC_OAUTH_CLIENT_ID` pointing at the previously registered public iOS client in the ignored `apps/mobile/.env.local`. Never put client secrets, access tokens or private notes in these public variables. The API must recognize this client and callback, independently of any app build.
+
+From the repository root:
+
+~~~sh
+node .agents/skills/ios-device-release/scripts/install.mjs --check
+node .agents/skills/ios-device-release/scripts/install.mjs
+~~~
+
+The helper selects only a connected available **physical** iPhone; if several are present, pass `--device DEVICE_ID`. It checks the toolchain/configuration, Developer Mode, DDI services and a valid local signing identity before preparing shared packages. An available Xcode inventory entry alone is insufficient. App/device provisioning is checked by the actual build. It then runs the Expo iOS **Release** build, installation and launch as one operation. Release embeds the JS bundle and does not require Metro on subsequent launches. Existing public feature flags in `.env.local` are preserved. It does not disable signing, uninstall data, or change production settings.
+
+A free Personal Team install generally needs re-signing and reinstalling after 7 days. Re-run the helper when it expires. Preserve the app identity and signing team to retain data; data preservation across certificate/profile changes is not guaranteed. Validate OAuth callback, cold relaunch, iPhone connectivity and accessibility on the actual phone; none of these can be proven remotely.
+
+Synthetic helper tests (portable; no device needed): `node --test .agents/skills/ios-device-release/scripts/validate.mjs`. They verify command arguments, public configuration parsing and physical-device selection, **not** a successful iPhone installation. Continue tracking real-device acceptance in #131.
+
 ## Floating iOS menu (#142)
 
 The existing typed tab/detail navigator now renders a floating rounded menu
