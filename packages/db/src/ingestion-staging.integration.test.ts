@@ -48,7 +48,7 @@ Synthetic summary.
 
 ## Original input
 
-Buy filters.  
+Buy filters.${"  "}
 Keep whitespace.\t
 `;
   return { id, capture, path: `inbox/2026-10-20_${id}.md`, content };
