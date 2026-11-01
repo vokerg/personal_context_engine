@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@pce/contracts": "0.1.0",
     "@pce/core": "0.1.0",
     "@pce/db": "0.1.0",
     "@prisma/client": "6.19.1"

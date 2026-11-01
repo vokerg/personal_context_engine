@@ -9,6 +9,7 @@ output=$(realpath "$output")
 stage=$(mktemp -d)
 trap 'rm -rf "$stage"' EXIT
 npm run prisma:generate
+npm run build -w @pce/contracts
 npm run build -w @pce/core
 npm run build -w @pce/db
 npm run build -w @pce/worker
@@ -25,7 +26,7 @@ for (const workspace of JSON.parse(readFileSync('package.json')).workspaces) {
 JS
 # The locked worker closure only. Never copy the checkout's development modules.
 (cd "$stage" && npm ci --omit=dev --ignore-scripts --workspace=@pce/worker --no-audit --no-fund)
-for workspace in packages/core packages/db apps/worker; do
+for workspace in packages/contracts packages/core packages/db apps/worker; do
   cp -R "$workspace/dist" "$stage/$workspace/"
 done
 cp -R node_modules/.prisma "$stage/node_modules/"

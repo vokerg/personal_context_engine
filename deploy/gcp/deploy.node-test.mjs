@@ -240,3 +240,50 @@ test(
     );
   },
 );
+
+test(
+  "missing readiness marker never switches or restarts a service",
+  linux,
+  async (t) => {
+    const f = await fixture(t);
+    await previous(f.dir);
+    await rm(join(f.dir, "ready"));
+    assert.notEqual(f.run().status, 0);
+    assert.equal(
+      await readlink(join(f.dir, "current")),
+      join(f.dir, "releases", old),
+    );
+    assert.equal(
+      await readFile(join(f.dir, "calls"), "utf8").catch(() => ""),
+      "",
+    );
+  },
+);
+
+test(
+  "escaping archive symlink is rejected before extraction",
+  linux,
+  async (t) => {
+    const f = await fixture(t);
+    assert.equal(
+      spawnSync(f.env.REAL_PYTHON, [
+        "-c",
+        `import tarfile,sys
+with tarfile.open(sys.argv[1], 'w:gz') as t:
+ m=tarfile.TarInfo('escape'); m.type=tarfile.SYMTYPE; m.linkname='../../outside'; t.addfile(m)`,
+        f.archive,
+      ]).status,
+      0,
+    );
+    const digest = createHash("sha256")
+      .update(await readFile(f.archive))
+      .digest("hex");
+    const result = f.run("deploy", release, digest);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Archive link escapes release/);
+    assert.equal(
+      await readFile(join(f.dir, "calls"), "utf8").catch(() => ""),
+      "",
+    );
+  },
+);

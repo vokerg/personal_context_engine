@@ -57,7 +57,7 @@ at the API's 3,000-file limit it conservatively rebuilds the backend.
 
 ## Worker runtime and limits
 
-`deploy/gcp/package.sh` builds core, DB and worker on Linux x86_64 with Node 22.
+`deploy/gcp/package.sh` builds contracts, core, DB and worker on Linux x86_64 with Node 22.
 It installs the locked production worker dependency closure with scripts disabled,
 copies built workspaces and generated Prisma Debian/OpenSSL 3 engine, and includes
 the Node binary/license. It archives an explicit allowlist and rejects external

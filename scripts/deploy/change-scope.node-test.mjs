@@ -229,3 +229,31 @@ test("worker file reporter matches shared scope classification", () => {
     assert.equal(run(["README.md"]).stdout.trim(), "backend=false");
   });
 });
+
+test("Vercel skips unknown and non-main refs before diffing", () => {
+  for (const ref of ["", "feature/example"]) {
+    const result = spawnSync(process.execPath, [vercelScript], {
+      encoding: "utf8",
+      env: { ...process.env, VERCEL_GIT_COMMIT_REF: ref },
+    });
+    assert.equal(result.status, 0);
+  }
+});
+
+test("Render ignores exactly the backend exclusions in the shared classifier", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { backendIgnoredPaths } = await import("./change-scope.mjs");
+  const yaml = readFileSync("render.yaml", "utf8");
+  const block = yaml
+    .split("      ignoredPaths:\n")[1]
+    .split("    previews:")[0];
+  const actual = [...block.matchAll(/^        - (.+)$/gm)].map((m) => m[1]);
+  assert.deepEqual(actual, backendIgnoredPaths);
+  for (const path of actual) {
+    assert.equal(
+      affectedServices([path.replace("/**", "/example")]).backend,
+      false,
+      path,
+    );
+  }
+});
