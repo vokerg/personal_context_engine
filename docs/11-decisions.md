@@ -662,3 +662,25 @@ retain independent gates. No paid network resources, original deletion, backup
 automation or retrieval cutover is selected. Provider releases are not atomic;
 maintain mixed-version/schema/job compatibility. See [deployment operation](26-worker-deployment.md)
 for executable paths and verification/activation limits.
+
+
+### D-033 — Read-only acquisition and location-independent staged ingestion (#173)
+
+**Accepted owner direction (2026-11-01), implemented behind acquisition gate.**
+GitHub-capable Mac workers and owner-authenticated API manual sync share one
+read-only acquisition implementation. PostgreSQL stores exact immutable bytes
+and provenance in dedicated staging. Any trusted owner-scoped DB worker uses the
+same leased consumer and established note/task/research importers; it requires
+no GitHub connection or token. Canonical imports are idempotent; preparation-job
+creation and staging acknowledgement commit together after canonical persistence.
+No source move/delete/edit, implicit canonical revision replacement or missing-file
+deletion is authorized. Direct API/MCP captures remain direct and independent.
+
+`PCE_GITHUB_FETCH_ENABLED` selects acquisition independently from embeddings and
+approved-tag publication. Transition requires stopping legacy finalizers and
+reviewing historical owners/revisions/attempts, additive migration and restricted
+runtime grants. Existing GitHub connector capture/search remains available.
+Production migration/deployment and hosted API GitHub reachability are unverified;
+manual sync stays disabled there until actual host preflight. No NAT, proxy,
+Sportos change, secret provisioning or external action is selected. See the
+[rollout and recovery guide](27-ingestion-staging.md).

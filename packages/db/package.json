@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./content-store-port": {
+      "types": "./dist/content-store-port.d.ts",
+      "default": "./dist/content-store-port.js"
     }
   },
   "scripts": {

@@ -560,3 +560,30 @@ model TaskIngressAttempt {
   @@index([ownerSubject, batchId])
   @@map("task_ingress_attempts")
 }
+
+// Immutable acquired bytes. Processing is independent of source-provider access.
+model IngestionStaging {
+  id String @id @default(uuid()) @db.Uuid
+  ownerSubject String @db.VarChar(128)
+  provider String @db.VarChar(24)
+  artifactType String @db.VarChar(24)
+  repository String @db.VarChar(256)
+  branch String @db.VarChar(128)
+  sourcePath String @db.Text
+  sourceRevision String @db.VarChar(128)
+  rawContent Bytes @db.ByteA
+  contentHash String @db.Char(64)
+  fetchedAt DateTime @default(now()) @db.Timestamptz(3)
+  status String @default("PENDING") @db.VarChar(24)
+  leaseOwner String? @db.VarChar(128)
+  leaseUntil DateTime? @db.Timestamptz(3)
+  attemptCount Int @default(0)
+  nextRetryAt DateTime? @db.Timestamptz(3)
+  lastErrorCode String? @db.VarChar(64)
+  processedAt DateTime? @db.Timestamptz(3)
+  canonicalId String? @db.VarChar(36)
+  @@unique([ownerSubject, provider, repository, branch, sourcePath, sourceRevision], map: "ingestion_staging_source_key")
+  @@index([ownerSubject, status, nextRetryAt])
+  @@index([leaseUntil])
+  @@map("ingestion_staging")
+}

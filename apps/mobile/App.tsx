@@ -302,6 +302,7 @@ export default function App() {
                         >
                           {tab === "settings" ? (
                             <SettingsScreen
+                              session={session}
                               appearance={appearance}
                               onAppearance={setAppearance}
                               palette={palette}

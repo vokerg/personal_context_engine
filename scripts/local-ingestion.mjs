@@ -15,9 +15,16 @@ export function startLocalIngestion({
   env,
   intervalMs = 30000,
 }) {
-  const enabled = env.PCE_INGEST_GITHUB === "true";
+  if (
+    env.PCE_GITHUB_FETCH_ENABLED === "true" &&
+    env.PCE_INGEST_GITHUB === "true"
+  )
+    throw new Error("Stop legacy ingestion before enabling staging");
+  const staged = env.PCE_GITHUB_FETCH_ENABLED === "true";
+  const enabled = staged || env.PCE_INGEST_GITHUB === "true";
   const status = {
     enabled,
+    staging: staged,
     running: false,
     lastRun: null,
     report: null,
@@ -42,6 +49,35 @@ export function startLocalIngestion({
     let checkpointKey;
     let checkpoint;
     try {
+      if (staged) {
+        const {
+          githubFetchConfig,
+          acquireGitHubArtifacts,
+          processStagingPass,
+        } = await import("@pce/db");
+        const config = githubFetchConfig(env);
+        status.error = null;
+        try {
+          await acquireGitHubArtifacts(db, subject, config);
+        } catch {
+          status.error = "GITHUB_FETCH_UNAVAILABLE";
+        }
+        const processed = await processStagingPass(db, subject);
+        status.report = {
+          finalized: 0,
+          processed: processed.processed,
+          rejected: processed.invalid,
+          retried: processed.retried,
+        };
+        // DB browsing includes remote-worker imports and requires no checkout pull.
+        const notes = await db.note.findMany({
+          where: { ownerSubject: subject, removedAt: null },
+          select: { id: true },
+        });
+        ids.splice(0, ids.length, ...notes.map((note) => note.id));
+        status.lastRun = new Date().toISOString();
+        return;
+      }
       let store;
       if (enabled) {
         const repository = env.CONTENT_REPOSITORY;

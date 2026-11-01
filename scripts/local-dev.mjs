@@ -98,7 +98,7 @@ try {
   const { tasksEnabled } = await import("../apps/api/dist/tasks.js");
   const enableTasks = tasksEnabled(process.env);
   if(enableTasks&&!sessionAuth)throw new Error("Tasks require explicit local sessions");
-  const { createTaskRepository, createTaskExtractionRepository } = await import("@pce/db");
+  const { createGitHubSyncService, githubFetchConfig, createTaskRepository, createTaskExtractionRepository } = await import("@pce/db");
   if(researchEnabled&&!sessionAuth)throw new Error("Research requires explicit local sessions");
   const {createResearchRepository,createTagRegistryRepository,createNoteTagRepository}=await import("@pce/db");
   const search=config.searchEnabled?createSearchService(createSearchRepository(db,researchEnabled),randomBytes(32).toString("hex"),queryEmbeddingProvider(process.env),undefined,process.env.PCE_SEARCH_DIAGNOSTICS === "true"):undefined;
@@ -114,7 +114,7 @@ try {
   });
   startupStage = "importing local content";
   await ingestion.refresh();
-  if (ingestion.status.error) throw new Error("Initial ingestion failed");
+  if (ingestion.status.error && !(process.env.PCE_GITHUB_FETCH_ENABLED === "true" && ingestion.status.lastRun)) throw new Error("Initial ingestion failed");
   const secret = randomBytes(32).toString("hex");
   api = createApp({
     config: {
@@ -127,7 +127,7 @@ try {
       auth: { issuer, audience, secret },
     },
     dependencies: {
-      ...(sessionAuth ? {sessionAuth,capture:createApiCaptureRepository(db)} : {}),
+      ...(sessionAuth ? {sessionAuth,capture:createApiCaptureRepository(db),githubSync:createGitHubSyncService(db,subject,githubFetchConfig(process.env))} : {}),
       ...(search?{search,noteTagEdits:createNoteTagRepository(db)}:{}),
       ...(sessionAuth?{tagRegistry:createTagRegistryRepository(db)}:{}),
       ...(researchEnabled?{research:createResearchRepository(db)}:{}),
