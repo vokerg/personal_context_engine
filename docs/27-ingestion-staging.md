@@ -99,6 +99,7 @@ With configured sessions and DB, routes are available even when fetching is off:
 POST accepts an empty object or no body, at most 1 KiB. No client owner,
 repository, credential, cursor or batch-size parameters are accepted. Browser
 sessions use existing Origin/CSRF; native OAuth uses its existing capture scope.
+OAuth consent explains that capture access can request configured-source sync.
 A server-side configured credential is the only GitHub credential. Disabled or
 unavailable fetching returns sanitized 503; overlapping/rapid requests return
 429/Retry-After. Each API instance admits one acquisition at a time with a
@@ -234,3 +235,13 @@ not solved here. Actual migration/grant application, Render preflight, cross-hos
 end-to-end processing, GCP resource pressure and physical iOS operation remain
 explicit pending checks. No production deployment or Sportos/network change is
 authorized by test success.
+
+
+Verified locally under Node 22 in an isolated checkout: all 495 tests in 100 files
+passed against disposable UTF-8 PostgreSQL/pgvector with serial file execution;
+workspace build/typecheck/lint/format and documentation checks passed, migrations
+applied/replayed with no schema drift, and the iOS JavaScript export passed.
+Deployment mechanism tests passed 23, with 10 Linux-only cases skipped on macOS;
+the actual portable Linux artifact remains a CI check. An initial broad run using
+SQL_ASCII and parallel DB suites failed; corrected UTF-8/serial execution passed.
+These results do not establish any production or physical-device acceptance.

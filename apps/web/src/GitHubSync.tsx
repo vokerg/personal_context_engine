@@ -97,9 +97,9 @@ export function GitHubSync({
         {busy ? "Fetching from GitHub…" : "Sync from GitHub"}
       </button>
       <small role="status">
-        {status?.enabled
-          ? `Processing: ${status.pending} pending, ${status.invalid} need inspection. ${status.lastSuccessfulScan ? `Last complete scan: ${new Date(status.lastSuccessfulScan).toLocaleString()}.` : "No complete scan yet."}`
-          : (status?.reason ?? "Checking sync availability…")}{" "}
+        {status
+          ? `${status.enabled ? "" : status.reason + " "}Processing: ${status.pending} pending, ${status.invalid} need inspection. ${status.lastSuccessfulScan ? `Last complete scan: ${new Date(status.lastSuccessfulScan).toLocaleString()}.` : "No complete scan yet."}`
+          : "Checking sync availability…"}{" "}
         {message}
       </small>
     </div>

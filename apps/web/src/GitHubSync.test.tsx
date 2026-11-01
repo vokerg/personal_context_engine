@@ -168,5 +168,6 @@ for (const surface of ["web", "ios"] as const) {
     await flush();
     expect(container.querySelector("button")!.disabled).toBe(true);
     expect(container.textContent).toContain("GitHub fetching is disabled");
+    expect(container.textContent).toContain("Processing: 2 pending");
   });
 }

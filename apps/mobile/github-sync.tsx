@@ -92,9 +92,9 @@ export function GitHubSync({
         accessibilityLiveRegion="polite"
         style={{ color: palette.secondary }}
       >
-        {status?.enabled
-          ? `Processing: ${status.pending} pending, ${status.invalid} need inspection.`
-          : (status?.reason ?? "Checking sync availability…")}{" "}
+        {status
+          ? `${status.enabled ? "" : status.reason + " "}Processing: ${status.pending} pending, ${status.invalid} need inspection.`
+          : "Checking sync availability…"}{" "}
         {message}
       </Text>
     </View>
