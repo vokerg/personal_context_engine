@@ -1,6 +1,7 @@
 name: Workspace checks
 
 on:
+  workflow_call:
   pull_request:
   push:
     branches: [main]
@@ -19,6 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merge_commit_sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -35,16 +37,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merge_commit_sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Deployment mechanism and scope checks (synthetic only)
+        run: node --test deploy/gcp/*.node-test.mjs scripts/deploy/*.node-test.mjs
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
       - run: npm test
+      - name: Build portable Linux worker archive and verify relocated runtime
+        run: bash deploy/gcp/package.sh "$RUNNER_TEMP/worker-artifact"
       - name: Bundle Expo Android JS without a simulator
         working-directory: apps/mobile
         run: npx expo export --platform android --output-dir /tmp/pce-expo-export
@@ -53,7 +60,7 @@ jobs:
           node apps/api/dist/main.js > /tmp/pce-api.log 2>&1 &
           api_pid=$!
           trap 'kill "$api_pid" 2>/dev/null || true' EXIT
-          for i in $(seq 1 20); do
+          for _ in $(seq 1 20); do
             if curl -fsS http://127.0.0.1:3000/health > /tmp/pce-health.json; then break; fi
             sleep 0.5
           done
