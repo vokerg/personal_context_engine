@@ -1,6 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 import { TextDecoder } from "node:util";
-import { Prisma, type PrismaClient } from "@prisma/client";
+import {
+  Prisma,
+  type PrismaClient,
+  type IngestionStaging,
+} from "@prisma/client";
 import {
   parseNoteMarkdown,
   verifyInboxNotePath,
@@ -40,18 +44,17 @@ export async function processStagingPass(
   for (let i = 0; i < limit; i++) {
     const current = now();
     const lease = new Date(current.getTime() + 300000);
-    const rows = await db.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    const rows = await db.$queryRaw<IngestionStaging[]>(Prisma.sql`
       WITH candidate AS (
         SELECT id FROM ingestion_staging
         WHERE "ownerSubject" = ${ownerSubject}
           AND (status = 'PENDING' OR (status = 'RETRY' AND ("nextRetryAt" IS NULL OR "nextRetryAt" <= ${current})) OR (status = 'LEASED' AND "leaseUntil" <= ${current}))
         ORDER BY "fetchedAt", id FOR UPDATE SKIP LOCKED LIMIT 1
       ) UPDATE ingestion_staging s SET status = 'LEASED', "leaseOwner" = ${worker}, "leaseUntil" = ${lease}, "attemptCount" = "attemptCount" + 1, "nextRetryAt" = NULL
-      FROM candidate c WHERE s.id = c.id RETURNING s.id`);
+      FROM candidate c WHERE s.id = c.id RETURNING s.*`);
     if (!rows.length) break;
-    const row = await db.ingestionStaging.findUniqueOrThrow({
-      where: { id: rows[0]!.id },
-    });
+    // Capture the fencing counter and original in the atomic claim itself.
+    const row = rows[0]!;
     report.claimed++;
     const fence = () => ({
       id: row.id,
