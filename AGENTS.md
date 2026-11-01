@@ -8,6 +8,14 @@ Build a replaceable-channel personal context engine: capture (voice/text) throug
 
 **Current state (2026-10-20):** the optional local runtime supports the existing GitHub ingestion/finalization flow, persisted single-user ownership and sessions (#44), DB-first API capture with idempotency/jobs (#45), separately gated bounded embeddings (#46/#47), and owner-scoped lexical/hybrid web/API search (#48). Optional same-login OAuth S256 PKCE and stateless MCP tools are locally tested with the official client (#49). Public/default startup stays gated and the default development worker remains idle. Hosted HTTPS deployment, actual ChatGPT connector acceptance and retrieval cutover (#50), notifications and unattended synthesis are not verified or implemented. Inspect source and tests before making changes.
 
+**Two-stage transition (#173, 2026-11-01):** explicit `PCE_GITHUB_FETCH_ENABLED`
+selects shared read-only GitHub acquisition into exact-byte DB staging. DB-jobs
+workers consume staging without a GitHub token using the same processor on all
+hosts. Legacy GitHub-finalizing ingestion remains only outside that transition;
+stop it before enabling acquisition. See [the rollout guide](docs/27-ingestion-staging.md)
+for required additive migration, restricted grants and pending hosted acceptance.
+Production migration/deployment is never implied by implementation/test success.
+
 ## Active direction and rollout boundaries (revised 2026-10-20)
 
 Read [INTENT.md](INTENT.md), [docs/13-evolution-plan.md](docs/13-evolution-plan.md) and [issue #42](https://github.com/vokerg/personal_context_engine/issues/42) before implementing new capture, search, embeddings, MCP, ledger or web UX work.

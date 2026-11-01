@@ -1,3 +1,4 @@
+import { GitHubSync } from "./GitHubSync.js";
 import { resumeAuthorization } from "./authorization-continuation";
 import { TasksPanel } from "./TasksPanel.js";
 import { SuggestionPicker } from "./SuggestionPicker.js";
@@ -45,11 +46,17 @@ import {
 
 type LoadState = "loading" | "ready" | "error";
 type IngestionStatus = {
+  staging?: boolean;
   enabled: boolean;
   running: boolean;
   lastRun: string | null;
   error: string | null;
-  report: { finalized: number; rejected: number; retried: number } | null;
+  report: {
+    finalized: number;
+    processed?: number;
+    rejected: number;
+    retried: number;
+  } | null;
   checkpoint?: {
     lastScanAt: string | null;
     reconciledAt: string | null;
@@ -1166,6 +1173,12 @@ export function App({
                   Refresh notes
                 </button>
               )}
+              <GitHubSync
+                key={token}
+                baseUrl={baseUrl}
+                token={token}
+                useSessionCookie={sessionAuthentication}
+              />
               <button
                 className="ghost"
                 type="button"
@@ -2162,14 +2175,19 @@ export function App({
               </p>
               {ingestion.lastRun && (
                 <p>
-                  Last successful check:{" "}
+                  {ingestion.staging
+                    ? "Last processing check:"
+                    : "Last successful check:"}{" "}
                   {new Date(ingestion.lastRun).toLocaleString()}
                 </p>
               )}
               {ingestion.report && (
                 <p>
-                  Last pass: {ingestion.report.finalized} finalized,{" "}
-                  {ingestion.report.rejected} rejected,{" "}
+                  Last pass:{" "}
+                  {ingestion.staging
+                    ? `${ingestion.report.processed ?? 0} processed from staging`
+                    : `${ingestion.report.finalized} finalized`}
+                  , {ingestion.report.rejected} rejected,{" "}
                   {ingestion.report.retried} retries.
                 </p>
               )}

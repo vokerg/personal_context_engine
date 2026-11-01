@@ -1,5 +1,7 @@
 # 02 — System architecture
 
+**Two-stage transition (#173):** the optional read-only GitHub → PostgreSQL staging → shared DB-only processor is implemented. The legacy flows below remain available only outside that explicit transition. Follow [the staging migration and rollout guide](27-ingestion-staging.md) for current gates, privileges, compatibility and pending hosted checks.
+
 ## Context
 
 The **accepted target** has two independent capture inputs, authoritative PostgreSQL persistence, database-backed workers and authenticated read clients. The current GitHub importer still finalizes/moves source files and writes a PostgreSQL projection; the diagram includes both implemented local mechanisms and future services, not a deployed-service claim.

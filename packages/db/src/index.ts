@@ -275,3 +275,17 @@ export {
   TaskCursorError,
 } from "./tasks.js";
 export { createTaskExtractionRepository } from "./task-extraction.js";
+
+export {
+  GitHubContentStore,
+  githubContentStoreFromEnv,
+} from "./github-content-store.js";
+export type { GitHubContentStoreOptions } from "./github-content-store.js";
+export { ContentStoreError } from "./content-store-port.js";
+export {
+  githubFetchConfig,
+  acquireGitHubArtifacts,
+  githubSyncStatus,
+  createGitHubSyncService,
+} from "./github-acquisition.js";
+export { processStagingPass } from "./ingestion-staging.js";

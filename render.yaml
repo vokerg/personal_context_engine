@@ -58,6 +58,10 @@ services:
         value: https://personal-context-engine-api.onrender.com
       - key: PCE_OAUTH_CLIENTS
         sync: false
+      # Enable only after GitHub reachability/private-repository read preflight
+      # from this actual API host. The GCP consumer needs neither flag nor token.
+      - key: PCE_GITHUB_FETCH_ENABLED
+        value: "false"
       - key: PCE_MCP_ENABLED
         value: "false"
       # Operator-only opt-in; never enabled by applying the public blueprint.

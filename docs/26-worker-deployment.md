@@ -1,5 +1,7 @@
 # 26 — Native GCP worker and independent deployment scopes (#169)
 
+**Two-stage transition (#173):** the optional read-only GitHub → PostgreSQL staging → shared DB-only processor is implemented. The legacy flows below remain available only outside that explicit transition. Follow [the staging migration and rollout guide](27-ingestion-staging.md) for current gates, privileges, compatibility and pending hosted checks.
+
 ## Mechanism and activation status
 
 This adapts [Sportos's native worker deployment](https://github.com/vokerg/sportos/tree/main/deploy/gcp).

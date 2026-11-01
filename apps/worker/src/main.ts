@@ -1,4 +1,9 @@
 import {
+  githubFetchConfig,
+  acquireGitHubArtifacts,
+  processStagingPass,
+} from "@pce/db";
+import {
   taskIngressConfig,
   taskIngressCheckpointKey,
   runTaskImportPass,
@@ -61,16 +66,27 @@ if (!mode) {
 }
 
 async function start(mode: string): Promise<void> {
+  if (mode === "embeddings-once" || mode === "embeddings-loop")
+    return startEmbeddings(mode === "embeddings-loop");
+  const fetchOptions = githubFetchConfig(process.env);
+  if (fetchOptions && mode === "once")
+    throw new Error("Use db-jobs mode for read-only staging ingestion");
   if (mode === "db-jobs-once" || mode === "db-jobs-loop") {
     const owner = process.env.PCE_OWNER_SUBJECT;
     if (!owner || !process.env.DATABASE_URL)
       throw new Error("DB jobs require trusted owner and DB");
-    const taskOptions = taskIngressConfig(process.env);
+    const taskOptions =
+      fetchOptions || process.env.PCE_GITHUB_FETCH_ENABLED === "false"
+        ? null
+        : taskIngressConfig(process.env);
     const taskIngress = taskOptions
       ? new GitHubContentStore(taskOptions)
       : null;
     if (taskIngress) await taskIngress.verifyPrivateRepository();
-    const researchOptions = researchIngressConfig(process.env);
+    const researchOptions =
+      fetchOptions || process.env.PCE_GITHUB_FETCH_ENABLED === "false"
+        ? null
+        : researchIngressConfig(process.env);
     const ingress = researchOptions
       ? new GitHubContentStore(researchOptions)
       : null;
@@ -98,6 +114,26 @@ async function start(mode: string): Promise<void> {
       };
       const scheduledTags = scheduleTagSnapshots(publishTags);
       const pass = async () => {
+        // Acquisition failure must not prevent processing already durable input.
+        if (fetchOptions) {
+          try {
+            console.log(
+              "GitHub staging complete " +
+                JSON.stringify(
+                  await acquireGitHubArtifacts(db, owner, fetchOptions),
+                ),
+            );
+          } catch {
+            console.error(
+              "GitHub acquisition unavailable; staged processing continues.",
+            );
+          }
+        }
+        console.log(
+          "Staging processing complete " +
+            JSON.stringify(await processStagingPass(db, owner)),
+        );
+
         console.log(
           "DB preparation complete " +
             JSON.stringify(await runDbJobPass(db, owner)),
@@ -144,8 +180,7 @@ async function start(mode: string): Promise<void> {
     }
     return;
   }
-  if (mode === "embeddings-once" || mode === "embeddings-loop")
-    return startEmbeddings(mode === "embeddings-loop");
+
   if (mode !== "once") throw new Error("Unsupported worker mode.");
   if (!process.env.DATABASE_URL) throw new Error("Database is required.");
   let store: ContentStore;

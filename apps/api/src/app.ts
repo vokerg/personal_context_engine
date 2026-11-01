@@ -1,3 +1,7 @@
+import {
+  registerGitHubSyncRoutes,
+  type GitHubSyncService,
+} from "./github-sync.js";
 import { TagRegistryQuerySchema, type TagRegistryQuery } from "@pce/contracts";
 import {
   registerTaskRoutes,
@@ -108,6 +112,7 @@ export interface PrivateNoteReader {
 }
 
 export interface ApiDependencies {
+  githubSync?: GitHubSyncService;
   tasks?: TaskService;
   taskBatches?: TaskExtractionService;
   mcp?: McpOptions;
@@ -333,6 +338,8 @@ export function createApp(options: ApiOptions = {}) {
   );
 
   if (sessionAuth) registerSessionRoutes(app, sessionAuth);
+  if (sessionAuth && options.dependencies?.githubSync)
+    registerGitHubSyncRoutes(app, sessionAuth, options.dependencies.githubSync);
   if (options.dependencies?.taskBatches) {
     if (!sessionAuth) throw new Error("Task batches require scoped sessions");
     registerTaskBatchRoutes(app, sessionAuth, options.dependencies.taskBatches);

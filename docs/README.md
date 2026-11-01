@@ -62,3 +62,5 @@ Where a contract remains proposed, implement a test-backed specification before 
 - [25 — Task acceptance and rollout](25-task-acceptance.md) — reproducible synthetic cross-surface verification, staged review, retained-data rollback and outstanding live gates.
 
 - [26 — Native worker deployment](26-worker-deployment.md) — Sportos-style GCP packaging, isolated runtime, GitHub deployment/controls and independent backend/frontend scopes.
+
+- [27 — Two-stage GitHub ingestion](27-ingestion-staging.md) — shared acquisition/staging/processing, manual web/iOS sync, additive migration, restricted grants and manual rollout.
