@@ -13,6 +13,9 @@ dependency reachability and the combined resource budget have been verified.
 Record actual deployment runs and remaining limitations in issue #169; real
 cloud inventory belongs outside this public repository.
 
+The prepared initial DB-only scope and release checks are in the
+[first-activation checklist](../deploy/gcp/first-activation.md).
+
 ## Two deployment lanes
 
 | Changed files | Render API + GCP worker | Vercel frontend |
@@ -100,6 +103,14 @@ ID and owner ID, `refs/heads/main`, environment `gcp-worker-production`, and:
 
 - `pull_request_target` for `gcp-worker-deploy.yml` at main;
 - `workflow_dispatch` for `gcp-worker-control.yml` at main.
+
+Read the repository's OIDC subject configuration before constructing its exact
+`sub` condition: `gh api repos/OWNER/REPO/actions/oidc/customization/sub`.
+Use the returned `sub_claim_prefix` plus `:environment:gcp-worker-production`.
+PCE uses immutable subjects with owner/repository IDs, while the Sportos
+reference retained a legacy name-only prefix. Do not disable immutable subjects
+or loosen the remaining restrictions to fix an authentication failure. See
+[GitHub OIDC subject formats](https://docs.github.com/en/actions/reference/security/oidc).
 
 Grant VM-scoped non-admin OS Login, instance-scoped SSH-only IAP tunnel access,
 the existing project-lookup role containing only `compute.projects.get`, and
