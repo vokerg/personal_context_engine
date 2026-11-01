@@ -1,6 +1,7 @@
 name: PostgreSQL integration
 
 on:
+  workflow_call:
   pull_request:
     paths:
       - "packages/db/**"
@@ -52,6 +53,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merge_commit_sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -77,7 +79,7 @@ jobs:
           API_PORT=32123 node apps/api/dist/main.js > /tmp/pce-db-api.log 2>&1 &
           pid=$!
           trap 'kill "$pid" 2>/dev/null || true' EXIT
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:32123/ready > /tmp/pce-db-ready.json; then break; fi
             sleep 0.5
           done

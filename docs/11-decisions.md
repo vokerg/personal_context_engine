@@ -645,3 +645,20 @@ Release simulator acceptance is recorded separately from untested physical
 device, VoiceOver/audio and live-outage cases. This grants record persistence
 and explicit lifecycle changes, never external execution, reminders or a Note
 capture/retrieval cutover. See [live evidence](evidence/issue-154/2026-10-26-activation.md).
+
+
+### D-032 — Native GCP worker and independent hosted deployment scopes (#169)
+
+**Accepted owner direction, 2026-11-01:** reuse Sportos's native systemd/GitHub
+OIDC/WIF/IAP deployment on the existing shared VM. Keep API hosting on Render
+and frontend hosting on Vercel; API and worker share backend change scope,
+frontend deploys independently, and mobile/docs-only edits skip hosted releases.
+Shared build inputs and unknown paths conservatively affect both lanes.
+
+Use exact merged PR revisions, isolated per-application identities/config/releases,
+pinned SSH, restricted lifecycle controls and previous-release recovery. Runtime
+features, GitHub ingestion, embedding egress and actual production activation
+retain independent gates. No paid network resources, original deletion, backup
+automation or retrieval cutover is selected. Provider releases are not atomic;
+maintain mixed-version/schema/job compatibility. See [deployment operation](26-worker-deployment.md)
+for executable paths and verification/activation limits.

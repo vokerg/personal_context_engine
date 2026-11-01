@@ -1,5 +1,16 @@
 # 19 — Vercel web and Render API (#79)
 
+## Independent deployment scopes (#169)
+
+API and worker inputs share a backend release scope; frontend changes deploy
+Vercel independently and mobile/docs-only changes skip both. Render's Blueprint
+now contains ignored paths; verify that the existing service actually applies
+them. Vercel's main-only ignored-build command now compares with its last
+successful deployment. The separate GCP worker mechanism and activation limits
+are described in [worker deployment](26-worker-deployment.md). Historical local
+worker statements below describe their recorded checkpoints; the deployment
+files do not establish hosted worker activation.
+
 ## Owner-approved independent Tasks (#147/#154)
 
 The 2026-10-26 rollout enables `PCE_TASKS_ENABLED=true` in the existing Render
