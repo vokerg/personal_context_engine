@@ -11,6 +11,7 @@ import {
   sessionAllowed,
   issuer,
   audience,
+  subject,
 } from "./local-runtime.mjs";
 
 process.chdir(fileURLToPath(new URL("..", import.meta.url)));
