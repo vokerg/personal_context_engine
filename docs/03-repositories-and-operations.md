@@ -300,7 +300,8 @@ in the authenticated owner's database records. Removed notes stay hidden after
 refresh; originals remain intact. Archive filters apply to lists and facets.
 
 Ctrl-C stops both services. Ordinary `npm run dev` uses the root
-`API_PORT`, `PCE_WEB_PORT` and `VITE_API_BASE_URL` settings and can establish
+`API_PORT`, `PCE_WEB_PORT` and `VITE_API_BASE_URL` settings and starts only
+API/web servers (no idle scaffold worker). It can establish
 the configured local development session, but it does not run local content
 ingestion.
 
