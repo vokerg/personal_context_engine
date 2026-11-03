@@ -16,6 +16,13 @@ stop it before enabling acquisition. See [the rollout guide](docs/27-ingestion-s
 for required additive migration, restricted grants and pending hosted acceptance.
 Production migration/deployment is never implied by implementation/test success.
 
+**Execution boundary (D-034, #180, 2026-11-03):** only an explicitly started
+DB-jobs worker may run its optional GitHub-first step. GCP runs that same worker
+with fetching disabled. API GitHub acquisition is manual/on demand only.
+Development servers never import content, process jobs, poll GitHub or apply
+migrations at startup. Do not start or leave local PCE background schedulers
+running as a side effect of verification; hosted operation must not require a Mac.
+
 ## Active direction and rollout boundaries (revised 2026-10-20)
 
 Read [INTENT.md](INTENT.md), [docs/13-evolution-plan.md](docs/13-evolution-plan.md) and [issue #42](https://github.com/vokerg/personal_context_engine/issues/42) before implementing new capture, search, embeddings, MCP, ledger or web UX work.

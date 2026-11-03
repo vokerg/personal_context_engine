@@ -45,29 +45,6 @@ import {
 } from "./browse.js";
 
 type LoadState = "loading" | "ready" | "error";
-type IngestionStatus = {
-  staging?: boolean;
-  enabled: boolean;
-  running: boolean;
-  lastRun: string | null;
-  error: string | null;
-  report: {
-    finalized: number;
-    processed?: number;
-    rejected: number;
-    retried: number;
-  } | null;
-  checkpoint?: {
-    lastScanAt: string | null;
-    reconciledAt: string | null;
-    revisionPending: boolean;
-  } | null;
-  reconciliation?: {
-    conflicts: number;
-    missing: number;
-    invalid: number;
-  } | null;
-};
 
 const initialFilters = emptyFilters;
 
@@ -126,7 +103,6 @@ export function App({
   const [notice, setNotice] = useState("");
   const researchTargets = useRef(new Map<string, string>());
   const [searchStatus, setSearchStatus] = useState("");
-  const [ingestion, setIngestion] = useState<IngestionStatus | null>(null);
   const [listState, setListState] = useState<LoadState>("loading");
   const [listError, setListError] = useState("");
   const [notes, setNotes] = useState<NotePreview[]>([]);
@@ -485,31 +461,6 @@ export function App({
   }, []);
 
   useEffect(() => {
-    if (!localDevelopment) return;
-    let active = true;
-    const refresh = async () => {
-      try {
-        const response = await fetch("/__pce/ingestion", {
-          cache: "no-store",
-          credentials: "same-origin",
-        });
-        if (response.ok) {
-          const status = (await response.json()) as IngestionStatus;
-          if (active) setIngestion(status);
-        }
-      } catch {
-        // A status failure never grants, extends, or alters authorization.
-      }
-    };
-    void refresh();
-    const timer = setInterval(() => void refresh(), 10000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, [localDevelopment]);
-
-  useEffect(() => {
     if (typeof window === "undefined") return;
     let active = true;
     const establishSession = async () => {
@@ -689,17 +640,9 @@ export function App({
       active = false;
       controller.abort();
     };
-  }, [
-    baseUrl,
-    token,
-    reloadCount,
-    apiFilters,
-    browseCursor,
-    browseEnabled,
-    browseEnabled ? null : ingestion?.lastRun,
-  ]);
+  }, [baseUrl, token, reloadCount, apiFilters, browseCursor, browseEnabled]);
 
-  // Facets are slow-changing metadata, independent of ingestion status polling.
+  // Facets are slow-changing metadata.
   useEffect(() => {
     if (!token) return;
     const timer = setInterval(
@@ -2151,92 +2094,6 @@ export function App({
             )}
           </section>
         </div>
-      )}
-
-      {localDevelopment && (
-        <section
-          className="panel status-panel"
-          aria-label="Ingestion worker status"
-        >
-          <h2>Ingestion worker</h2>
-          {!ingestion ? (
-            <p>
-              Worker status is unavailable. A local session can still display
-              previously indexed notes.
-            </p>
-          ) : (
-            <>
-              <p>
-                {ingestion.enabled
-                  ? ingestion.running
-                    ? "Processing GitHub inbox…"
-                    : "Watching GitHub every 30 seconds."
-                  : "GitHub ingestion is disabled; showing a local snapshot."}
-              </p>
-              {ingestion.lastRun && (
-                <p>
-                  {ingestion.staging
-                    ? "Last processing check:"
-                    : "Last successful check:"}{" "}
-                  {new Date(ingestion.lastRun).toLocaleString()}
-                </p>
-              )}
-              {ingestion.report && (
-                <p>
-                  Last pass:{" "}
-                  {ingestion.staging
-                    ? `${ingestion.report.processed ?? 0} processed from staging`
-                    : `${ingestion.report.finalized} finalized`}
-                  , {ingestion.report.rejected} rejected,{" "}
-                  {ingestion.report.retried} retries.
-                </p>
-              )}
-              {ingestion.checkpoint && (
-                <p>
-                  {ingestion.checkpoint.revisionPending
-                    ? "Source revision awaits reconciliation."
-                    : "Observed source revision reconciled."}
-                  {ingestion.checkpoint.reconciledAt && (
-                    <>
-                      {" "}
-                      Last reconciliation:{" "}
-                      {new Date(
-                        ingestion.checkpoint.reconciledAt,
-                      ).toLocaleString()}
-                      .
-                    </>
-                  )}
-                </p>
-              )}
-              {ingestion.reconciliation && (
-                <p
-                  role={
-                    ingestion.reconciliation.conflicts ||
-                    ingestion.reconciliation.missing ||
-                    ingestion.reconciliation.invalid
-                      ? "status"
-                      : undefined
-                  }
-                >
-                  Source checks: {ingestion.reconciliation.conflicts} conflicts,{" "}
-                  {ingestion.reconciliation.missing} missing sources,{" "}
-                  {ingestion.reconciliation.invalid} invalid files. Stored
-                  originals are retained.
-                </p>
-              )}
-              {ingestion.error && (
-                <p className="error" role="alert">
-                  Ingestion needs attention. Check repository access, clean
-                  checkout and note ownership. Previous notes remain available.
-                </p>
-              )}
-              <p>
-                Rejected captures remain recoverable in the repository; use
-                capture:validate to diagnose them.
-              </p>
-            </>
-          )}
-        </section>
       )}
     </main>
   );

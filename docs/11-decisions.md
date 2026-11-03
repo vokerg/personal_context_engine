@@ -130,6 +130,8 @@ write APIs remain deferred. Remote bearer transport remains HTTPS only.
 
 ## Local single-user development workspace (#38)
 
+**Historical snapshot/import behavior below superseded by D-034.**
+
 The explicit `dev:local` entry point connects a trusted local Markdown
 checkout, PostgreSQL and read-only web UI. It assigns persisted ownership
 on new imports, filters SQL reads by the verified local subject plus
@@ -141,6 +143,8 @@ decision, a mobile session mechanism, a scheduled ingestion deployment or
 reminder delivery. Generic API/worker startup retains existing defaults.
 
 ## Developer ingestion and harmless capture syntax (#40)
+
+**Development-server worker placement below superseded by D-034; parser behavior remains.**
 
 The v1 parser accepts explicit bare or quoted lowercase slug flow arrays
 for domains/projects/tags while retaining the restricted YAML security
@@ -684,3 +688,22 @@ Production migration/deployment and hosted API GitHub reachability are unverifie
 manual sync stays disabled there until actual host preflight. No NAT, proxy,
 Sportos change, secret provisioning or external action is selected. See the
 [rollout and recovery guide](27-ingestion-staging.md).
+
+
+### D-034 — Explicit worker execution and Mac-independent manual sync (#180)
+
+**Accepted owner direction, 2026-11-03.** One existing DB-jobs worker
+implementation handles staging and preparation. It may acquire GitHub first
+when explicitly started with fetching enabled on a reachable host; GCP disables
+that step. The API acquires only on an authenticated manual sync request.
+Development servers serve the application and never import content, process
+jobs, poll GitHub or apply migrations at startup. This supersedes the embedded
+local importer/checkout snapshot described under #38/#40 and retained in #173.
+Use the shared owner-scoped API database reader in development as well.
+
+The deployed app must work with the Mac switched off. Local PCE background
+schedulers are stopped/disabled under this request, including the scheduled
+DB-preparation/embedding launcher. Embeddings remain separately gated; their
+pause does not block capture, DB processing or lexical search. No extra
+acquisition daemon, paid network route or new provider service is selected.
+Existing GitHub capture/search, immutable originals and replay safety remain.

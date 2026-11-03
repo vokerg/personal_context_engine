@@ -192,26 +192,20 @@ fetch-site metadata and the loopback peer. Tokens are returned with
 serialized to the browser. Access is available to the trusted local user
 and local processes; do not expose the dev server through a tunnel/proxy.
 
-Persisted `ownerSubject` is assigned only on a new trusted import. Existing
-unowned rows cannot be claimed by supplying a subject; owned rows cannot
-be reassigned or modified through an unowned importer. Local reads filter
-SQL by owner and the current validated checkout IDs. This additive ownership
-model enables this explicit single-user development path only; it does not
-wire the generic API entry point to all DB rows or define a production
-identity provider. Nullable legacy rows remain inaccessible to local reads.
+Persisted ownership remains enforced by the shared API database reader. Local
+sessions identify the trusted owner; SQL excludes unowned and foreign records.
+No content checkout or startup import is involved. The launcher does not run
+migrations, processing jobs or GitHub polling. Reviewed migration execution is
+an explicit operator step.
 
 ### Local GitHub ingestion opt-in (#40)
 
-`PCE_INGEST_GITHUB=true` authorizes the local development runtime's bounded
-worker passes against the explicitly configured private content repository.
-It checks visibility, matching checkout remote/branch and clean status before
-each pass. GitHub credentials remain server-side; an existing local CLI
-credential is used only for this repository's API requests. Prefer a scoped
-runtime token for long-term use. Only content transitions use the GitHub
-adapter's non-force branch updates. No source-text instructions are executed.
-Ownership and byte/hash checks gate migration of preview-imported revisions;
-there is no cross-owner adoption or arbitrary overwrite. UI status exposes
-only counts and fixed error codes, never note bodies or secrets.
+**Historical development-server loop removed by #180 / D-034.** The existing
+worker can optionally acquire GitHub before processing when explicitly started.
+The API acquires only in response to authenticated, owner-scoped manual sync.
+Development startup never turns a fetch capability flag into scheduled work.
+Credentials stay server-side; GCP staging consumers require no GitHub token.
+Existing original-preservation, deduplication and owner isolation remain intact.
 
 ## Embeddings, DB-primary storage and MCP extension (#42; target design only)
 

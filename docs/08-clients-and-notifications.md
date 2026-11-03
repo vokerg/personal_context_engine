@@ -185,7 +185,7 @@ separate; backup automation is deferred under D-020 and does not block this UX.
 ## Opt-in local database browsing (#52)
 
 **Implemented, gated:** set `PCE_LOCAL_BROWSE=true` for `npm run dev:local` to
-inject the local SQL browse adapter and enable the paged web UI. The default is
+enable the paged web UI using the shared API database reader. The default is
 false; invalid flag values fail startup. The generic API still has no private
 reader, and the default local preview/legacy endpoints remain compatible.
 ChatGPT repository search is unchanged. This is bounded literal substring
@@ -201,7 +201,8 @@ midnight instants, adding the next calendar day for an inclusive end date;
 23/25-hour DST days are not assumed to last 24 hours. Legacy `/notes` UTC-date
 semantics are unchanged. Conjunctive predicates and literal case-insensitive
 substring search over title, summary, body and original input run in PostgreSQL,
-with verified-owner and current-checkout predicates in **every query**.
+with verified-owner predicates in **every query**. Development uses the same
+reader as production, with no checkout allowlist or ingestion side effects (#180).
 `%`, `_` and SQL-like text have no wildcard or executable meaning.
 
 Pages use stable descending capture time / ascending bytewise ID ordering.

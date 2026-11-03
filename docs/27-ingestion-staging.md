@@ -113,6 +113,23 @@ one finite batch; click again when continuation is reported. Status refreshes
 while mounted every 30 seconds; fetching is never automatically triggered by
 opening a screen. Errors contain no server exception/private source text.
 
+## Execution ownership (D-034; #180)
+
+One DB-jobs worker implementation runs on either host. When explicitly started
+on a GitHub-capable host with fetching enabled, each pass acquires first and then
+consumes staging and prepares jobs. GCP disables acquisition and uses the same
+consumer without GitHub credentials. A development web/API server never starts
+an importer, worker or GitHub timer. The API's fetch gate permits only explicit
+manual sync requests; status reads and opening clients never acquire content.
+
+The hosted app needs no Mac runtime: **web/iOS Sync from GitHub → hosted API →
+PostgreSQL staging → GCP worker → API reads**. Each button press performs one
+finite batch; repeat when continuation is reported. Client status polling only
+reads counts. Embeddings remain separately opt-in; stopping local embedding
+scheduling pauses fresh semantic vectors without blocking lexical retrieval,
+original persistence or ordinary DB preparation. No replacement embedding
+service is implicitly enabled by this execution-boundary change.
+
 ## Production rollout — manual, ordered and reversible
 
 1. Stop/disable legacy note finalization first for this source:
@@ -171,10 +188,9 @@ opening a screen. Errors contain no server exception/private source text.
    ```
 
    Use existing TLS `DATABASE_URL`, build and run `npm run db-jobs:watch` with the
-   trusted environment. The local preview can also acquire/process with this
-   gate, but uses its fixed existing `local-developer` owner; choose a matching
-   persisted owner or use the normal worker/API instead. New local polling reads
-   DB IDs for preview and performs no checkout pull/import/finalization.
+   trusted environment. Development servers never acquire or process content,
+   even with this gate enabled. `dev:local` uses the shared owner-scoped API DB
+   reader; no content checkout or startup import is required.
    The standalone worker default remains idle without explicit WORKER_MODE.
 7. Configure GCP `WORKER_MODE=db-jobs-loop`, the same trusted owner, existing
    restricted TLS URL/connection limit, and `PCE_GITHUB_FETCH_ENABLED=false`.
