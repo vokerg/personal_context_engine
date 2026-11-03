@@ -76,10 +76,12 @@ publication. It requires a trusted existing `PCE_OWNER_SUBJECT` and runtime DB
 login. Its minute loop finishes a pass before cooling down; SIGTERM stops future
 passes, disconnects the DB and has a 120-second systemd shutdown allowance.
 
-**This does not relocate the local full-note checkout reconciliation process.**
-It remains available through the existing local runtime. No local process is
-stopped automatically. GitHub ingress/publication needs reachable GitHub API
-and separately configured scoped tokens, with runtime private-repository checks.
+**Execution boundary (D-034 / #180):** development-server ingestion and checkout
+reconciliation have been removed. Only the explicitly started existing worker
+may run its optional GitHub acquisition step. The API acquires on manual sync
+requests only; the hosted application requires no Mac runtime. GitHub
+acquisition/publication requires reachable GitHub API and separately configured
+scoped credentials, with runtime private-repository checks.
 The inspected shared VM has IPv6 egress only and GitHub API access failed from
 it on 2026-11-01; leave these features disabled until egress is resolved.
 

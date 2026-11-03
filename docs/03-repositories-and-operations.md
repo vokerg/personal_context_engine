@@ -388,13 +388,10 @@ production PITR, owner export and future-schema gates that remain open.
 
 ### Durable ingestion continuation (#43)
 
-The local launcher persists bounded scan progress and Git reconciliation state
-in PostgreSQL, resumes after downtime and checks the current source state even
-without webhooks. The ingestion panel distinguishes the last successful check
-from the last clean reconciliation and displays conflicts/missing/invalid counts.
-The former development-launcher polling described in this historical section
-was removed by #180. Start the existing DB-jobs worker explicitly for polling;
-the development server only serves DB records. See [current operation](27-ingestion-staging.md).
+The former development-launcher checkpoint, reconciliation and ingestion-panel
+implementation was removed by #180. The explicitly started DB-jobs worker and
+manual API acquisition share durable staging checkpoints. The development
+server only serves DB records. See [current operation](27-ingestion-staging.md).
 See the [trusted operation and rollback runbook](05-ingestion.md#durable-local-reconciliation-43).
 
 
