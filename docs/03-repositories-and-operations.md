@@ -283,16 +283,12 @@ behavior and remote HTTPS termination require separate manual verification.
 ## Local workspace startup (#38)
 
 Run `npm ci` once, then `npm run dev:local` from the mechanism repository.
-The launcher loads root `.env`, builds packages, validates all discovered
-Markdown, applies checked-in migrations and imports a read-only snapshot of
-`inbox/` and canonical `notes/YYYY/MM/` files. It never moves, edits, commits
-or pushes content. Other content directories are excluded; symlinks,
-noncanonical paths and duplicate note IDs fail startup. Invalid note content
-is skipped with a count; the original file remains untouched for repair.
-Only counts are logged. Install Node 22.12+ and npm 10+ first.
+The launcher loads root `.env`, builds workspaces and serves existing database
+records using the same owner-scoped reader as the hosted API. It does not import
+files, access a content checkout, run migrations, process jobs or poll GitHub.
+Install Node 22.12+ and npm 10+ and apply reviewed migrations explicitly first.
 
 Required: `DATABASE_URL` in ignored root `.env`. Optional:
-`PCE_CONTENT_ROOT` (default sibling `../personal_context_engine_content`),
 `API_PORT` (default 3110), `PCE_WEB_PORT` (default 4310).
 An existing `API_PORT` in `.env` takes precedence. Ports must be free;
 stop earlier API/web instances before running. The API and web listen only
@@ -300,8 +296,8 @@ on `127.0.0.1`. Open the printed web URL using either `127.0.0.1` or
 `localhost`; both loopback aliases are accepted by the local session and API
 CORS checks.
 The local note adapter supports owner-scoped removal and archiving for notes
-in the current checkout snapshot. Removed notes stay hidden after refresh or
-re-import; originals remain intact. Archive filters apply to lists and facets.
+in the authenticated owner's database records. Removed notes stay hidden after
+refresh; originals remain intact. Archive filters apply to lists and facets.
 
 Ctrl-C stops both services. Ordinary `npm run dev` uses the root
 `API_PORT`, `PCE_WEB_PORT` and `VITE_API_BASE_URL` settings and can establish
@@ -337,56 +333,22 @@ The session endpoint rejects non-loopback Host/Origin, cross-site requests,
 non-loopback peers and non-GET methods. This assumes a trusted local OS
 account and browser; it is not a hosted login solution.
 
-The additive migration gives notes nullable `ownerSubject`. This launcher
-assigns `local-developer` when creating rows and SQL-scopes reads by both
-that owner and IDs validated from the configured checkout. Legacy unowned
-rows and different owners are not adopted or exposed. Importing such an
-ID fails; resolve ownership explicitly before retrying. A changed source
-revision also fails rather than silently overwriting another importer.
-For new GitHub captures, pull the content checkout and restart this command.
-An unchanged snapshot replays idempotently. No deletion is inferred when a
-source disappears. Authentication for mobile and hosted users, source
-conflict repair, scheduled refresh and production ownership provisioning
-are outside this local startup path.
+Local sessions resolve the trusted owner; all note queries filter by that owner
+in SQL. Unowned rows and other owners' data remain inaccessible. Notes imported
+by the hosted worker become visible on refresh without restarting this server
+or maintaining a checkout-ID snapshot.
 
-Validation: `npm run build`, `npx vitest run scripts/local-runtime.test.mjs`,
-`npm test`, `npm run lint`, `npm run typecheck`, `npm run docs:check`.
-The database integration suite verifies persisted ownership replay and
-rejects reassignment/adoption using synthetic records in a disposable DB.
+Validation: workspace tests, the hosted-reader PostgreSQL integration suite and
+`npm run docs:check` cover the shared reader and owner isolation.
 
 ## Live developer GitHub ingestion (#40)
 
-In the local ignored `.env`, set `PCE_INGEST_GITHUB=true`,
-`CONTENT_REPOSITORY=owner/your-private-content-repo`, and `CONTENT_BRANCH=main`.
-Run `npm run dev:local`. Existing local `gh auth` credentials are read only
-into the server process, or set a repository-scoped `CONTENT_GITHUB_TOKEN`.
-The launcher verifies private visibility, exact checkout remote/branch and
-clean worktree before each pass. A dirty checkout, inaccessible repository,
-visibility change or source/ownership conflict is reported without granting
-access or overwriting source. No workflow secrets are provisioned.
-
-A real bounded ingestion worker pass runs before serving the initial UI and
-then every 30 seconds, never overlapping itself. It persists valid inbox
-notes before committing byte-preserving moves to `notes/YYYY/MM/` through
-the GitHub adapter. It then fast-forwards the content checkout and refreshes
-the allowed browsing snapshot. Invalid inputs get durable reason codes and
-are preserved under `rejected/`. The local web shows worker status, last
-successful check and pass counts; it refreshes the note list after a pass.
-Use `capture:validate` to diagnose a rejected file without logging its text.
-
-Git blob revisions and original Git bytes are used for the browsing snapshot.
-Legacy preview-imported revisions may be bridged only with the same owner
-and source path and a matching content hash. For Git's CRLF checkout
-conversion, the previous stored hash must match the exact worktree bytes,
-the new bytes must match `git show HEAD:<source>`, and their only difference
-may be CRLF versus LF. This preserves content and prevents a line-ending
-conversion from becoming an uncoordinated source edit. A finalized row stays
-finalized when the browsing snapshot replays it.
-
-The polling worker lives inside this developer process. Closing the terminal,
-Ctrl-C or stopping it ends polling; it is not an always-on hosted service.
-The separate default `dev:worker` command remains idle. Live local ingestion
-does not infer reminders, create notifications or generate ledgers.
+**Historical implementation, removed by #180 / D-034.** The development server
+previously ran ingestion at startup and every 30 seconds. Neither
+`PCE_INGEST_GITHUB` nor `PCE_GITHUB_FETCH_ENABLED` now starts a development-server
+worker. GitHub acquisition belongs to the explicitly started worker's optional
+first step or an authenticated manual API request. See
+[the current staged flow](27-ingestion-staging.md).
 
 ## Planned additive services (issue #42; not implemented)
 
@@ -430,7 +392,9 @@ The local launcher persists bounded scan progress and Git reconciliation state
 in PostgreSQL, resumes after downtime and checks the current source state even
 without webhooks. The ingestion panel distinguishes the last successful check
 from the last clean reconciliation and displays conflicts/missing/invalid counts.
-Run the launcher while local polling is desired; no always-on service is installed.
+The former development-launcher polling described in this historical section
+was removed by #180. Start the existing DB-jobs worker explicitly for polling;
+the development server only serves DB records. See [current operation](27-ingestion-staging.md).
 See the [trusted operation and rollback runbook](05-ingestion.md#durable-local-reconciliation-43).
 
 
@@ -554,13 +518,12 @@ API **3110** (override with `PCE_WEB_PORT` / `API_PORT`). In the root checkout:
 PCE_AUTH_MODE=dev-single-user PCE_DB_SEARCH=true npm run dev:local
 ```
 
-The launcher uses trusted `DIRECT_URL` for migrations when present and keeps
-`DATABASE_URL` for runtime queries. It suppresses migration connection diagnostics.
-This prevents session-level migration locks from being left on a transaction
-pooler. Do not disable advisory locking or bypass migrations to fix a timeout.
+Apply reviewed migrations explicitly using the trusted direct connection; the
+launcher does not apply them. Runtime queries use `DATABASE_URL`.
 
-`PCE_INGEST_GITHUB=true` retains the existing bounded 30-second GitHub worker.
-The default standalone worker stays idle. Prepare API-origin durable jobs with:
+The development server never starts a worker. Start the existing DB-jobs worker
+explicitly; enable its GitHub-first step only on a reachable, configured host.
+The hosted API acquires only on a manual sync request. Prepare durable jobs with:
 
 ```bash
 WORKER_MODE=db-jobs-once PCE_OWNER_SUBJECT=local-developer node --env-file=.env apps/worker/dist/main.js

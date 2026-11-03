@@ -1,15 +1,6 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, symlink, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import {
-  localConfig,
-  sessionAllowed,
-  mintSession,
-  createLocalReader,
-  readCaptures,
-} from "./local-runtime.mjs";
+import { localConfig, sessionAllowed, mintSession } from "./local-runtime.mjs";
 
 test("local startup rejects production, network binding, missing DB and conflicting ports", () => {
   for (const env of [
@@ -110,602 +101,147 @@ test("ephemeral sessions pass the API verifier and expire", async () => {
   );
 });
 
-test("reader scopes SQL by owner and current checkout IDs", async () => {
-  const calls = [];
-  const db = {
-    note: {
-      findMany: async (query) => {
-        calls.push(query);
-        return [];
-      },
-      findFirst: async (query) => {
-        calls.push(query);
-        return null;
-      },
-    },
-  };
-  const reader = createLocalReader(db, ["known"]);
-  assert.deepEqual(await reader.listByOwner("other"), []);
-  assert.equal(await reader.getByOwner("local-developer", "unknown"), null);
-  assert.equal(calls.length, 0);
-  await reader.listByOwner("local-developer");
-  await reader.getByOwner("local-developer", "known");
-  await reader.listByOwner("local-developer", {
-    tag: "focus",
-    project: "demo",
-    kind: "memo",
-    from: "2026-10-01",
-    to: "2026-10-17",
-  });
-  assert.deepEqual(calls[2].where, {
-    ownerSubject: "local-developer",
-    id: { in: ["known"] },
-    removedAt: null,
-    archivedAt: null,
-    tags: { has: "focus" },
-    projects: { has: "demo" },
-    kind: "memo",
-    capturedAt: {
-      gte: new Date("2026-10-01T00:00:00Z"),
-      lt: new Date("2026-10-18T00:00:00Z"),
-    },
-  });
-  assert.deepEqual(calls[0].where, {
-    ownerSubject: "local-developer",
-    id: { in: ["known"] },
-    removedAt: null,
-    archivedAt: null,
-  });
-  assert.deepEqual(calls[1].where, {
-    ownerSubject: "local-developer",
-    id: "known",
-    removedAt: null,
-  });
-});
-
-test("local tag facets use the same trusted owner and current checkout SQL restrictions", async () => {
-  const queries = [];
-  const db = {
-    $queryRaw: async (query) => {
-      queries.push(query);
-      return [
-        { slug: "demo", noteCount: 2n },
-        { slug: "focus", noteCount: 1n },
-      ];
-    },
-  };
-  const reader = createLocalReader(db, ["synthetic-id"]);
-  assert.deepEqual(await reader.listTagsByOwner("foreign"), {
-    tags: [],
-    truncated: false,
-  });
-  assert.equal(queries.length, 0);
-  assert.deepEqual(await reader.listTagsByOwner("local-developer"), {
-    tags: [
-      { slug: "demo", count: 2 },
-      { slug: "focus", count: 1 },
-    ],
-    truncated: false,
-  });
-  const sql = queries[0];
-  assert.match(sql.strings.join("?"), /ownerSubject/);
-  assert.match(sql.strings.join("?"), /n\.id IN/);
-  assert.ok(sql.values.includes("local-developer"));
-  assert.ok(sql.values.includes("synthetic-id"));
-});
-
-test("capture discovery rejects symlinks without following private files", async (context) => {
-  const root = await mkdtemp(join(tmpdir(), "pce-local-test-"));
-  try {
-    await mkdir(join(root, "inbox"));
-    await writeFile(join(root, "outside.md"), "synthetic");
-    try {
-      await symlink(join(root, "outside.md"), join(root, "inbox", "note.md"));
-    } catch (error) {
-      if (process.platform === "win32" && error.code === "EPERM") {
-        context.skip("Windows requires Developer Mode or symlink privileges");
-        return;
-      }
-      throw error;
-    }
-    await assert.rejects(readCaptures(root));
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-test("capture snapshot validates notes, skips invalid input and replays stable revisions", async () => {
-  const root = await mkdtemp(join(tmpdir(), "pce-local-test-"));
-  const id = "01K00000000000000000000001";
-  const { serializeNoteMarkdown } = await import("@pce/core");
-  const summary = "Synthetic summary.";
-  const originalInput = "Synthetic input.\n";
-  const markdown = serializeNoteMarkdown({
-    metadata: {
-      schema_version: 1,
-      id,
-      capture_id: "01K00000000000000000000000",
-      captured_at: "2026-10-16T10:00:00Z",
-      source: "import",
-      kind: "memo",
-      domains: [],
-      projects: [],
-      tags: [],
-      action_hint: "none",
-      review_required: false,
-      title: "Synthetic note",
-    },
-    summary,
-    originalInput,
-    body: `\n# Synthetic note\n\n## Summary\n\n${summary}\n\n## Original input\n\n${originalInput}`,
-  });
-  try {
-    await mkdir(join(root, "inbox"));
-    const file = join(root, "inbox", `2026-10-16_${id}.md`);
-    await writeFile(file, markdown);
-    await writeFile(
-      join(root, "inbox", "invalid.md"),
-      "invalid synthetic note",
-    );
-    const first = await readCaptures(root);
-    const replay = await readCaptures(root);
-    assert.equal(first.captures.length, 1);
-    assert.equal(first.rejectedCount, 1);
-    assert.equal(first.captures[0].ownerSubject, "local-developer");
-    assert.equal(
-      first.captures[0].sourceRevision,
-      replay.captures[0].sourceRevision,
-    );
-    assert.equal(
-      await (await import("node:fs/promises")).readFile(file, "utf8"),
-      markdown,
-    );
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-test("local API refuses missing/forged tokens and serves only the verified owner's records", async () => {
-  const { createApp } = await import("../apps/api/dist/app.js");
-  const secret = "a".repeat(64);
-  const app = createApp({
-    config: {
-      host: "127.0.0.1",
-      port: 3110,
-      environment: "development",
-      corsOrigin: null,
-      requiresDatabase: false,
-      auth: { issuer: "pce-local-development", audience: "pce-api", secret },
-    },
-    dependencies: {
-      notes: createLocalReader(
-        {
-          note: {
-            findMany: async ({ where }) => {
-              assert.equal(where.ownerSubject, "local-developer");
-              return [];
-            },
-          },
-        },
-        [],
-      ),
-    },
-  });
-  try {
-    assert.equal((await app.inject({ url: "/api/v1/notes" })).statusCode, 401);
-    assert.equal(
-      (
-        await app.inject({
-          url: "/api/v1/notes",
-          headers: { authorization: "Bearer invalid" },
-        })
-      ).statusCode,
-      401,
-    );
-    const response = await app.inject({
-      url: "/api/v1/notes",
-      headers: { authorization: "Bearer " + mintSession(secret) },
-    });
-    assert.equal(response.statusCode, 200);
-    assert.deepEqual(response.json(), { notes: [] });
-  } finally {
-    await app.close();
-  }
-});
-
-test("Git snapshots use original blob bytes instead of checkout line endings", async () => {
-  const { execFileSync } = await import("node:child_process");
-  const { serializeNoteMarkdown } = await import("@pce/core");
-  const root = await mkdtemp(join(tmpdir(), "pce-git-snapshot-"));
-  const id = "01K00000000000000000000001";
-  const body =
-    "\n# Synthetic note\n\n## Summary\n\nSynthetic summary.\n\n## Original input\n\nSynthetic input.\n";
-  const markdown = serializeNoteMarkdown({
-    metadata: {
-      schema_version: 1,
-      id,
-      capture_id: "01K00000000000000000000000",
-      captured_at: "2026-10-16T10:00:00Z",
-      source: "import",
-      kind: "memo",
-      domains: [],
-      projects: [],
-      tags: [],
-      action_hint: "none",
-      review_required: false,
-      title: "Synthetic note",
-    },
-    body,
-    summary: "Synthetic summary.",
-    originalInput: "Synthetic input.\n",
-  });
-  try {
-    await mkdir(join(root, "inbox"));
-    const path = `inbox/2026-10-16_${id}.md`;
-    await writeFile(join(root, path), markdown);
-    const git = (...args) =>
-      execFileSync("git", ["-C", root, ...args], { stdio: "pipe" });
-    git("init");
-    git("config", "core.autocrlf", "false");
-    git("add", path);
-    git(
-      "-c",
-      "user.name=Synthetic",
-      "-c",
-      "user.email=synthetic@example.invalid",
-      "commit",
-      "-m",
-      "Synthetic capture",
-    );
-    await writeFile(join(root, path), markdown.replaceAll("\n", "\r\n"));
-    const snapshot = await readCaptures(root, { gitSnapshot: true });
-    assert.equal(snapshot.captures[0].markdown, markdown);
-    const hash = git("rev-parse", `HEAD:${path}`).toString().trim();
-    assert.equal(snapshot.captures[0].sourceRevision, hash);
-    await writeFile(join(root, path), markdown + "changed");
-    await assert.rejects(readCaptures(root, { gitSnapshot: true }));
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
 test.skipIf(!process.env.PCE_DB_TEST_URL)(
-  "worker bridges only verified preview line endings, finalizes and replays without duplicate rows",
+  "development startup serves new DB originals without acquiring or processing content",
   async () => {
-    const { randomUUID, createHash } = await import("node:crypto");
-    const { execFileSync } = await import("node:child_process");
-    const { createNoteRepository, PrismaClient } = await import("@pce/db");
-    const { createOwnedImporter } = await import("./local-runtime.mjs");
-    const { runIngestionBatch } = await import("../apps/worker/dist/worker.js");
-    const { serializeNoteMarkdown } = await import("@pce/core");
+    const { PrismaClient, createApiCaptureRepository } =
+      await import("@pce/db");
+    const { randomUUID } = await import("node:crypto");
+    const { spawn } = await import("node:child_process");
+    const { once } = await import("node:events");
+    const { mkdtemp, writeFile, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { createServer } = await import("node:net");
+    const { setTimeout: delay } = await import("node:timers/promises");
     const db = new PrismaClient({
       datasources: { db: { url: process.env.PCE_DB_TEST_URL } },
     });
-    const root = await mkdtemp(join(tmpdir(), "pce-worker-bridge-"));
+    const owner = "dev-boundary-" + randomUUID();
     const id = randomUUID(),
       captureId = randomUUID();
-    const path = `inbox/2026-10-16_${id}.md`;
-    const markdown = serializeNoteMarkdown({
-      metadata: {
-        schema_version: 1,
-        id,
-        capture_id: captureId,
-        captured_at: "2026-10-16T10:00:00Z",
-        source: "import",
-        kind: "memo",
-        domains: [],
-        projects: [],
-        tags: [],
-        action_hint: "none",
-        review_required: false,
-        title: "Synthetic note",
-      },
-      body: "\n# Synthetic note\n\n## Summary\n\nSynthetic summary.\n\n## Original input\n\nSynthetic input.\n",
-      summary: "Synthetic summary.",
-      originalInput: "Synthetic input.\n",
-    });
+    const directory = await mkdtemp(join(tmpdir(), "pce-dev-boundary-"));
+    const port = async () => {
+      const server = createServer();
+      server.listen(0, "127.0.0.1");
+      await once(server, "listening");
+      const value = server.address().port;
+      await new Promise((resolve) => server.close(resolve));
+      return value;
+    };
+    const apiPort = await port(),
+      webPort = await port();
+    let child, exited;
     try {
-      await mkdir(join(root, "inbox"));
-      await writeFile(join(root, path), markdown);
-      const git = (...args) =>
-        execFileSync("git", ["-C", root, ...args], { stdio: "pipe" });
-      git("init");
-      git("config", "core.autocrlf", "false");
-      git("add", path);
-      git(
-        "-c",
-        "user.name=Synthetic",
-        "-c",
-        "user.email=synthetic@example.invalid",
-        "commit",
-        "-m",
-        "Synthetic capture",
+      const staged = await db.ingestionStaging.create({
+        data: {
+          ownerSubject: owner,
+          provider: "github",
+          artifactType: "note",
+          repository: "synthetic-owner/missing-source",
+          branch: "main",
+          sourcePath: "inbox/synthetic.md",
+          sourceRevision: "synthetic-revision",
+          rawContent: Buffer.from("synthetic invalid input"),
+          contentHash: "a".repeat(64),
+        },
+      });
+      const preload = join(directory, "no-egress.mjs");
+      await writeFile(
+        preload,
+        'globalThis.fetch = async () => { throw new Error("No network allowed in development startup test"); };\n',
       );
-      const revision = git("rev-parse", `HEAD:${path}`).toString().trim();
-      const crlf = markdown.replaceAll("\n", "\r\n");
-      await writeFile(join(root, path), crlf);
-      await createNoteRepository(db).importMarkdown({
-        markdown: crlf,
-        sourcePath: path,
-        sourceRevision: createHash("sha256").update(crlf).digest("hex"),
-        ownerSubject: "local-developer",
+      child = spawn(process.execPath, ["scripts/local-dev.mjs"], {
+        env: {
+          ...process.env,
+          DATABASE_URL: process.env.PCE_DB_TEST_URL,
+          NODE_ENV: "development",
+          NODE_OPTIONS: `--import=${preload}`,
+          API_HOST: "127.0.0.1",
+          API_PORT: String(apiPort),
+          PCE_WEB_PORT: String(webPort),
+          PCE_AUTH_MODE: "dev-single-user",
+          PCE_OWNER_SUBJECT: owner,
+          PCE_DB_SEARCH: "false",
+          PCE_MCP_ENABLED: "false",
+          PCE_OAUTH_CLIENTS: "[]",
+          PCE_TASKS_ENABLED: "false",
+          PCE_RESEARCH_REPORTS: "false",
+          PCE_CONTENT_ROOT: join(directory, "does-not-exist"),
+          PCE_GITHUB_FETCH_ENABLED: "true",
+          PCE_INGEST_GITHUB: "false",
+          WORKER_ALLOW_GITHUB_WRITES: "",
+          CONTENT_REPOSITORY: "synthetic-owner/missing-source",
+          CONTENT_BRANCH: "main",
+          CONTENT_GITHUB_TOKEN: "synthetic-read-only-token",
+        },
+        stdio: ["ignore", "pipe", "pipe"],
       });
-      const project = createOwnedImporter(db, { checkoutRoot: root });
-      await assert.rejects(
-        project({
-          markdown: markdown.replace("Synthetic summary.", "Changed summary."),
-          sourcePath: path,
-          sourceRevision: "changed",
-        }),
+      let output = "";
+      child.stdout.on("data", (chunk) => {
+        output += chunk;
+      });
+      child.stderr.on("data", (chunk) => {
+        output += chunk;
+      });
+      exited = once(child, "exit");
+      for (
+        let i = 0;
+        i < 180 && !output.includes(`Open http://127.0.0.1:${webPort}`);
+        i++
+      ) {
+        assert.equal(child.exitCode, null, output.slice(-2000));
+        await delay(500);
+      }
+      assert.ok(
+        output.includes(`Open http://127.0.0.1:${webPort}`),
+        output.slice(-2000),
       );
-      let pending = true,
-        moved = false;
-      const store = {
-        async listPending() {
-          return { files: pending ? [{ path, revision }] : [] };
-        },
-        async read() {
-          return { path, revision, content: markdown };
-        },
-        async stat(target) {
-          return target === path
-            ? pending
-              ? { path, revision }
-              : null
-            : moved
-              ? { path: target, revision }
-              : null;
-        },
-        async finalize(request) {
-          assert.equal(request.expectedRevision, revision);
-          assert.equal(
-            await db.note.count({
-              where: { id, ownerSubject: "local-developer" },
-            }),
-            1,
-          );
-          pending = false;
-          moved = true;
-          return { path: request.destinationPath, revision, status: "moved" };
-        },
-        async reject() {
-          throw new Error("Unexpected rejection");
-        },
-      };
-      const report = await runIngestionBatch({
-        db,
-        store,
-        ownerSubject: "local-developer",
-        importMarkdown: project,
+      const session = await fetch(`http://127.0.0.1:${webPort}/__pce/session`);
+      assert.equal(session.status, 200);
+      const cookie = session.headers
+        .getSetCookie()
+        .map((c) => c.split(";")[0])
+        .join("; ");
+      const headers = { cookie };
+      const endpoint = `http://127.0.0.1:${apiPort}/api/v1/notes/${id}`;
+      assert.equal((await fetch(endpoint, { headers })).status, 404);
+      const markdown = `---\nschema_version: 1\nid: ${id}\ncapture_id: ${captureId}\ncaptured_at: 2026-11-03T10:00:00Z\nsource: import\nkind: memo\ndomains: []\nprojects: []\ntags: []\naction_hint: none\nreview_required: false\ntitle: Synthetic development boundary\n---\n\n# Synthetic\n\n## Summary\n\nSynthetic.\n\n## Original input\n\nSynthetic original.\n`;
+      await createApiCaptureRepository(db).persistByOwner(owner, {
+        idempotencyKey: "dev-boundary",
+        notes: [markdown],
       });
-      assert.equal(report.finalized, 1);
-      assert.equal(report.rejected, 0);
-      assert.equal(await db.note.count({ where: { id } }), 1);
-      const note = await db.note.findUnique({ where: { id } });
-      assert.equal(note.state, "FINALIZED");
-      assert.equal(note.sourceRevision, revision);
-      assert.equal(note.originalInput, "Synthetic input.\n");
-      const replay = await project({
-        markdown,
-        sourcePath: path,
-        sourceRevision: revision,
-      });
-      assert.equal(replay.result, "replayed");
+      const note = await fetch(endpoint, { headers });
+      assert.equal(note.status, 200);
+      assert.match((await note.json()).originalInput, /Synthetic original/);
+      // Cross the former 30-second timer boundary with fetch capability enabled.
+      await delay(31000);
       assert.equal(
-        (await db.note.findUnique({ where: { id } })).state,
-        "FINALIZED",
-      );
-      const second = await runIngestionBatch({
-        db,
-        store,
-        ownerSubject: "local-developer",
-        importMarkdown: project,
-      });
-      assert.equal(second.finalized, 0);
-      // A finalized source no longer has an inbox path. Changed bytes must
-      // produce a deliberate revision conflict, rather than an ENOENT abort.
-      await rm(join(root, path));
-      await assert.rejects(
-        project({
-          markdown: markdown.replace("Synthetic summary.", "Changed summary."),
-          sourcePath: path,
-          sourceRevision: "changed-after-finalization",
-        }),
-        { code: "REVISION_CONFLICT" },
+        (await db.ingestionStaging.findUnique({ where: { id: staged.id } }))
+          .status,
+        "PENDING",
       );
       assert.equal(
-        (await db.note.findUnique({ where: { id } })).sourceRevision,
-        revision,
+        (await db.dbProcessingJob.findFirst({ where: { ownerSubject: owner } }))
+          .status,
+        "PENDING",
+      );
+      assert.equal(
+        (await db.ingestionStaging.findUnique({ where: { id: staged.id } }))
+          .attemptCount,
+        0,
       );
     } finally {
-      await db.processingAttempt.deleteMany({ where: { sourcePath: path } });
+      if (child && child.exitCode === null) child.kill("SIGTERM");
+      if (exited) await exited;
+      await db.authSession.deleteMany({ where: { ownerSubject: owner } });
+      await db.apiCaptureReceipt.deleteMany({ where: { ownerSubject: owner } });
+      await db.ingestionStaging.deleteMany({ where: { ownerSubject: owner } });
       await db.note.deleteMany({ where: { id } });
       await db.capture.deleteMany({ where: { id: captureId } });
       await db.$disconnect();
-      await rm(root, { recursive: true, force: true });
+      await rm(directory, { recursive: true, force: true });
     }
   },
+  180000,
 );
-
-test("note chip metadata uses only owner-scoped selected rows", async () => {
-  const queries = [];
-  const record = {
-    id: "synthetic-known",
-    title: "Synthetic note",
-    summary: "Synthetic summary",
-    capturedAt: new Date("2026-10-18T10:00:00Z"),
-    tags: ["observed-only"],
-  };
-  const db = {
-    note: {
-      findMany: async (query) => {
-        queries.push(query);
-        return [record];
-      },
-      findFirst: async (query) => {
-        queries.push(query);
-        return { ...record, body: "Synthetic body" };
-      },
-    },
-  };
-  const reader = createLocalReader(db, [record.id]);
-  assert.deepEqual(await reader.listByOwner("foreign"), []);
-  assert.equal(await reader.getByOwner("foreign", record.id), null);
-  assert.equal(
-    await reader.getByOwner("local-developer", "not-in-snapshot"),
-    null,
-  );
-  assert.equal(queries.length, 0);
-  assert.deepEqual((await reader.listByOwner("local-developer"))[0].tags, [
-    "observed-only",
-  ]);
-  assert.deepEqual(
-    (await reader.getByOwner("local-developer", record.id)).tags,
-    ["observed-only"],
-  );
-  for (const query of queries) {
-    assert.equal(query.where.ownerSubject, "local-developer");
-    assert.equal(query.select.tags, true);
-  }
-});
-
-test("local database browsing stays off by default and requires an ephemeral server-side signing key", () => {
-  assert.equal(localConfig({ DATABASE_URL: "synthetic" }).browseEnabled, false);
-  assert.equal(
-    localConfig({ DATABASE_URL: "synthetic", PCE_LOCAL_BROWSE: "true" })
-      .browseEnabled,
-    true,
-  );
-  assert.throws(() =>
-    localConfig({ DATABASE_URL: "synthetic", PCE_LOCAL_BROWSE: "yes" }),
-  );
-  assert.equal(createLocalReader({}, []).pageByOwner, undefined);
-  assert.throws(() => createLocalReader({}, [], { browseEnabled: true }));
-  assert.equal(
-    typeof createLocalReader({}, [], {
-      browseEnabled: true,
-      cursorSecret: "synthetic-server-secret-".repeat(3),
-    }).pageByOwner,
-    "function",
-  );
-});
-
-test("local note actions register routes and retain owner, snapshot and removal boundaries", async () => {
-  const id = "00000000-0000-4000-8000-000000000120";
-  const updates = [];
-  let removed = false;
-  const db = {
-    note: {
-      updateMany: async (query) => {
-        updates.push(query);
-        if (removed) return { count: 0 };
-        if (query.data.removedAt) removed = true;
-        return { count: 1 };
-      },
-      findFirst: async ({ where }) => {
-        assert.equal(where.ownerSubject, "local-developer");
-        assert.equal(where.removedAt, null);
-        return removed ? null : { archivedAt: null };
-      },
-    },
-  };
-  const reader = createLocalReader(db, [id]);
-  assert.equal(await reader.removeByOwner("foreign", id), false);
-  assert.equal(await reader.removeByOwner("local-developer", "unknown"), false);
-  assert.equal(await reader.setArchivedByOwner("foreign", id, true), null);
-  assert.equal(
-    await reader.setArchivedByOwner("local-developer", "unknown", true),
-    null,
-  );
-  assert.equal(updates.length, 0);
-  assert.equal(
-    await reader.setArchivedByOwner("local-developer", id, true),
-    "archived",
-  );
-  assert.equal(await reader.removeByOwner("local-developer", id), true);
-  assert.equal(await reader.removeByOwner("local-developer", id), false);
-  assert.equal(
-    await reader.setArchivedByOwner("local-developer", id, false),
-    null,
-  );
-  assert.equal(await reader.getByOwner("local-developer", id), null);
-  for (const query of updates) {
-    assert.equal(query.where.id, id);
-    assert.equal(query.where.ownerSubject, "local-developer");
-    assert.equal(query.where.removedAt, null);
-  }
-  const { createApp } = await import("../apps/api/dist/app.js");
-  const app = createApp({
-    config: {
-      host: "127.0.0.1",
-      port: 3110,
-      environment: "development",
-      corsOrigin: null,
-      requiresDatabase: false,
-      auth: {
-        issuer: "pce-local-development",
-        audience: "pce-api",
-        secret: "a".repeat(64),
-      },
-    },
-    dependencies: { notes: reader },
-  });
-  try {
-    // Missing adapter methods previously left these routes unregistered (404).
-    assert.equal(
-      (await app.inject({ method: "DELETE", url: `/api/v1/notes/${id}` }))
-        .statusCode,
-      401,
-    );
-    assert.equal(
-      (
-        await app.inject({
-          method: "PATCH",
-          url: `/api/v1/notes/${id}/archive`,
-          payload: { archived: true },
-        })
-      ).statusCode,
-      401,
-    );
-  } finally {
-    await app.close();
-  }
-});
-
-test("local list and detail hide removed notes and preserve archive status", async () => {
-  const calls = [];
-  const note = {
-    id: "known",
-    title: "Synthetic",
-    summary: "",
-    tags: [],
-    capturedAt: new Date(),
-    archivedAt: new Date(),
-  };
-  const db = {
-    note: {
-      findMany: async (query) => {
-        calls.push(query);
-        return [note];
-      },
-      findFirst: async (query) => {
-        calls.push(query);
-        return { ...note, body: "Synthetic body" };
-      },
-    },
-  };
-  const reader = createLocalReader(db, ["known"]);
-  assert.equal(
-    (await reader.listByOwner("local-developer", { status: "archived" }))[0]
-      .status,
-    "archived",
-  );
-  assert.deepEqual(calls[0].where.archivedAt, { not: null });
-  await reader.listByOwner("local-developer", { status: "all" });
-  assert.equal(Object.hasOwn(calls[1].where, "archivedAt"), false);
-  assert.equal(
-    (await reader.getByOwner("local-developer", "known")).status,
-    "archived",
-  );
-  for (const query of calls) assert.equal(query.where.removedAt, null);
-});
