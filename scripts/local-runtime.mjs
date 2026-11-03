@@ -40,7 +40,6 @@ export function localConfig(env) {
   };
 }
 
-// Validate every file before making any DB write. Never follow content symlinks.
 export function mintSession(secret, now = Math.floor(Date.now() / 1000)) {
   const encode = (value) =>
     Buffer.from(JSON.stringify(value)).toString("base64url");

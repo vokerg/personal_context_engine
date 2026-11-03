@@ -206,7 +206,7 @@ test.skipIf(!process.env.PCE_DB_TEST_URL)(
       const headers = { cookie };
       const endpoint = `http://127.0.0.1:${apiPort}/api/v1/notes/${id}`;
       assert.equal((await fetch(endpoint, { headers })).status, 404);
-      const markdown = `---\nschema_version: 1\nid: ${id}\ncapture_id: ${captureId}\ncaptured_at: 2026-11-03T10:00:00Z\nsource: import\nkind: memo\ndomains: []\nprojects: []\ntags: []\naction_hint: none\nreview_required: false\ntitle: Synthetic development boundary\n---\n\n# Synthetic\n\n## Summary\n\nSynthetic.\n\n## Original input\n\nSynthetic original.\n`;
+      const markdown = `---\nschema_version: 1\nid: ${id}\ncapture_id: ${captureId}\ncaptured_at: 2026-11-03T10:00:00Z\nsource: import\nkind: memo\ndomains: []\nprojects: []\ntags: []\naction_hint: none\nreview_required: false\ntitle: Synthetic development boundary\n---\n\n# Synthetic development boundary\n\n## Summary\n\nSynthetic.\n\n## Original input\n\nSynthetic original.\n`;
       await createApiCaptureRepository(db).persistByOwner(owner, {
         idempotencyKey: "dev-boundary",
         notes: [markdown],
