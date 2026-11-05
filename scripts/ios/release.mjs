@@ -36,10 +36,11 @@ function requireThat(ok, message) {
   if (!ok) throw new Error(message);
 }
 export function parseArgs(args) {
-  const options = { install: false };
+  const options = { install: false, altstore: false };
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === "--install") options.install = true;
+    else if (arg === "--altstore") options.altstore = true;
     else if (["--build", "--version", "--device", "--notes"].includes(arg)) {
       requireThat(
         args[i + 1] && !args[i + 1].startsWith("--") && !options[arg.slice(2)],
@@ -48,9 +49,13 @@ export function parseArgs(args) {
       options[arg.slice(2)] = args[++i];
     } else
       throw new Error(
-        "Usage: release.sh [--install] [--device ID] [--version X.Y.Z] [--build N] [--notes FILE]",
+        "Usage: release.sh [--install | --altstore] [--device ID] [--version X.Y.Z] [--build N] [--notes FILE]",
       );
   }
+  requireThat(
+    !options.install || !options.altstore,
+    "AltStore candidates must be imported by AltStore; do not direct-install them",
+  );
   if (options.version)
     requireThat(
       /^\d+\.\d+\.\d+$/.test(options.version),
@@ -274,6 +279,12 @@ export function runRelease(args = process.argv.slice(2)) {
       `Set :CFBundleVersion ${build}`,
       info,
     ]);
+    if (options.altstore)
+      run("/usr/libexec/PlistBuddy", [
+        "-c",
+        "Set :CFBundleDisplayName PCE AltStore",
+        info,
+      ]);
     let device;
     if (options.install) {
       device = selectIphone(
@@ -327,6 +338,10 @@ export function runRelease(args = process.argv.slice(2)) {
     );
     run("codesign", ["--verify", "--deep", "--strict", app]);
     const actual = jsonPlist(path.join(app, "Info.plist"));
+    requireThat(
+      !options.altstore || actual.CFBundleDisplayName === "PCE AltStore",
+      "AltStore candidate label missing",
+    );
     requireThat(
       actual.CFBundleIdentifier === id &&
         actual.CFBundleShortVersionString === version &&
@@ -431,6 +446,7 @@ export function runRelease(args = process.argv.slice(2)) {
     const metadata = {
       schemaVersion: 1,
       bundleIdentifier: id,
+      displayName: actual.CFBundleDisplayName,
       version,
       build,
       builtAt: new Date().toISOString(),
@@ -445,6 +461,9 @@ export function runRelease(args = process.argv.slice(2)) {
         ? readFileSync(path.resolve(options.notes), "utf8")
         : "Local personal Release build.",
       altStoreMigrationVerified: false,
+      distribution: options.altstore
+        ? "altstore-parallel-candidate"
+        : "direct-device",
     };
     cpSync(path.join(mobile, "assets/icon.png"), path.join(out, "icon.png"));
     writeFileSync(
@@ -479,7 +498,9 @@ export function runRelease(args = process.argv.slice(2)) {
     }
     console.log("[ios-release] Validated signed IPA:", ipa);
     console.log(
-      "[ios-release] AltStore migration is unverified; do not install this over PCE using AltStore.",
+      options.altstore
+        ? "[ios-release] Import this PCE AltStore candidate through AltStore while retaining the original app. Verify the managed identifier and sign in to the new copy. No migration is claimed."
+        : "[ios-release] AltStore migration is unverified; do not install this over PCE using AltStore.",
     );
     return out;
   } finally {

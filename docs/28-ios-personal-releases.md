@@ -115,6 +115,22 @@ can lose access to that token. A general phone/container backup is not proof
 that this token can migrate to a different application identity. Note/task
 content is server-backed, but that does not justify deleting the current app.
 
+A parallel evaluation is now supported by `./scripts/ios/release.sh --altstore`.
+It labels the candidate **PCE AltStore** before signing and refuses combination
+with `--install`; importing through AltStore is what enrolls it for refresh.
+The original app and its Keychain/session remain installed. The candidate gets
+its own managed identity and needs a one-time sign-in. This is coexistence,
+not an in-place migration or transfer of the original token.
+
+PCE uses Expo WebBrowser's native `ASWebAuthenticationSession`. [Apple documents
+that authentication callbacks return to the initiating session even with
+shared URL schemes](https://developer.apple.com/documentation/authenticationservices/aswebauthenticationsession).
+The local SDK54 native source confirms that mechanism. This permits testing
+login in the new copy without changing backend registration. Generic external
+`pce://notes/...` links can still open either copy during coexistence; avoid
+relying on external note links until a separate cutover resolves that ambiguity.
+Actual candidate login and retained-session behavior remain phone-side gates.
+
 A concrete, non-destructive migration evaluation is:
 
 1. Keep the original app installed and working. Record authenticated timeline
@@ -124,10 +140,11 @@ A concrete, non-destructive migration evaluation is:
 2. Inspect the actual proposed signed app/profile from the installed AltStore
    version. Compare bundle ID, application identifier, team, keychain groups
    and callback behavior. Never uninstall to bypass an install error.
-3. If identity differs, migration requires a separately reviewed parallel-app
-   plan: avoid duplicate `pce` callback registration, explicitly sign in again,
-   verify backend data and session, and retain the original installation.
-   That plan is not implemented or authorized by this runbook.
+3. If identity differs, use the labelled parallel candidate, explicitly sign in
+   again, verify backend data/session and retain the original installation.
+   Authentication-session callbacks are isolated as described above; generic
+   note deep links remain ambiguous during coexistence. Do not uninstall either
+   original or candidate to bypass an error or app-slot limit.
 4. Only after an identity-preserving route is established, verify first install,
    another higher-build update, retained session and refresh before cutover.
 
@@ -156,10 +173,14 @@ LAN server exposes private JS/native code to network observers; none is started
 here. A trusted private HTTPS endpoint/VPN could be evaluated after migration
 is safe. No self-signed TLS bypass or public tunnel is configured.
 
-For a migrated/test installation only, a private AirDrop/Files transfer of the
-IPA followed by AltStore My Apps → `+` is the manual fallback. It still
-re-signs and can change identity. It is **not** the safe update path for the
-current Xcode installation. The safe current fallback is direct device install.
+For the labelled parallel candidate, privately AirDrop the IPA to the phone,
+save it to Files if prompted, then choose AltStore My Apps → `+` and select
+that IPA. This is also the repeat-update path: import a newer labelled build
+with the same account and original IPA bundle ID; AltStore should reuse its
+recorded managed identity. Verify that with a second installation before
+claiming data/session preservation. It still
+re-signs and can change identity. It does not update the current Xcode installation in place. Direct device
+install remains the fallback for that original app.
 
 ## Expiry, local refresh and Remote AltServer
 
@@ -257,3 +278,10 @@ helper was renamed to `release.node-test.mjs`. After that correction, local
 were skipped by their existing environment gates. This is not DB/device E2E
 evidence. The owner subsequently reported Remote AltServer setup completed;
 refresh itself still requires a phone-side result.
+
+A third clean signed build verified the `--altstore` candidate label, unchanged
+original IPA bundle identifier, signature and package. The mode rejects
+`--install` to prevent accidental direct replacement of the original app with
+the candidate. Private transfer and actual AltStore-managed installation are
+independent acceptance checks. Original-branch CI subsequently passed all
+five checks, including macOS; later candidate changes require fresh CI.

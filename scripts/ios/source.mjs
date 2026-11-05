@@ -27,7 +27,7 @@ export function makeSource(metadata, base, permissions) {
     name: "PCE Personal Releases",
     apps: [
       {
-        name: "Personal Context Engine",
+        name: metadata.displayName ?? "Personal Context Engine",
         bundleIdentifier: metadata.bundleIdentifier,
         developerName: "Personal local build",
         localizedDescription:

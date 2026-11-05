@@ -27,6 +27,8 @@ test("release rejects malformed or repeated arguments before invoking tools", ()
   ])
     assert.throws(() => parseArgs(args));
   assert.equal(parseArgs(["--install", "--build", "2"]).install, true);
+  assert.equal(parseArgs(["--altstore"]).altstore, true);
+  assert.throws(() => parseArgs(["--altstore", "--install"]));
 });
 test("build only receives approved public settings, preserving Tasks and excluding credentials", () => {
   const env = publicEnvironment(
@@ -96,6 +98,14 @@ test("source uses actual release version, build, permissions, digest and notes; 
   );
   assert.equal(source.apps[0].versions[0].buildVersion, "2");
   assert.deepEqual(source.apps[0].appPermissions, permissions);
+  assert.equal(
+    makeSource(
+      { ...metadata, displayName: "PCE AltStore" },
+      "https://private.example.test/",
+      permissions,
+    ).apps[0].name,
+    "PCE AltStore",
+  );
   for (const url of [
     "http://example.test",
     "https://name:password@example.test",
