@@ -222,7 +222,7 @@ or native migration is introduced here. OTA never renews Apple's signing profile
 - Runtime/session: confirm the authenticated timeline, then cold relaunch;
   installation/launch command success does not verify network/authentication.
 
-Synthetic checks: `node --test scripts/ios/release.test.mjs` and the existing
+Synthetic checks: `node --test scripts/ios/release.node-test.mjs` and the existing
 skill validation. Device, migration, source-download and remote-refresh results
 must be reported independently with actual observations; they are not CI tests.
 
@@ -250,3 +250,10 @@ must be reported independently with actual observations; they are not CI tests.
 - All 13 release/helper synthetic checks, shell/JS syntax, docs links,
   targeted Prettier and repository format checks passed. Public CI results are
   reported on the PR; no device/signing credentials are available to CI.
+
+The workspace suite initially picked up the Node helper as a Vitest suite; the
+helper was renamed to `release.node-test.mjs`. After that correction, local
+`npm test` passed: 77 suites / 354 tests; 22 integration suites / 128 tests
+were skipped by their existing environment gates. This is not DB/device E2E
+evidence. The owner subsequently reported Remote AltServer setup completed;
+refresh itself still requires a phone-side result.
