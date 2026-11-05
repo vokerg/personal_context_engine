@@ -707,3 +707,14 @@ DB-preparation/embedding launcher. Embeddings remain separately gated; their
 pause does not block capture, DB processing or lexical search. No extra
 acquisition daemon, paid network route or new provider service is selected.
 Existing GitHub capture/search, immutable originals and replay safety remain.
+
+### D-035 — Private local personal iPhone releases (#182)
+
+Accepted owner direction 2026-11-05: use free local signing and private artifacts
+for repeatable personal iPhone releases; evaluate AltStore Classic without
+changing the existing app identity or losing authentication/data. No paid
+membership, public binaries, backend changes or unattended PCE jobs. Direct
+signed device updates remain the fallback while AltStore's bundle/keychain
+migration is unverified. Remote refresh and Expo OTA require independent
+acceptance; neither replaces Apple's signing expiry. See the
+[release runbook](28-ios-personal-releases.md).

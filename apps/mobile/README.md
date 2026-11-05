@@ -326,3 +326,12 @@ Native changes require a rebuild to include the Expo SDK54-compatible
 `@react-native-community/datetimepicker` 8.4.4 module. Synthetic component tests
 exercise saved appearance/races/failures, calendar apply/cancel/clear and request
 bounds. Physical-device calendar/VoiceOver acceptance remains a manual check.
+
+### Private IPA builds and repeat updates
+
+Use `./scripts/ios/release.sh --install` from the repository root for a clean,
+signed Release IPA and direct physical-device update preserving the existing
+app/keychain identity. See [personal iPhone releases](../../docs/28-ios-personal-releases.md)
+for setup, private outputs, signing expiry and AltStore Classic's unresolved
+identity-migration gate. Do not install the IPA through AltStore over the
+existing Xcode app until that gate is verified.
