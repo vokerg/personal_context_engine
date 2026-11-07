@@ -718,3 +718,20 @@ signed device updates remain the fallback while AltStore's bundle/keychain
 migration is unverified. Remote refresh and Expo OTA require independent
 acceptance; neither replaces Apple's signing expiry. See the
 [release runbook](28-ios-personal-releases.md).
+
+## D-036 — On-demand Note-to-Task suggestions (#184, 2026-11-07)
+
+**Accepted owner request:** Web may send a deliberately selected existing Note's
+original text to a server-held DeepSeek adapter to suggest 0–20 independent
+Tasks. Review/edit/select precedes explicit atomic save through the shared Task
+repository. Original Notes remain unchanged. This narrowly extends D-017;
+unattended synthesis and ledger provider selection remain deferred. The browser
+uses the authenticated HTTP service, not a second MCP connection. Existing MCP
+Task tools continue sharing the same persistence mechanism.
+
+The new default-off provider gate requires the existing Task/session gate and a
+server-only key. Requests are bounded and user-triggered; imports, startup and
+background workers never call this adapter. Existing immutable capture batches
+remain unchanged; manual postprocessing uses source-linked Task creation with
+stable IDs and exact retry payloads. No dates, reminders or action execution.
+Implementation checks and live provider/deployment acceptance are separate.

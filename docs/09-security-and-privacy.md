@@ -388,3 +388,17 @@ for hosted operation. The owner-directed trusted local setup may reuse the exist
 GitHub CLI credential in protected ignored environment configuration; that token
 retains broader repository permissions. The reader still makes only GET requests,
 while the taxonomy publisher can write only its exact allowlisted path. See [research operation and rollout](20-research-capture.md).
+
+### User-triggered DeepSeek Task suggestions (#184)
+
+D-036 authorizes only explicit per-Note web suggestion requests behind the
+independent default-off provider gate. The UI discloses that original text leaves
+PCE for DeepSeek before the click. Credentials stay in server configuration;
+fixed HTTPS endpoint, no redirects, byte/token/time/request/concurrency limits
+and strict output validation bound processing. Source quotes must be literal;
+source content is untrusted data, not tool or execution instructions. Owner/scope
+checks precede egress. Saving separately reuses transactional source validation
+and ID-based retry semantics. Provider errors/content are never returned or
+logged; source text is rendered literally and drafts stay memory-only. See the
+[Task runbook](23-tasks.md#web-postprocessing-of-existing-notes-184) for limits,
+rollback, duplicate/reload caveats and unverified live provider acceptance.

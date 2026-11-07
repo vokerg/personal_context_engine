@@ -1,3 +1,4 @@
+import { NoteTasks } from "./NoteTasks.js";
 import { GitHubSync } from "./GitHubSync.js";
 import { resumeAuthorization } from "./authorization-continuation";
 import { TasksPanel } from "./TasksPanel.js";
@@ -113,6 +114,7 @@ export function App({
   });
   const [detailState, setDetailState] = useState<LoadState>("loading");
   const [detailError, setDetailError] = useState("");
+  const [taskRefreshVersion, setTaskRefreshVersion] = useState(0);
   const [detail, setDetail] = useState<NoteDetail | null>(null);
   const [filters, setFilters] = useState<BrowseFilters>(() =>
     typeof window === "undefined"
@@ -1167,6 +1169,7 @@ export function App({
       {token && tasksEnabled && (
         <div hidden={workspaceView !== "tasks"}>
           <TasksPanel
+            refreshVersion={taskRefreshVersion}
             baseUrl={baseUrl}
             token={token}
             useSessionCookie={sessionAuthentication}
@@ -2042,6 +2045,16 @@ export function App({
                           </>
                         )}
                       </dl>
+                    )}
+                    {tasksEnabled && (
+                      <NoteTasks
+                        onSaved={() => setTaskRefreshVersion((v) => v + 1)}
+                        key={`${detail.id}:${token}:${sessionAuthentication}:${baseUrl}`}
+                        noteId={detail.id}
+                        baseUrl={baseUrl}
+                        token={token}
+                        useSessionCookie={sessionAuthentication}
+                      />
                     )}
                     {researchEnabled && (
                       <ResearchPanel

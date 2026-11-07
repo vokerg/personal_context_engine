@@ -316,3 +316,52 @@ are recorded in [the live evidence](evidence/issue-154/2026-10-26-activation.md)
 Earlier default-off/candidate statements describe preparation; public/default
 startup stays off. Physical-device, VoiceOver/audio and forced live outage checks
 remain explicitly unverified. Existing Note capture/search remains independent.
+
+## Web postprocessing of existing Notes (#184)
+
+With `PCE_TASKS_ENABLED=true`, sessions and
+`PCE_TASK_SUGGESTIONS_ENABLED=true`, configure server-only `DEEPSEEK_API_KEY` and
+optional `PCE_TASK_SUGGESTIONS_MODEL` (default `deepseek-flash`). Both normal API
+startup and explicit `dev:local` support this adapter. The web Task flag remains
+required. Configuration loads no content and starts no model request or worker.
+
+Note detail offers **Suggest tasks**, explicitly disclosing DeepSeek egress.
+Only that Note's original (at most 24,000 UTF-8 bytes) is sent, never other Notes,
+credentials or retrieved context. Review each suggested title, optional editable
+description and exact original quote; deselect unwanted suggestions and save.
+Zero suggestions create nothing. Committed Tasks have normal independent
+lifecycle/source links; the Note is preserved. Task list reloads after success.
+
+| Route | Contract |
+| --- | --- |
+| `GET /api/v1/task-suggestions/config` | Capability discovery; no provider request |
+| `POST /api/v1/notes/:id/task-suggestions` | Empty body; owner-scoped source lookup then bounded model request; draft UUIDs/capture ID/model/grounded suggestions |
+| `POST /api/v1/notes/:id/tasks` | `captureId`, 1–20 reviewed Tasks (`taskId`, title, optional description, literal evidence); atomic shared Task repository receipts |
+
+All require `tasks:write` and `notes:read`, verified owner and browser CSRF.
+Suggestions and their save route are available only with the provider gate. The
+shared repository rechecks current source ownership/capture/evidence during
+creation and replays matching existing IDs without reopening completed Tasks.
+This manual operation is independent of immutable capture extraction batches,
+including existing zero-Task batches. Draft model metadata is descriptive and
+is not persisted as an extraction batch or permission to execute an action.
+
+One API process allows one model request in flight, at least five seconds
+between starts and at most 20 starts per process-local hour window; failures count.
+These in-memory limits reset on restart and are **not** distributed billing
+limits. Use a single API instance or external limits for replicated deployment.
+Each request has a 45-second timeout, 6,000 output tokens and 96,000 response-byte
+ceiling; invalid/truncated/ungrounded output fails as a whole, with no automatic
+provider retry. The replaceable adapter follows [DeepSeek Chat Completions](https://api-docs.deepseek.com/api/create-chat-completion/)
+and [JSON Output](https://api-docs.deepseek.com/guides/json_mode/). No public CI
+provider calls or private provider acceptance is implied by synthetic tests.
+
+Duplicate taps are blocked. After an uncertain save, editing freezes and **Retry
+saving tasks** reuses the same complete payload/IDs without calling the model.
+Pending state exists in memory only; before navigating away, reloading or
+recreating tasks, inspect the Task workspace. Repeated deliberate extractions
+or other clients can still create semantically duplicate Tasks with new IDs;
+this is not semantic deduplication. The UI advises checking Tasks first.
+Disable the provider gate to withdraw future suggestions/saves, retaining Tasks,
+originals and history; restore the gate to retry a retained pending save. Existing
+Task HTTP/MCP creation/lifecycle and ordinary capture remain independent.

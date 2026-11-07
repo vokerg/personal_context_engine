@@ -35,11 +35,13 @@ export function TasksPanel({
   token,
   useSessionCookie,
   onOpenNote,
+  refreshVersion = 0,
 }: {
   baseUrl: string;
   token: string;
   useSessionCookie: boolean;
   onOpenNote: (id: string) => void;
+  refreshVersion?: number;
 }) {
   const options = useMemo(
     () => ({
@@ -127,7 +129,7 @@ export function TasksPanel({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [options, status, query, after, reload]);
+  }, [options, status, query, after, reload, refreshVersion]);
 
   useEffect(() => {
     const controller = new AbortController();

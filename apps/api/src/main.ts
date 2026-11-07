@@ -1,3 +1,4 @@
+import { taskSuggestionProvider } from "./task-suggestions-provider.js";
 import { githubFetchConfig, createGitHubSyncService } from "@pce/db";
 import { mcpTransportHost } from "./mcp.js";
 import { tasksEnabled } from "./tasks.js";
@@ -29,6 +30,9 @@ async function start(): Promise<void> {
     const githubOptions = githubFetchConfig(process.env);
     const enableResearchReports = researchReportsEnabled(process.env);
     const enableTasks = tasksEnabled(process.env);
+    const suggestionProvider = taskSuggestionProvider(process.env);
+    if (suggestionProvider && !enableTasks)
+      throw new Error("Suggestions require Tasks");
     if (config.requiresDatabase) {
       // Never start an API with mandatory DB configuration without a live DB.
       db = createDatabaseClient();
@@ -91,6 +95,25 @@ async function start(): Promise<void> {
                     ...(enableTasks
                       ? {
                           tasks: createTaskRepository(connected),
+                          ...(suggestionProvider
+                            ? {
+                                taskSuggestions: {
+                                  provider: suggestionProvider,
+                                  getSource: (owner: string, noteId: string) =>
+                                    connected.note.findFirst({
+                                      where: {
+                                        id: noteId,
+                                        ownerSubject: owner,
+                                        removedAt: null,
+                                      },
+                                      select: {
+                                        captureId: true,
+                                        originalInput: true,
+                                      },
+                                    }),
+                                },
+                              }
+                            : {}),
                           taskBatches:
                             createTaskExtractionRepository(connected),
                         }

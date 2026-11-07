@@ -1,4 +1,8 @@
 import {
+  registerTaskSuggestionRoutes,
+  type TaskSuggestionService,
+} from "./task-suggestions.js";
+import {
   registerGitHubSyncRoutes,
   type GitHubSyncService,
 } from "./github-sync.js";
@@ -114,6 +118,7 @@ export interface PrivateNoteReader {
 export interface ApiDependencies {
   githubSync?: GitHubSyncService;
   tasks?: TaskService;
+  taskSuggestions?: TaskSuggestionService;
   taskBatches?: TaskExtractionService;
   mcp?: McpOptions;
   oauth?: { db: PrismaClient; clients: OAuthClient[] };
@@ -347,6 +352,12 @@ export function createApp(options: ApiOptions = {}) {
   if (options.dependencies?.tasks) {
     if (!sessionAuth) throw new Error("Tasks require scoped sessions");
     registerTaskRoutes(app, sessionAuth, options.dependencies.tasks);
+    registerTaskSuggestionRoutes(
+      app,
+      sessionAuth,
+      options.dependencies.tasks,
+      options.dependencies.taskSuggestions,
+    );
   }
   if (options.dependencies?.search) {
     if (!sessionAuth) throw new Error("DB search requires scoped sessions");

@@ -241,3 +241,32 @@ summary { cursor: pointer; font-weight: 650; margin-top: 16px; }
 
 .date-preset-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
 .date-preset-buttons button[aria-pressed="true"] { font-weight: 700; outline: 2px solid currentColor; outline-offset: -2px; }
+
+.note-tasks {
+  margin-block: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+.note-tasks fieldset {
+  margin-block: 1rem;
+  min-width: 0;
+  border: 1px solid var(--border);
+}
+.note-tasks label {
+  display: block;
+  margin-block: 0.5rem;
+}
+.note-tasks input:not([type="checkbox"]),
+.note-tasks textarea {
+  box-sizing: border-box;
+  width: 100%;
+}
+.note-tasks blockquote {
+  margin-inline: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.note-tasks fieldset > label:first-child { display: flex; align-items: center; gap: .5rem; }
+.note-tasks input[type="checkbox"] { width: auto; margin: 0; }
+.note-tasks textarea { min-height: 5rem; font: inherit; border: 1px solid var(--field-border); border-radius: .5rem; color: var(--text); background: var(--surface); padding: .75rem; }
