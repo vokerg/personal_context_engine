@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - ".agents/skills/ios-device-release/**"
+      - "scripts/ios/**"
       - ".github/workflows/ios-device-release-skill.yml"
   push:
     branches: [main]
     paths:
       - ".agents/skills/ios-device-release/**"
+      - "scripts/ios/**"
       - ".github/workflows/ios-device-release-skill.yml"
 
 permissions:
@@ -27,3 +29,4 @@ jobs:
           node-version-file: .nvmrc
       - run: node --check .agents/skills/ios-device-release/scripts/install.mjs
       - run: node --test .agents/skills/ios-device-release/scripts/validate.mjs
+      - run: node --test scripts/ios/release.node-test.mjs
