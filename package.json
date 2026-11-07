@@ -20,7 +20,7 @@
   "scripts": {
     "dev:local": "node scripts/local-dev.mjs",
     "embeddings:once": "node scripts/run-worker.mjs embeddings-once",
-    "dev": "npm run dev:prepare && concurrently -k -n api,worker,web \"npm run dev:api:serve\" \"npm run dev:worker:serve\" \"npm run dev:web:serve\"",
+    "dev": "npm run dev:prepare && concurrently -k -n api,web \"npm run dev:api:serve\" \"npm run dev:web:serve\"",
     "dev:prepare": "npm run prisma:generate && npm run build -w @pce/core && npm run build -w @pce/contracts && npm run build -w @pce/api-client && npm run build -w @pce/db",
     "dev:api": "npm run dev:prepare && npm run dev:api:serve",
     "dev:api:serve": "npm run dev -w @pce/api",

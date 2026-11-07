@@ -1,6 +1,7 @@
 name: PostgreSQL integration
 
 on:
+  workflow_call:
   pull_request:
     paths:
       - "packages/db/**"
@@ -52,6 +53,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merge_commit_sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -77,10 +79,10 @@ jobs:
           API_PORT=32123 node apps/api/dist/main.js > /tmp/pce-db-api.log 2>&1 &
           pid=$!
           trap 'kill "$pid" 2>/dev/null || true' EXIT
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:32123/ready > /tmp/pce-db-ready.json; then break; fi
             sleep 0.5
           done
           node -e 'const v=require("/tmp/pce-db-ready.json"); if(v.status!=="ready")process.exit(1)'
       - name: PostgreSQL integration tests (synthetic records only)
-        run: npx vitest run --no-file-parallelism apps/api/src/task-acceptance.integration.test.ts apps/api/src/tasks.integration.test.ts packages/db/src/tasks.integration.test.ts packages/db/src/task-policy.integration.test.ts apps/worker/src/task-ingress.integration.test.ts apps/api/src/mcp.integration.test.ts apps/api/src/notes-integration.integration.test.ts apps/api/src/tag-registry.integration.test.ts apps/api/src/note-tags.integration.test.ts apps/api/src/session-auth.integration.test.ts packages/db/src/search.integration.test.ts packages/db/src/api-capture.integration.test.ts packages/db/src/research.integration.test.ts packages/db/src/index.integration.test.ts packages/db/src/tag-registry.integration.test.ts packages/db/src/note-tags.integration.test.ts packages/db/src/note-removal.integration.test.ts packages/db/src/browse.integration.test.ts packages/db/src/hosted-reader.integration.test.ts packages/db/src/chunks.integration.test.ts packages/db/src/embedding-jobs.integration.test.ts apps/worker/src/worker.integration.test.ts scripts/local-runtime.test.mjs scripts/local-ingestion.test.mjs
+        run: npx vitest run --no-file-parallelism packages/db/src/ingestion-staging.integration.test.ts apps/api/src/task-acceptance.integration.test.ts apps/api/src/tasks.integration.test.ts packages/db/src/tasks.integration.test.ts packages/db/src/task-policy.integration.test.ts apps/worker/src/task-ingress.integration.test.ts apps/api/src/mcp.integration.test.ts apps/api/src/notes-integration.integration.test.ts apps/api/src/tag-registry.integration.test.ts apps/api/src/note-tags.integration.test.ts apps/api/src/session-auth.integration.test.ts packages/db/src/search.integration.test.ts packages/db/src/api-capture.integration.test.ts packages/db/src/research.integration.test.ts packages/db/src/index.integration.test.ts packages/db/src/tag-registry.integration.test.ts packages/db/src/note-tags.integration.test.ts packages/db/src/note-removal.integration.test.ts packages/db/src/browse.integration.test.ts packages/db/src/hosted-reader.integration.test.ts packages/db/src/chunks.integration.test.ts packages/db/src/embedding-jobs.integration.test.ts apps/worker/src/worker.integration.test.ts scripts/local-runtime.test.mjs

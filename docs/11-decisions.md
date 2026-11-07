@@ -130,6 +130,8 @@ write APIs remain deferred. Remote bearer transport remains HTTPS only.
 
 ## Local single-user development workspace (#38)
 
+**Historical snapshot/import behavior below superseded by D-034.**
+
 The explicit `dev:local` entry point connects a trusted local Markdown
 checkout, PostgreSQL and read-only web UI. It assigns persisted ownership
 on new imports, filters SQL reads by the verified local subject plus
@@ -141,6 +143,8 @@ decision, a mobile session mechanism, a scheduled ingestion deployment or
 reminder delivery. Generic API/worker startup retains existing defaults.
 
 ## Developer ingestion and harmless capture syntax (#40)
+
+**Development-server worker placement below superseded by D-034; parser behavior remains.**
 
 The v1 parser accepts explicit bare or quoted lowercase slug flow arrays
 for domains/projects/tags while retaining the restricted YAML security
@@ -505,14 +509,24 @@ API/MCP/search with `status: "archived"`; web browse defaults to active and
 offers archived/all selection. Removal still takes precedence and cannot be
 undone by archive toggles.
 
-## Implemented native menu constraint (#142; D-005)
+## Native menu decision (#142/#165; D-005)
 
-The Expo SDK54 custom tab navigator remains in place. Its floating menu uses
-SDK-compatible `expo-glass-effect` and `expo-symbols`, with opaque fallback for
-unsupported builds and Reduce Transparency. No router migration or platform
-system tab-bar behavior is implied. This changes presentation and scroll insets
-only, with no API, storage, session or content contract changes. See the
-[mobile documentation](../apps/mobile/README.md#floating-ios-menu-142).
+**Owner-directed revision, 2026-10-27:** the #142 custom GlassView menu and its
+initial #165 container correction did not satisfy the request for the standard
+iOS Liquid Glass menu. The owner explicitly selected the real system tab bar.
+Replace the custom menu with a pinned standalone `react-native-bottom-tabs`
+adapter using SwiftUI `TabView`/`UITabBarController`; preserve the typed
+session/detail/deep-link state machine and existing screen components. This
+supersedes the earlier constraint to retain custom tab presentation, without
+requiring a whole-app router migration.
+
+The OS owns tab material, selection interaction and accessibility appearance.
+No hand-drawn glass/selection fallback or forced transparency is added. Preserve
+mounted screen state, optional Tasks routes, private-state reset, safe areas,
+note back gestures and active-screen polling. No API, ownership, storage,
+feature-gate or hosted configuration changes are authorized by this decision.
+Native build/install and actual device appearance must be evidenced separately.
+See [mobile operation](../apps/mobile/README.md#floating-ios-menu-142).
 
 ### D-030 — Measured multilingual lexical evidence in shared retrieval (#145)
 
@@ -635,3 +649,72 @@ Release simulator acceptance is recorded separately from untested physical
 device, VoiceOver/audio and live-outage cases. This grants record persistence
 and explicit lifecycle changes, never external execution, reminders or a Note
 capture/retrieval cutover. See [live evidence](evidence/issue-154/2026-10-26-activation.md).
+
+
+### D-032 — Native GCP worker and independent hosted deployment scopes (#169)
+
+**Accepted owner direction, 2026-11-01:** reuse Sportos's native systemd/GitHub
+OIDC/WIF/IAP deployment on the existing shared VM. Keep API hosting on Render
+and frontend hosting on Vercel; API and worker share backend change scope,
+frontend deploys independently, and mobile/docs-only edits skip hosted releases.
+Shared build inputs and unknown paths conservatively affect both lanes.
+
+Use exact merged PR revisions, isolated per-application identities/config/releases,
+pinned SSH, restricted lifecycle controls and previous-release recovery. Runtime
+features, GitHub ingestion, embedding egress and actual production activation
+retain independent gates. No paid network resources, original deletion, backup
+automation or retrieval cutover is selected. Provider releases are not atomic;
+maintain mixed-version/schema/job compatibility. See [deployment operation](26-worker-deployment.md)
+for executable paths and verification/activation limits.
+
+
+### D-033 — Read-only acquisition and location-independent staged ingestion (#173)
+
+**Accepted owner direction (2026-11-01), implemented behind acquisition gate.**
+GitHub-capable Mac workers and owner-authenticated API manual sync share one
+read-only acquisition implementation. PostgreSQL stores exact immutable bytes
+and provenance in dedicated staging. Any trusted owner-scoped DB worker uses the
+same leased consumer and established note/task/research importers; it requires
+no GitHub connection or token. Canonical imports are idempotent; preparation-job
+creation and staging acknowledgement commit together after canonical persistence.
+No source move/delete/edit, implicit canonical revision replacement or missing-file
+deletion is authorized. Direct API/MCP captures remain direct and independent.
+
+`PCE_GITHUB_FETCH_ENABLED` selects acquisition independently from embeddings and
+approved-tag publication. Transition requires stopping legacy finalizers and
+reviewing historical owners/revisions/attempts, additive migration and restricted
+runtime grants. Existing GitHub connector capture/search remains available.
+Production migration/deployment and hosted API GitHub reachability are unverified;
+manual sync stays disabled there until actual host preflight. No NAT, proxy,
+Sportos change, secret provisioning or external action is selected. See the
+[rollout and recovery guide](27-ingestion-staging.md).
+
+
+### D-034 — Explicit worker execution and Mac-independent manual sync (#180)
+
+**Accepted owner direction, 2026-11-03.** One existing DB-jobs worker
+implementation handles staging and preparation. It may acquire GitHub first
+when explicitly started with fetching enabled on a reachable host; GCP disables
+that step. The API acquires only on an authenticated manual sync request.
+Development servers serve the application and never import content, process
+jobs, poll GitHub or apply migrations at startup. This supersedes the embedded
+local importer/checkout snapshot described under #38/#40 and retained in #173.
+Use the shared owner-scoped API database reader in development as well.
+
+The deployed app must work with the Mac switched off. Local PCE background
+schedulers are stopped/disabled under this request, including the scheduled
+DB-preparation/embedding launcher. Embeddings remain separately gated; their
+pause does not block capture, DB processing or lexical search. No extra
+acquisition daemon, paid network route or new provider service is selected.
+Existing GitHub capture/search, immutable originals and replay safety remain.
+
+### D-035 — Private local personal iPhone releases (#182)
+
+Accepted owner direction 2026-11-05: use free local signing and private artifacts
+for repeatable personal iPhone releases; evaluate AltStore Classic without
+changing the existing app identity or losing authentication/data. No paid
+membership, public binaries, backend changes or unattended PCE jobs. Direct
+signed device updates remain the fallback while AltStore's bundle/keychain
+migration is unverified. Remote refresh and Expo OTA require independent
+acceptance; neither replaces Apple's signing expiry. See the
+[release runbook](28-ios-personal-releases.md).

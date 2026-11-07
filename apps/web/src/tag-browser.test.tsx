@@ -459,7 +459,7 @@ it("refreshes metadata hourly without hiding loaded tags during refresh or a tra
   vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
   approvedSlugs = ["focus"];
   const standardFetch = fetch;
-  let statusPolls = 0;
+  let ingestionRequests = 0;
   let deferTags = false;
   let release!: (response: Response) => void;
   vi.stubGlobal(
@@ -468,16 +468,13 @@ it("refreshes metadata hourly without hiding loaded tags during refresh or a tra
       const url = new URL(String(target), "https://api.example.test");
       if (url.pathname === "/__pce/session")
         return new Response(JSON.stringify({ token: "synthetic-token" }));
-      if (url.pathname === "/__pce/ingestion")
-        return new Response(
-          JSON.stringify({
-            enabled: true,
-            running: false,
-            lastRun: String(++statusPolls),
-            error: null,
-            report: null,
-          }),
-        );
+      if (
+        url.pathname === "/__pce/ingestion" ||
+        (url.pathname === "/api/v1/github-sync" && options?.method === "POST")
+      ) {
+        ingestionRequests++;
+        return new Response(null, { status: 503 });
+      }
       if (url.pathname === "/api/v1/browse/facets") {
         requests.push(url);
         return new Response(
@@ -518,7 +515,10 @@ it("refreshes metadata hourly without hiding loaded tags during refresh or a tra
   await act(async () => {
     await vi.advanceTimersByTimeAsync(3_599_999);
   });
-  expect(statusPolls).toBeGreaterThan(100);
+  expect(ingestionRequests).toBe(0);
+  expect(
+    container.querySelector('[aria-label="Ingestion worker status"]'),
+  ).toBeNull();
   expect(count()).toBe(1);
   expect(
     requests.filter((url) => url.pathname === "/api/v1/browse/facets"),

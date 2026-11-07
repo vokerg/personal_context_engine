@@ -10,6 +10,26 @@ services:
     repo: https://github.com/vokerg/personal_context_engine
     branch: main
     autoDeployTrigger: commit
+    # Keep aligned with scripts/deploy/change-scope.mjs. API + worker share scope.
+    buildFilter:
+      ignoredPaths:
+        - apps/web/**
+        - apps/mobile/**
+        - docs/**
+        - .agents/**
+        - .github/ISSUE_TEMPLATE/**
+        - .github/pull_request_template.md
+        - .github/workflows/docs.yml
+        - .github/workflows/ios-device-release-skill.yml
+        - vercel.json
+        - README.md
+        - AGENTS.md
+        - CONTRIBUTING.md
+        - INTENT.md
+        - .env.example
+        - .gitignore
+        - .gitattributes
+        - .editorconfig
     previews:
       generation: "off"
     buildCommand: npm ci --include=dev && npm run prisma:generate && npm run build -w @pce/core && npm run build -w @pce/contracts && npm run build -w @pce/db && npm run build -w @pce/api
@@ -38,6 +58,10 @@ services:
         value: https://personal-context-engine-api.onrender.com
       - key: PCE_OAUTH_CLIENTS
         sync: false
+      # Enable only after GitHub reachability/private-repository read preflight
+      # from this actual API host. The GCP consumer needs neither flag nor token.
+      - key: PCE_GITHUB_FETCH_ENABLED
+        value: "false"
       - key: PCE_MCP_ENABLED
         value: "false"
       # Operator-only opt-in; never enabled by applying the public blueprint.

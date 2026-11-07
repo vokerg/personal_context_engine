@@ -1,0 +1,45 @@
+name: GCP worker start stop restart or status
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Worker operation (never deploys code or stops the VM)
+        required: true
+        type: choice
+        default: status
+        options: [start, stop, restart, status]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pce-gcp-worker-production
+  cancel-in-progress: false
+
+jobs:
+  control:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: gcp-worker-production
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Run selected worker operation
+        env:
+          OPERATION: ${{ inputs.action }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_VM_NAME: ${{ secrets.GCP_VM_NAME }}
+          GCP_VM_ZONE: ${{ secrets.GCP_VM_ZONE }}
+          GCP_SSH_KNOWN_HOSTS: ${{ secrets.GCP_SSH_KNOWN_HOSTS }}
+        run: bash deploy/gcp/ssh-operation.sh "$OPERATION"

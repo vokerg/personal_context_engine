@@ -2,10 +2,23 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@react-native-community/datetimepicker", () => ({
+  default: () => null,
+}));
+vi.mock("expo-secure-store", () => ({
+  getItemAsync: async () => null,
+  setItemAsync: async () => undefined,
+}));
 vi.mock("expo-crypto", () => ({
   randomUUID: () => "00000000-0000-4000-8000-000000000099",
 }));
-vi.mock("./tab-bar", () => ({ TabBar: () => null }));
+vi.mock("./tab-bar", () => ({ NativeTabs: () => null }));
+vi.mock("react-native-safe-area-context", () => ({
+  SafeAreaProvider: ({ children }: { children: React.ReactNode }) =>
+    React.createElement("div", null, children),
+  SafeAreaView: ({ children }: { children: React.ReactNode }) =>
+    React.createElement("main", null, children),
+}));
 vi.mock("./native-auth", () => ({ createNativeSession: () => null }));
 vi.mock("react-native", async () => {
   const { createElement: element } = await import("react");
@@ -34,6 +47,8 @@ vi.mock("react-native", async () => {
         children,
       );
   return {
+    Appearance: { setColorScheme: vi.fn() },
+    PanResponder: { create: () => ({ panHandlers: {} }) },
     Pressable: host("button"),
     Text: host("span"),
     View: host("div"),

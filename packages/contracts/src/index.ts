@@ -31,6 +31,7 @@ export const ApiErrorResponseSchema = z
           "FORBIDDEN",
           "NOT_FOUND",
           "SERVICE_UNAVAILABLE",
+          "RATE_LIMITED",
           "INTERNAL_ERROR",
           "CONFLICT",
         ]),
@@ -441,3 +442,26 @@ export type {
   ResearchReceipt,
   ResearchRecord,
 } from "./research.js";
+
+export const GitHubSyncResultSchema = z
+  .object({
+    examined: z.number().int().nonnegative(),
+    staged: z.number().int().nonnegative(),
+    alreadyStaged: z.number().int().nonnegative(),
+    failed: z.number().int().nonnegative(),
+    hasMore: z.boolean(),
+  })
+  .strict();
+export type GitHubSyncResult = z.infer<typeof GitHubSyncResultSchema>;
+export const GitHubSyncStatusSchema = z
+  .object({
+    enabled: z.boolean(),
+    reason: z.string().nullable(),
+    lastSuccessfulScan: z.string().nullable(),
+    hasMore: z.boolean(),
+    pending: z.number().int().nonnegative(),
+    processed: z.number().int().nonnegative(),
+    invalid: z.number().int().nonnegative(),
+  })
+  .strict();
+export type GitHubSyncStatus = z.infer<typeof GitHubSyncStatusSchema>;

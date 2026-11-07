@@ -8,6 +8,21 @@ Build a replaceable-channel personal context engine: capture (voice/text) throug
 
 **Current state (2026-10-20):** the optional local runtime supports the existing GitHub ingestion/finalization flow, persisted single-user ownership and sessions (#44), DB-first API capture with idempotency/jobs (#45), separately gated bounded embeddings (#46/#47), and owner-scoped lexical/hybrid web/API search (#48). Optional same-login OAuth S256 PKCE and stateless MCP tools are locally tested with the official client (#49). Public/default startup stays gated and the default development worker remains idle. Hosted HTTPS deployment, actual ChatGPT connector acceptance and retrieval cutover (#50), notifications and unattended synthesis are not verified or implemented. Inspect source and tests before making changes.
 
+**Two-stage transition (#173, 2026-11-01):** explicit `PCE_GITHUB_FETCH_ENABLED`
+selects shared read-only GitHub acquisition into exact-byte DB staging. DB-jobs
+workers consume staging without a GitHub token using the same processor on all
+hosts. Legacy GitHub-finalizing ingestion remains only outside that transition;
+stop it before enabling acquisition. See [the rollout guide](docs/27-ingestion-staging.md)
+for required additive migration, restricted grants and pending hosted acceptance.
+Production migration/deployment is never implied by implementation/test success.
+
+**Execution boundary (D-034, #180, 2026-11-03):** only an explicitly started
+DB-jobs worker may run its optional GitHub-first step. GCP runs that same worker
+with fetching disabled. API GitHub acquisition is manual/on demand only.
+Development servers never import content, process jobs, poll GitHub or apply
+migrations at startup. Do not start or leave local PCE background schedulers
+running as a side effect of verification; hosted operation must not require a Mac.
+
 ## Active direction and rollout boundaries (revised 2026-10-20)
 
 Read [INTENT.md](INTENT.md), [docs/13-evolution-plan.md](docs/13-evolution-plan.md) and [issue #42](https://github.com/vokerg/personal_context_engine/issues/42) before implementing new capture, search, embeddings, MCP, ledger or web UX work.
@@ -68,3 +83,7 @@ Use the decision register to settle changes rather than quietly revising assumpt
 ## Content-agent boundary
 
 The eventual private content repository may have its own narrow `AGENTS.md` for note capture. That agent should operate only on approved content paths and must not inherit code-changing privileges merely because it shares the Personal Context Engine name. ChatGPT Project instructions must explicitly load the relevant content rules; an `AGENTS.md` file is not automatically applied by every ChatGPT integration.
+
+## On-demand iOS device Release installation
+
+For on-demand **physical iPhone Release** deployment from a local Mac, use the repository skill [ios-device-release](.agents/skills/ios-device-release/SKILL.md). The skill runs a guarded helper against the current checkout with normal Xcode signing and a free Apple Personal Team. Run it **only locally**, never in remote GitHub CI/agents; the owner must complete first-time Xcode/device trust and authorize provisioning in Xcode. Do not confuse the Release installation path with the existing simulator/Metro development workflow.

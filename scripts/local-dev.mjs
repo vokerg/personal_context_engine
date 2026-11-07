@@ -1,12 +1,10 @@
 #!/usr/bin/env node
-import { startLocalIngestion } from "./local-ingestion.mjs";
 import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import {
   localConfig,
-  createLocalReader,
   mintSession,
   sessionAllowed,
   issuer,
@@ -14,10 +12,9 @@ import {
 } from "./local-runtime.mjs";
 
 process.chdir(fileURLToPath(new URL("..", import.meta.url)));
-let api, web, db, ingestion;
+let api, web, db;
 let startupStage = "initializing";
 async function close() {
-  await ingestion?.close();
   await web?.close();
   await api?.close();
   await db?.$disconnect();
@@ -70,51 +67,65 @@ try {
   await portAvailable(config.webPort);
   startupStage = "building workspaces";
   await run(["run", "build"]);
-  // Session-level migration locks require the configured direct connection.
-  // Runtime API/worker queries keep the pooled DATABASE_URL unchanged.
-  startupStage = "applying database migrations";
-  await run(["run", "db:migrate"], {
-    env: {...process.env, DATABASE_URL:process.env.DIRECT_URL ?? process.env.DATABASE_URL},
-    quiet:true,
-  });
-  console.log("Database migrations checked.");
   startupStage = "loading runtime modules";
   const { createDatabaseClient, checkDatabase } = await import("@pce/db");
-  const { createSessionAuth, sessionConfig } = await import("../apps/api/dist/session-auth.js");
-  const sessionOptions = sessionConfig({...process.env,PCE_WEB_ORIGIN:config.origin,PCE_API_ORIGIN:`http://127.0.0.1:${config.apiPort}`});
+  const { createSessionAuth, sessionConfig } =
+    await import("../apps/api/dist/session-auth.js");
+  const sessionOptions = sessionConfig({
+    ...process.env,
+    PCE_WEB_ORIGIN: config.origin,
+    PCE_API_ORIGIN: `http://127.0.0.1:${config.apiPort}`,
+  });
   if (sessionOptions) sessionOptions.allowedOrigins = config.origins;
   const { createApp } = await import("../apps/api/dist/app.js");
   const { createServer: createVite } = await import("vite");
   startupStage = "connecting to database";
   db = createDatabaseClient();
   await db.$connect();
-  const sessionAuth = sessionOptions ? createSessionAuth(db,sessionOptions) : undefined;
-  const {createSearchService}=await import("../apps/api/dist/search.js");
-  const {queryEmbeddingProvider}=await import("../apps/api/dist/search-provider.js");
-  const {createSearchRepository,createApiCaptureRepository}=await import("@pce/db");
-  if(config.searchEnabled&&!sessionAuth)throw new Error("Search requires explicit local session mode");
-  const {researchReportsEnabled}=await import("../apps/api/dist/config.js");
-  const researchEnabled=researchReportsEnabled(process.env);
+  const sessionAuth = sessionOptions
+    ? createSessionAuth(db, sessionOptions)
+    : undefined;
+  const { createSearchService } = await import("../apps/api/dist/search.js");
+  const { queryEmbeddingProvider } =
+    await import("../apps/api/dist/search-provider.js");
+  const { createSearchRepository, createApiCaptureRepository } =
+    await import("@pce/db");
+  if (config.searchEnabled && !sessionAuth)
+    throw new Error("Search requires explicit local session mode");
+  const { researchReportsEnabled } = await import("../apps/api/dist/config.js");
+  const researchEnabled = researchReportsEnabled(process.env);
   const { tasksEnabled } = await import("../apps/api/dist/tasks.js");
   const enableTasks = tasksEnabled(process.env);
-  if(enableTasks&&!sessionAuth)throw new Error("Tasks require explicit local sessions");
-  const { createTaskRepository, createTaskExtractionRepository } = await import("@pce/db");
-  if(researchEnabled&&!sessionAuth)throw new Error("Research requires explicit local sessions");
-  const {createResearchRepository,createTagRegistryRepository,createNoteTagRepository}=await import("@pce/db");
-  const search=config.searchEnabled?createSearchService(createSearchRepository(db,researchEnabled),randomBytes(32).toString("hex"),queryEmbeddingProvider(process.env),undefined,process.env.PCE_SEARCH_DIAGNOSTICS === "true"):undefined;
-  const {oauthClients}=await import("../apps/api/dist/oauth.js");
-  const clients=oauthClients(process.env);
-  if(clients.length && (!search || !sessionAuth))throw new Error("MCP requires local search and sessions");
-  const ids = [];
-  ingestion = startLocalIngestion({
-    db,
-    contentRoot: config.contentRoot,
-    ids,
-    env: process.env,
-  });
-  startupStage = "importing local content";
-  await ingestion.refresh();
-  if (ingestion.status.error) throw new Error("Initial ingestion failed");
+  if (enableTasks && !sessionAuth)
+    throw new Error("Tasks require explicit local sessions");
+  const {
+    createGitHubSyncService,
+    githubFetchConfig,
+    createTaskRepository,
+    createTaskExtractionRepository,
+  } = await import("@pce/db");
+  if (researchEnabled && !sessionAuth)
+    throw new Error("Research requires explicit local sessions");
+  const {
+    createResearchRepository,
+    createTagRegistryRepository,
+    createNoteTagRepository,
+  } = await import("@pce/db");
+  const search = config.searchEnabled
+    ? createSearchService(
+        createSearchRepository(db, researchEnabled),
+        randomBytes(32).toString("hex"),
+        queryEmbeddingProvider(process.env),
+        undefined,
+        process.env.PCE_SEARCH_DIAGNOSTICS === "true",
+      )
+    : undefined;
+  const { oauthClients } = await import("../apps/api/dist/oauth.js");
+  const clients = oauthClients(process.env);
+  if (clients.length && (!search || !sessionAuth))
+    throw new Error("MCP requires local search and sessions");
+  const { createDatabaseNoteReader } =
+    await import("../apps/api/dist/database-reader.js");
   const secret = randomBytes(32).toString("hex");
   api = createApp({
     config: {
@@ -127,17 +138,29 @@ try {
       auth: { issuer, audience, secret },
     },
     dependencies: {
-      ...(sessionAuth ? {sessionAuth,capture:createApiCaptureRepository(db)} : {}),
-      ...(search?{search,noteTagEdits:createNoteTagRepository(db)}:{}),
-      ...(sessionAuth?{tagRegistry:createTagRegistryRepository(db)}:{}),
-      ...(researchEnabled?{research:createResearchRepository(db)}:{}),
-      ...(enableTasks?{tasks:createTaskRepository(db),taskBatches:createTaskExtractionRepository(db)}:{}),
-      ...(clients.length?{mcp:{db,clients}}:{}),
+      ...(sessionAuth
+        ? {
+            sessionAuth,
+            capture: createApiCaptureRepository(db),
+            githubSync: createGitHubSyncService(
+              db,
+              sessionOptions.ownerSubject,
+              githubFetchConfig(process.env),
+            ),
+          }
+        : {}),
+      ...(search ? { search, noteTagEdits: createNoteTagRepository(db) } : {}),
+      ...(sessionAuth ? { tagRegistry: createTagRegistryRepository(db) } : {}),
+      ...(researchEnabled ? { research: createResearchRepository(db) } : {}),
+      ...(enableTasks
+        ? {
+            tasks: createTaskRepository(db),
+            taskBatches: createTaskExtractionRepository(db),
+          }
+        : {}),
+      ...(clients.length ? { mcp: { db, clients } } : {}),
       checkDatabase: () => checkDatabase(db),
-      notes: createLocalReader(db, ids, {
-        browseEnabled: config.browseEnabled,
-        cursorSecret: randomBytes(32).toString("hex"),
-      }),
+      notes: createDatabaseNoteReader(db, randomBytes(32).toString("hex")),
     },
   });
   startupStage = "starting web server";
@@ -151,9 +174,15 @@ try {
     },
     define: {
       "import.meta.env.VITE_PCE_TASKS": JSON.stringify(String(enableTasks)),
-      "import.meta.env.VITE_PCE_RESEARCH_REPORTS": JSON.stringify(String(researchEnabled)),
-      "import.meta.env.VITE_PCE_DB_SEARCH": JSON.stringify(String(config.searchEnabled)),
-      "import.meta.env.VITE_PCE_SESSION_AUTH": JSON.stringify(String(!!sessionAuth)),
+      "import.meta.env.VITE_PCE_RESEARCH_REPORTS": JSON.stringify(
+        String(researchEnabled),
+      ),
+      "import.meta.env.VITE_PCE_DB_SEARCH": JSON.stringify(
+        String(config.searchEnabled),
+      ),
+      "import.meta.env.VITE_PCE_SESSION_AUTH": JSON.stringify(
+        String(!!sessionAuth),
+      ),
       "import.meta.env.VITE_PCE_LOCAL_DEV": JSON.stringify("true"),
       "import.meta.env.VITE_PCE_LOCAL_BROWSE": JSON.stringify(
         String(config.browseEnabled),
@@ -167,8 +196,7 @@ try {
         name: "pce-local-session",
         configureServer(server) {
           server.middlewares.use(async (req, res, next) => {
-            if (!["/__pce/session", "/__pce/ingestion"].includes(req.url))
-              return next();
+            if (req.url !== "/__pce/session") return next();
             res.setHeader("Cache-Control", "no-store");
             res.setHeader("X-Content-Type-Options", "nosniff");
             if (!sessionAllowed(req, config.origins)) {
@@ -179,25 +207,37 @@ try {
             res.setHeader("Content-Type", "application/json");
             if (sessionAuth && req.url === "/__pce/session") {
               try {
-                const request = {headers:req.headers,ip:req.socket.remoteAddress};
+                const request = {
+                  headers: req.headers,
+                  ip: req.socket.remoteAddress,
+                };
                 let current = await sessionAuth.browserSession(request);
                 if (!current && sessionOptions.mode === "dev-single-user") {
-                  const result = await sessionAuth.login({}, { ...request, headers:{...req.headers,origin:config.origin} }, true);
-                  res.setHeader("Set-Cookie",result.cookieHeaders); current=result.session;
+                  const result = await sessionAuth.login(
+                    {},
+                    {
+                      ...request,
+                      headers: { ...req.headers, origin: config.origin },
+                    },
+                    true,
+                  );
+                  res.setHeader("Set-Cookie", result.cookieHeaders);
+                  current = result.session;
                 }
-                if(!current){res.statusCode=401;res.end();return;}
-                res.end(JSON.stringify({token:"session-cookie"}));
-              } catch {res.statusCode=503;res.end();}
+                if (!current) {
+                  res.statusCode = 401;
+                  res.end();
+                  return;
+                }
+                res.end(JSON.stringify({ token: "session-cookie" }));
+              } catch {
+                res.statusCode = 503;
+                res.end();
+              }
               return;
             }
 
-            res.end(
-              JSON.stringify(
-                req.url === "/__pce/ingestion"
-                  ? ingestion.status
-                  : { token: mintSession(secret) },
-              ),
-            );
+            res.end(JSON.stringify({ token: mintSession(secret) }));
           });
         },
       },
@@ -207,7 +247,6 @@ try {
   await api.listen({ host: "127.0.0.1", port: config.apiPort });
   startupStage = "starting web server listener";
   await web.listen();
-  ingestion.start();
   console.log(
     `Open ${config.origin} — local read-only session connects automatically.`,
   );

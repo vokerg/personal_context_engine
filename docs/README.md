@@ -60,3 +60,9 @@ Where a contract remains proposed, implement a test-backed specification before 
 - [24 — Shared Task extraction policy](24-task-extraction-policy.md) — tasks-v1 normative model decisions and inactive prompt/plugin integration boundaries.
 
 - [25 — Task acceptance and rollout](25-task-acceptance.md) — reproducible synthetic cross-surface verification, staged review, retained-data rollback and outstanding live gates.
+
+- [26 — Native worker deployment](26-worker-deployment.md) — Sportos-style GCP packaging, isolated runtime, GitHub deployment/controls and independent backend/frontend scopes.
+
+- [27 — Two-stage GitHub ingestion](27-ingestion-staging.md) — shared acquisition/staging/processing, manual web/iOS sync, additive migration, restricted grants and manual rollout.
+
+- [28 — Private personal iPhone releases](28-ios-personal-releases.md) — local signed IPA builds, direct updates, AltStore migration and refresh limits.

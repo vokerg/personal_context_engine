@@ -1,9 +1,13 @@
+import { GitHubSync } from "./GitHubSync.js";
+import { resumeAuthorization } from "./authorization-continuation";
 import { TasksPanel } from "./TasksPanel.js";
 import { SuggestionPicker } from "./SuggestionPicker.js";
 import { NoteTagPicker } from "./NoteTagPicker.js";
 import { ResearchPanel } from "./ResearchPanel.js";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
+  datePresets,
+  presetDates,
   ApiRequestError,
   describeNotesError,
   getNote,
@@ -41,23 +45,6 @@ import {
 } from "./browse.js";
 
 type LoadState = "loading" | "ready" | "error";
-type IngestionStatus = {
-  enabled: boolean;
-  running: boolean;
-  lastRun: string | null;
-  error: string | null;
-  report: { finalized: number; rejected: number; retried: number } | null;
-  checkpoint?: {
-    lastScanAt: string | null;
-    reconciledAt: string | null;
-    revisionPending: boolean;
-  } | null;
-  reconciliation?: {
-    conflicts: number;
-    missing: number;
-    invalid: number;
-  } | null;
-};
 
 const initialFilters = emptyFilters;
 
@@ -116,7 +103,6 @@ export function App({
   const [notice, setNotice] = useState("");
   const researchTargets = useRef(new Map<string, string>());
   const [searchStatus, setSearchStatus] = useState("");
-  const [ingestion, setIngestion] = useState<IngestionStatus | null>(null);
   const [listState, setListState] = useState<LoadState>("loading");
   const [listError, setListError] = useState("");
   const [notes, setNotes] = useState<NotePreview[]>([]);
@@ -385,6 +371,11 @@ export function App({
     }
   }
 
+  useEffect(() => {
+    if (!token || !sessionAuthentication) return;
+    resumeAuthorization(baseUrl);
+  }, [token, sessionAuthentication, baseUrl]);
+
   async function passwordLogin(event: FormEvent) {
     event.preventDefault();
     setNotice("");
@@ -468,31 +459,6 @@ export function App({
     window.addEventListener("popstate", restoreSelection);
     return () => window.removeEventListener("popstate", restoreSelection);
   }, []);
-
-  useEffect(() => {
-    if (!localDevelopment) return;
-    let active = true;
-    const refresh = async () => {
-      try {
-        const response = await fetch("/__pce/ingestion", {
-          cache: "no-store",
-          credentials: "same-origin",
-        });
-        if (response.ok) {
-          const status = (await response.json()) as IngestionStatus;
-          if (active) setIngestion(status);
-        }
-      } catch {
-        // A status failure never grants, extends, or alters authorization.
-      }
-    };
-    void refresh();
-    const timer = setInterval(() => void refresh(), 10000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, [localDevelopment]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -674,17 +640,9 @@ export function App({
       active = false;
       controller.abort();
     };
-  }, [
-    baseUrl,
-    token,
-    reloadCount,
-    apiFilters,
-    browseCursor,
-    browseEnabled,
-    browseEnabled ? null : ingestion?.lastRun,
-  ]);
+  }, [baseUrl, token, reloadCount, apiFilters, browseCursor, browseEnabled]);
 
-  // Facets are slow-changing metadata, independent of ingestion status polling.
+  // Facets are slow-changing metadata.
   useEffect(() => {
     if (!token) return;
     const timer = setInterval(
@@ -1158,6 +1116,12 @@ export function App({
                   Refresh notes
                 </button>
               )}
+              <GitHubSync
+                key={token}
+                baseUrl={baseUrl}
+                token={token}
+                useSessionCookie={sessionAuthentication}
+              />
               <button
                 className="ghost"
                 type="button"
@@ -1324,11 +1288,43 @@ export function App({
                   }
                 />
               </div>
+              <div
+                className="filter-field date-presets"
+                role="group"
+                aria-label="Quick date range"
+              >
+                <span>Period</span>
+                <div className="date-preset-buttons">
+                  {datePresets.map((preset) => {
+                    const range = presetDates(preset.id);
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        aria-label={preset.label + " date range"}
+                        aria-pressed={
+                          filters.from === range.from && filters.to === range.to
+                        }
+                        onClick={() => changeFilter(presetDates(preset.id))}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               <div className="filter-field filter-date">
                 <label htmlFor="from-date">From (local date)</label>
                 <input
                   id="from-date"
                   type="date"
+                  onClick={(event) => {
+                    try {
+                      event.currentTarget.showPicker?.();
+                    } catch {
+                      /* Native input remains usable. */
+                    }
+                  }}
                   value={filters.from}
                   onChange={(event) =>
                     changeFilter({ from: event.target.value })
@@ -1340,6 +1336,13 @@ export function App({
                 <input
                   id="to-date"
                   type="date"
+                  onClick={(event) => {
+                    try {
+                      event.currentTarget.showPicker?.();
+                    } catch {
+                      /* Native input remains usable. */
+                    }
+                  }}
                   value={filters.to}
                   onChange={(event) => changeFilter({ to: event.target.value })}
                 />
@@ -2091,87 +2094,6 @@ export function App({
             )}
           </section>
         </div>
-      )}
-
-      {localDevelopment && (
-        <section
-          className="panel status-panel"
-          aria-label="Ingestion worker status"
-        >
-          <h2>Ingestion worker</h2>
-          {!ingestion ? (
-            <p>
-              Worker status is unavailable. A local session can still display
-              previously indexed notes.
-            </p>
-          ) : (
-            <>
-              <p>
-                {ingestion.enabled
-                  ? ingestion.running
-                    ? "Processing GitHub inbox…"
-                    : "Watching GitHub every 30 seconds."
-                  : "GitHub ingestion is disabled; showing a local snapshot."}
-              </p>
-              {ingestion.lastRun && (
-                <p>
-                  Last successful check:{" "}
-                  {new Date(ingestion.lastRun).toLocaleString()}
-                </p>
-              )}
-              {ingestion.report && (
-                <p>
-                  Last pass: {ingestion.report.finalized} finalized,{" "}
-                  {ingestion.report.rejected} rejected,{" "}
-                  {ingestion.report.retried} retries.
-                </p>
-              )}
-              {ingestion.checkpoint && (
-                <p>
-                  {ingestion.checkpoint.revisionPending
-                    ? "Source revision awaits reconciliation."
-                    : "Observed source revision reconciled."}
-                  {ingestion.checkpoint.reconciledAt && (
-                    <>
-                      {" "}
-                      Last reconciliation:{" "}
-                      {new Date(
-                        ingestion.checkpoint.reconciledAt,
-                      ).toLocaleString()}
-                      .
-                    </>
-                  )}
-                </p>
-              )}
-              {ingestion.reconciliation && (
-                <p
-                  role={
-                    ingestion.reconciliation.conflicts ||
-                    ingestion.reconciliation.missing ||
-                    ingestion.reconciliation.invalid
-                      ? "status"
-                      : undefined
-                  }
-                >
-                  Source checks: {ingestion.reconciliation.conflicts} conflicts,{" "}
-                  {ingestion.reconciliation.missing} missing sources,{" "}
-                  {ingestion.reconciliation.invalid} invalid files. Stored
-                  originals are retained.
-                </p>
-              )}
-              {ingestion.error && (
-                <p className="error" role="alert">
-                  Ingestion needs attention. Check repository access, clean
-                  checkout and note ownership. Previous notes remain available.
-                </p>
-              )}
-              <p>
-                Rejected captures remain recoverable in the repository; use
-                capture:validate to diagnose them.
-              </p>
-            </>
-          )}
-        </section>
       )}
     </main>
   );

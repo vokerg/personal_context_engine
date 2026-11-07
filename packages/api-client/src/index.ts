@@ -1,3 +1,5 @@
+import { GitHubSyncResultSchema, GitHubSyncStatusSchema } from "@pce/contracts";
+export type { GitHubSyncResult, GitHubSyncStatus } from "@pce/contracts";
 import {
   TaskExtractionBatchSchema,
   TaskBatchReceiptSchema,
@@ -615,3 +617,32 @@ export function saveTaskBatch(
   );
 }
 export type { TaskExtractionBatch, TaskBatchReceipt } from "@pce/contracts";
+
+export * from "./date-presets.js";
+
+export function getGitHubSyncStatus(options: AuthenticatedRequestOptions) {
+  return authenticatedGet(options, "/api/v1/github-sync/status", (data) =>
+    GitHubSyncStatusSchema.parse(data),
+  );
+}
+export function syncFromGitHub(options: AuthenticatedRequestOptions) {
+  return authenticatedGet(
+    options,
+    "/api/v1/github-sync",
+    (data) => GitHubSyncResultSchema.parse(data),
+    {},
+  );
+}
+
+export function describeGitHubSyncError(error: unknown): string {
+  if (error instanceof ApiRequestError) {
+    if (error.status === 401) return "Session expired. Sign in again.";
+    if (error.status === 403)
+      return "Reconnect with capture permission to sync this owner's GitHub source.";
+    if (error.status === 429)
+      return "A sync batch is already running or was just requested. Wait a few seconds and retry.";
+    if (error.status === 503)
+      return "GitHub fetching is disabled or unavailable on the API. Ask the operator to check its GitHub access.";
+  }
+  return "Could not sync from GitHub. Check your connection and retry; repeated sync is safe.";
+}

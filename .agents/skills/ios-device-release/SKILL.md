@@ -1,0 +1,51 @@
+---
+name: ios-device-release
+description: Build, locally sign, install and launch the Personal Context Engine Expo iOS app as a standalone Release build on a connected physical iPhone from a Mac. Use for on-demand iPhone deployment or renewing free Personal Team signing; not for simulators, Expo Go, EAS, TestFlight or App Store submissions.
+---
+
+# iPhone Release deployment (local Mac only)
+
+This skill is a reproducible local device workflow, **not** an instruction to modify app/server code. Read [apps/mobile/README.md](../../../apps/mobile/README.md) before troubleshooting native auth or signing.
+
+## Procedure
+
+1. Check the local checkout and `git status --short`. Build the code currently checked out; do not pull, switch branches, discard changes or commit generated files without an explicit request.
+2. Use Node 22 (see `.nvmrc`). Ensure the existing `apps/mobile/.env.local` has `EXPO_PUBLIC_API_BASE_URL` set to the deployed HTTPS API origin and `EXPO_PUBLIC_OAUTH_CLIENT_ID` set to the registered public native OAuth client. **Never expose their values in transcripts or logs.** Never put secrets or tokens in Expo public env.
+3. Connect and unlock the iPhone, trust this Mac, and enable **Settings > Privacy & Security > Developer Mode** on the phone. Restart and confirm enabling it after reboot. Let Xcode > Window > Devices and Simulators finish preparing the phone; an available `xcdevice` entry alone does not prove Developer Mode or developer disk image (DDI) readiness. Sign into **Xcode > Settings > Apple Accounts** with an Apple ID. For a free account, select **Personal Team** under Signing & Capabilities with automatic signing for the `dev.pce.mobile` target. Have the owner complete Apple sign-in, 2FA and any certificate/profile confirmation in Apple's UI; never request their password in chat.
+
+   For repeat refreshes, an already paired iPhone can connect over Wi-Fi. Same-network access alone does not establish pairing or developer readiness. Check `xcrun devicectl list devices` and the helper preflight before requesting a cable. To verify wireless transport, inspect devicectl device details locally for `connectionProperties.transportType = localNetwork` and `tunnelState = connected`; do not print raw device details. Use available computer controls to inspect Xcode and resolve routine preparation/signing UI steps before handing work back to the owner. Request owner action only for an actual device-side step, Apple sign-in/2FA, or certificate/profile authorization prompt.
+4. From the repository root, run the safe preflight:
+
+~~~sh
+node .agents/skills/ios-device-release/scripts/install.mjs --check
+~~~
+
+5. If preflight passes, build and install the embedded-JS Release app (no Metro):
+
+~~~sh
+node .agents/skills/ios-device-release/scripts/install.mjs
+~~~
+
+If multiple iPhones are connected, pass `--device DEVICE_ID` to both commands. Use the exact identifier reported by the preflight. The helper prepares shared workspaces and invokes Expo's supported `expo run:ios --configuration Release --no-bundler --device DEVICE_ID` through the repo npm workspace; Expo owns Xcode build, installation and launch. `--no-bundler` prevents Expo from starting a persistent Metro development server, including for Release. Compilation still uses Metro to create the embedded JS bundle; a build-time "Starting Metro Bundler" message alone is not evidence of a running development server. The helper only reports the success/failure of that **combined operation**; do not claim independently verified install, boot or sign-in.
+
+Preflight checks Developer Mode/DDI using `devicectl` and requires a valid local code-signing identity. It does not prove provisioning for this app/device; Xcode verifies that during the build. Device details and certificate output are not logged. Preserve existing public feature flags in `.env.local`, including the independently enabled Tasks flag; do not change server scopes or feature registration as part of installation.
+
+6. Ask the owner to confirm the app launches without Metro, OAuth returns to `pce://oauth/callback`, and signed-in session survives a cold relaunch. Report what the tool actually established and which device checks remain manual.
+
+## Troubleshooting and guardrails
+
+- Initial or expired free provisioning: open the ignored `apps/mobile/ios/*.xcworkspace` in Xcode; set target > Signing & Capabilities > Automatically manage signing > Personal Team for **Release** (or all configurations), then retry the helper. If the workspace does not exist yet, run `npm exec -w @pce/mobile -- expo prebuild --platform ios` without `--clean` to generate it, and inspect any tracked-file changes. Do not commit incidental generated package-script changes. Xcode may ask to create/manage a certificate/profile: the owner must explicitly authorize this via Apple's UI. Free provisioning usually expires after 7 days; repeat install/re-sign. No $99 Apple Developer membership is required for this local route.
+- If Expo reports no matching provisioning profile, inspect the existing target's **Release** Signing & Capabilities in Xcode using computer controls. Check automatic signing and the existing Personal Team, then open profile information to verify expiry, bundle ID, certificate and inclusion of the connected iPhone. Opening the workspace may let Xcode refresh provisioning: on 2026-11-03, inspection showed a profile created that day and the helper retry built successfully without changing teams or creating a certificate. Do not infer that every missing-profile error needs owner intervention or pass provisioning-update flags blindly.
+- If the Release build succeeds but Expo remains at **Connecting to** during wireless installation, inspect the phone in Xcode > Window > Devices and Simulators. If Xcode can reach it, stop the stalled Expo installer before starting another installation. Use **Add installed app** to select the signed `Release-iphoneos/PersonalContextEngine.app` artifact from that build's reported output path, and confirm replacement of the existing app. Do not uninstall or rebuild merely to retry the transfer. Wait for Xcode's installation to finish, then launch the app with `xcrun devicectl device process launch --device DEVICE_ID dev.pce.mobile` using the identifier from the current inventory. This fallback succeeded over the local network on 2026-11-03. Report the separate build/install/launch evidence; OAuth and cold-relaunch behavior still require owner verification.
+- Apple Account setup is separate from signing in to PCE inside a simulator. If the account exists but no development certificate exists, use Apple Accounts > Personal Team > Manage Certificates > **Apple Development**, with the owner's confirmation. Then select that Personal Team in the generated app target's Signing & Capabilities; let Xcode finish provisioning before retrying the helper. Keep this machine-specific selection in the ignored native project, not in tracked `app.json`.
+- If Xcode shows the development certificate but the helper still reports no valid signing identity, inspect certificate validity and its issuer locally. On the first physical-device setup, the only installed WWDR intermediate was expired (2023); the new development certificate required **WWDR G3**. Download the matching intermediate from [Apple PKI](https://www.apple.com/certificateauthority/), verify it with normal system trust (`security verify-cert -c CERTIFICATE_FILE -p basic`), then import it into the user's login keychain with default trust. [Apple's missing-intermediate guidance](https://help.apple.com/xcode/mac/current/en.lproj/devc4c7101d8.html) explains this recovery. Recheck the helper before building; do not revoke/recreate a valid development identity, force Always Trust, disable validation, or replace root certificates to work around a missing intermediate. Keep raw certificate/identity output local.
+- If Developer Mode is enabled but DDI services remain unavailable, inspect the phone's preparation error in Xcode > Window > Devices and Simulators. The installed Xcode/device-support components must support the phone's iOS version; do not substitute a simulator or claim installation succeeded.
+- On the first install, the build and installation can succeed while launch is denied because the Developer App profile is not trusted. Have the owner open **iPhone Settings > General > VPN & Device Management**, select their Developer App identity and confirm trust in Apple's UI. Verify the local app signature/profile and the installed `dev.pce.mobile` entry before diagnosing every launch denial as untrusted provisioning; the same iOS error also mentions invalid signatures/entitlements. Retry launch without rebuilding once trust is established; no uninstall or content reset is needed.
+- An iPhone missing from the inventory may be unplugged, locked, untrusted, not paired, or unavailable under Developer Mode. Never fall back to an iOS simulator.
+- Do not set `CODE_SIGNING_ALLOWED=NO`: the app uses SecureStore/Keychain and cannot authenticate correctly without the signing entitlements (observed in #131).
+- Preserve `dev.pce.mobile`, `pce://oauth/callback`, user data and installed app identity. Do not uninstall, clear app data, change provisioning teams, override signing settings, or regenerate native folders with `--clean` without explicit consent.
+- No Expo Go, EAS Build, TestFlight, paid distribution, unattended provisioning, `sudo`, or changes to hosted OAuth registration. Never copy personal notes or credentials into the public code repository.
+- The generated `apps/mobile/ios/` path is gitignored; do not commit generated workspace, machine profiles, private artifacts or logs.
+- For non-device validation: `node --test .agents/skills/ios-device-release/scripts/validate.mjs`. It runs without Xcode and is not proof of any successful real-device build.
+
+When failing, state the exact failed **stage** when it is known (preflight, shared-package preparation, or Expo's combined build/install/launch), plus minimal safe recovery steps. Distinguish tool success from user-observed runtime behavior.

@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./content-store-port": {
+      "types": "./dist/content-store-port.d.ts",
+      "default": "./dist/content-store-port.js"
     }
   },
   "scripts": {
@@ -16,6 +20,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@pce/contracts": "0.1.0",
     "@pce/core": "0.1.0",
     "@prisma/client": "6.19.1"
   }

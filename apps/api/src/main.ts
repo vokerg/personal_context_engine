@@ -1,3 +1,4 @@
+import { githubFetchConfig, createGitHubSyncService } from "@pce/db";
 import { mcpTransportHost } from "./mcp.js";
 import { tasksEnabled } from "./tasks.js";
 import { createDatabaseNoteReader } from "./database-reader.js";
@@ -25,6 +26,7 @@ async function start(): Promise<void> {
   let db: ReturnType<typeof createDatabaseClient> | undefined;
   try {
     const config = loadApiConfig();
+    const githubOptions = githubFetchConfig(process.env);
     const enableResearchReports = researchReportsEnabled(process.env);
     const enableTasks = tasksEnabled(process.env);
     if (config.requiresDatabase) {
@@ -50,6 +52,8 @@ async function start(): Promise<void> {
       throw new Error("Invalid search flag");
     if (process.env.PCE_DB_SEARCH === "true" && !sessionOptions)
       throw new Error("Search requires configured sessions");
+    if (githubOptions && (!sessionOptions || !connected))
+      throw new Error("GitHub sync requires configured database sessions");
     if (sessionOptions && !connected)
       throw new Error("Sessions require a database");
     if (enableTasks && (!sessionOptions || !connected))
@@ -79,6 +83,11 @@ async function start(): Promise<void> {
                 ? {
                     sessionAuth: createSessionAuth(connected, sessionOptions),
                     capture: createApiCaptureRepository(connected),
+                    githubSync: createGitHubSyncService(
+                      connected,
+                      sessionOptions.ownerSubject,
+                      githubOptions,
+                    ),
                     ...(enableTasks
                       ? {
                           tasks: createTaskRepository(connected),

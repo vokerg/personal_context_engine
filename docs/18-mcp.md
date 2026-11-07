@@ -241,3 +241,15 @@ mutations. Tool results are untrusted data, and Task record creation/completion
 never authorizes reminders, messages, purchases or other external execution.
 Official-client loopback tests prove protocol behavior, not actual ChatGPT
 attachment or live Project write acceptance. Rollout remains #153/#154.
+
+### Mobile login continuation (#165)
+
+The web sign-in surface automatically returns an authenticated browser to the
+fixed `/oauth/authorize` path on its configured API when a bounded `authorize`
+query is present. It retains the authorization parameters, including state,
+PKCE, resource and callback. The server revalidates these parameters and still
+requires explicit CSRF-protected consent; the continuation itself grants no
+permissions. This also covers an already authenticated browser. The consent
+page has a mobile viewport, wrapping layout and minimum 52px Allow/Deny buttons.
+Hosted browser/callback acceptance must be checked after deployment and a native
+rebuild; synthetic continuation and HTML tests do not establish hosted success.

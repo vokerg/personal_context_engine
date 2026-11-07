@@ -185,7 +185,7 @@ separate; backup automation is deferred under D-020 and does not block this UX.
 ## Opt-in local database browsing (#52)
 
 **Implemented, gated:** set `PCE_LOCAL_BROWSE=true` for `npm run dev:local` to
-inject the local SQL browse adapter and enable the paged web UI. The default is
+enable the paged web UI using the shared API database reader. The default is
 false; invalid flag values fail startup. The generic API still has no private
 reader, and the default local preview/legacy endpoints remain compatible.
 ChatGPT repository search is unchanged. This is bounded literal substring
@@ -201,7 +201,8 @@ midnight instants, adding the next calendar day for an inclusive end date;
 23/25-hour DST days are not assumed to last 24 hours. Legacy `/notes` UTC-date
 semantics are unchanged. Conjunctive predicates and literal case-insensitive
 substring search over title, summary, body and original input run in PostgreSQL,
-with verified-owner and current-checkout predicates in **every query**.
+with verified-owner predicates in **every query**. Development uses the same
+reader as production, with no checkout allowlist or ingestion side effects (#180).
 `%`, `_` and SQL-like text have no wildcard or executable meaning.
 
 Pages use stable descending capture time / ascending bytewise ID ordering.
@@ -359,3 +360,25 @@ require registration/consent; existing grants remain unchanged. No reminders,
 push or native LLM extraction is added. Synthetic component/contracts and iOS JS
 bundling are verified separately from the pending #131/#154 device acceptance.
 See [native Task operation](23-tasks.md#native-ios-tasks-152).
+
+## Appearance persistence and date controls (#167)
+
+Native System/Light/Dark selection is saved separately from authentication in
+on-device SecureStore and restored on launch. Only the appearance enum is stored;
+sign-out does not reset it. New selections take priority over delayed restore,
+and writes are serialized. Storage failures keep the current palette usable and
+show a retry instruction. Missing/invalid preferences fall back to System.
+
+Native Notes/Search filters use the system date picker with Apply, Cancel and
+per-bound clearing. Web date fields request the browser calendar on click where
+supported, retaining normal native input behavior otherwise. Both surfaces offer
+Today, Week, Month, Year and All. These update the actual inclusive From/Through
+fields: the last 1, 7, 30 or 365 local calendar days including today. They are
+rolling ranges, not calendar-week/month/year shortcuts. All clears both bounds;
+other selected filters remain. Manual edits determine the selected shortcut;
+there is no independent preset state. Existing request builders translate local
+midnights to half-open UTC bounds, preserving DST behavior and pagination reset.
+Native changes require a rebuild to include the Expo SDK54-compatible
+`@react-native-community/datetimepicker` 8.4.4 module. Synthetic component tests
+exercise saved appearance/races/failures, calendar apply/cancel/clear and request
+bounds. Physical-device calendar/VoiceOver acceptance remains a manual check.

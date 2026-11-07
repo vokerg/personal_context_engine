@@ -83,7 +83,7 @@ Agent instructions: [AGENTS.md](AGENTS.md).
 
 ## Start a local workspace
 
-With a root `.env` containing `DATABASE_URL` and the content checkout beside this repository:
+With a root `.env` containing `DATABASE_URL` and an already migrated database:
 
 ```bash
 npm ci
@@ -91,14 +91,14 @@ PCE_AUTH_MODE=dev-single-user PCE_DB_SEARCH=true npm run dev:local
 ```
 
 Open `http://127.0.0.1:4310` or `http://localhost:4310`. The web reader shows one approved-tag filter area and visually separated note entries; the header's **Appearance** control follows the system by default or saves an explicit light/dark choice on this browser (no note content or token is stored). The local web session connects automatically on either loopback alias;
-no manually generated JWT is needed. The launcher builds the workspaces,
-applies migrations using `DIRECT_URL` when configured (runtime queries retain
-`DATABASE_URL`) and imports valid Markdown from the content checkout
-without modifying it by default. Set `PCE_INGEST_GITHUB=true`,
-`CONTENT_REPOSITORY` and `CONTENT_BRANCH` in `.env` to activate the real
-worker: it persists inbox notes, commits canonical moves to the verified
-private GitHub repo, and refreshes the checkout every 30 seconds while running.
-Use an existing `gh auth` login or a scoped `CONTENT_GITHUB_TOKEN`.
+no manually generated JWT is needed. The launcher builds the workspaces and
+serves owner-scoped records directly from PostgreSQL. It never imports a content
+checkout, runs migrations, processes jobs or polls GitHub. Apply migrations as
+an explicit operator step before starting it. **Sync from GitHub** requests one
+bounded acquisition batch through the API; repeat when continuation is reported.
+Run `npm run db-jobs:watch` explicitly to start the existing worker. Its optional
+`PCE_GITHUB_FETCH_ENABLED=true` step fetches GitHub before processing; GCP leaves
+that flag false and processes staged data without GitHub credentials.
 API defaults to loopback port 3110. See
 [local workspace configuration](docs/03-repositories-and-operations.md#local-workspace-startup-38).
 The browser connects to one fixed local owner; no password is required on loopback

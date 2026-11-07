@@ -1,3 +1,4 @@
+import { GitHubSync } from "./github-sync";
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import {
@@ -166,11 +167,13 @@ export function UpcomingScreen({
 }
 
 export function SettingsScreen({
+  session,
   appearance,
   onAppearance,
   palette,
   onSignOut,
 }: {
+  session?: MobileSession;
   appearance: Appearance;
   onAppearance: (value: Appearance) => void;
   palette: Palette;
@@ -180,6 +183,13 @@ export function SettingsScreen({
   return (
     <View style={{ gap: 14 }}>
       <SectionTitle palette={palette}>Settings</SectionTitle>
+      {session && (
+        <GitHubSync
+          key={session.config.apiOrigin}
+          session={session}
+          palette={palette}
+        />
+      )}
       <Panel palette={palette}>
         <Text
           accessibilityRole="header"

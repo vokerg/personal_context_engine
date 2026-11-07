@@ -238,3 +238,6 @@ summary { cursor: pointer; font-weight: 650; margin-top: 16px; }
 }
 
 .workspace[hidden] { display: none; }
+
+.date-preset-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+.date-preset-buttons button[aria-pressed="true"] { font-weight: 700; outline: 2px solid currentColor; outline-offset: -2px; }

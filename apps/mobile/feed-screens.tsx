@@ -1,3 +1,6 @@
+import { DateFilter } from "./date-filter";
+import { datePresets, presetDates } from "@pce/api-client";
+import { useLiveRefresh } from "./live-refresh";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
@@ -435,35 +438,33 @@ function FilterControls({
           >
             Captured on local dates (inclusive)
           </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {datePresets.map((preset) => {
+              const range = presetDates(preset.id);
+              return (
+                <Chip
+                  key={preset.id}
+                  label={preset.label}
+                  selected={
+                    filters.from === range.from && filters.to === range.to
+                  }
+                  onPress={() =>
+                    update({ ...filters, ...presetDates(preset.id) })
+                  }
+                  palette={palette}
+                />
+              );
+            })}
+          </View>
           <View style={{ gap: 8 }}>
             {(["from", "to"] as const).map((key) => (
-              <View key={key} style={{ gap: 4 }}>
-                <Text style={{ color: palette.secondary }}>
-                  {key === "from" ? "From date" : "Through date"} (YYYY-MM-DD)
-                </Text>
-                <TextInput
-                  accessibilityLabel={
-                    key === "from" ? "From date" : "Through date"
-                  }
-                  value={filters[key]}
-                  onChangeText={(text) =>
-                    update({ ...filters, [key]: text.trim() })
-                  }
-                  keyboardType="numbers-and-punctuation"
-                  autoCorrect={false}
-                  maxLength={10}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={palette.secondary}
-                  style={{
-                    borderColor: palette.border,
-                    borderWidth: 1,
-                    borderRadius: 10,
-                    minHeight: 44,
-                    paddingHorizontal: 12,
-                    color: palette.text,
-                  }}
-                />
-              </View>
+              <DateFilter
+                key={key}
+                label={key === "from" ? "From date" : "Through date"}
+                value={filters[key]}
+                onChange={(value) => update({ ...filters, [key]: value })}
+                palette={palette}
+              />
             ))}
           </View>
           {dates ? (
@@ -663,6 +664,18 @@ export function TimelineScreen({
       return { items: result.notes, nextCursor: result.nextCursor };
     },
   );
+  const refresh = () => {
+    feed.refresh();
+    facets.reload();
+  };
+  useLiveRefresh(!hidden, () => {
+    if (
+      !feed.state.loading &&
+      !feed.state.refreshing &&
+      !feed.state.loadingMore
+    )
+      refresh();
+  });
   const rows = useMemo(() => grouped(feed.state.items), [feed.state.items]);
   return (
     <View
@@ -691,6 +704,9 @@ export function TimelineScreen({
         />
       ) : null}
       <FlatList
+        alwaysBounceVertical
+        automaticallyAdjustKeyboardInsets
+        contentInsetAdjustmentBehavior="never"
         style={{ flex: 1 }}
         data={prepared.query ? rows : []}
         keyExtractor={(item) => item.key}
@@ -724,7 +740,7 @@ export function TimelineScreen({
         refreshControl={
           <RefreshControl
             refreshing={feed.state.refreshing}
-            onRefresh={feed.refresh}
+            onRefresh={refresh}
           />
         }
         ListEmptyComponent={
@@ -841,7 +857,17 @@ export function SearchScreen({
   const refreshSearch = () => {
     setMeta(null);
     feed.refresh();
+    facets.reload();
   };
+  useLiveRefresh(!hidden, () => {
+    if (
+      queryIsCurrent &&
+      !feed.state.loading &&
+      !feed.state.refreshing &&
+      !feed.state.loadingMore
+    )
+      refreshSearch();
+  });
   const retrySearch = () => {
     setMeta(null);
     feed.retry();
@@ -908,6 +934,9 @@ export function SearchScreen({
         />
       ) : null}
       <FlatList
+        alwaysBounceVertical
+        automaticallyAdjustKeyboardInsets
+        contentInsetAdjustmentBehavior="never"
         style={{ flex: 1 }}
         data={prepared.valid && queryIsCurrent ? feed.state.items : []}
         keyExtractor={(item) => item.id}

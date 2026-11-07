@@ -1,5 +1,7 @@
 # 05 — Worker ingestion and data lifecycle
 
+**Two-stage transition (#173):** the optional read-only GitHub → PostgreSQL staging → shared DB-only processor is implemented. The legacy flows below remain available only outside that explicit transition. Follow [the staging migration and rollout guide](27-ingestion-staging.md) for current gates, privileges, compatibility and pending hosted checks.
+
 **Status:** deterministic one-shot implementation (#10) with a synthetic filesystem/PostgreSQL execution path; production private-repository deployment and scheduling are not verified. File placement indicates **processing state**, not whether the human task described by the note is complete.
 
 ## File lifecycle
@@ -233,18 +235,15 @@ The PostgreSQL 16 integration job validates the synthetic filesystem path and cr
 
 ### Local activation (#40)
 
-`npm run dev:local` with `PCE_INGEST_GITHUB=true` runs this actual worker
-state machine on startup and every 30 seconds against the explicitly
-configured verified private GitHub repository. It persists before committing
-canonical moves, fast-forwards the local checkout, refreshes browsing and
-exposes sanitized pass status in the local UI. Retry/rejection records remain
-durable. The default standalone worker is still idle; this local polling loop
-exists only while the developer process is running. See the operations guide
-for credentials, checkout validation and preview revision bridging.
+**Historical development-server execution removed by #180 / D-034.**
+`dev:local` now serves database records without importing or processing. Start
+`npm run db-jobs:watch` explicitly to use the existing worker, optionally with
+GitHub acquisition as its first step. Manual API sync only stages originals;
+the worker consumes them. See [current operation](27-ingestion-staging.md).
 
 ## Two-input, database-first ingestion contract (accepted target; #43, #45, #56, #61)
 
-**Current implementation (do not regress):** private GitHub `inbox/` -> deterministic worker -> PostgreSQL projection -> GitHub `notes/YYYY/MM/` source-file finalization. The opt-in local poller (#40) runs only with the local process. Source finalization currently **writes to GitHub**; target read-only ingestion is a future implementation change under #43 and must not be asserted as shipped.
+**Historical pre-staging implementation (superseded by #173/#180):** private GitHub `inbox/` -> deterministic worker -> PostgreSQL projection -> GitHub `notes/YYYY/MM/` source-file finalization. That path wrote GitHub finalization commits. Current read-only staging is described in [the staged runbook](27-ingestion-staging.md); the development-server poller has been removed.
 
 **Future GitHub input adapter:** accept independent Markdown v1 GitHub captures while API/MCP or the worker is offline. When running, periodically scan/reconcile a bounded repository change history or source state. Webhooks can reduce latency but are not sufficient for correctness. Validate originals and attribution, idempotently persist/associate verified owner, stable capture/note IDs, source Git revision and import result in PostgreSQL, and atomically enqueue durable DB processing work. Advance a persisted import cursor only after DB commit; on failure, retry/replay the same revision safely. Handle changed/deleted/renamed files, truncated scans, token failure and owner conflicts explicitly without silently removing stored source data. Surface import lag, last successful checkpoint and unreconciled/rejected input status.
 
@@ -256,6 +255,10 @@ for credentials, checkout validation and preview revision bridging.
 
 
 ## Durable local reconciliation (#43)
+
+**Historical local-launcher behavior below was removed by #180.** The standalone
+legacy worker remains available outside the transition. Current read-only
+staging/checkpoints and execution ownership are described in [the staged runbook](27-ingestion-staging.md).
 
 **Implemented:** opt-in local polling keeps a PostgreSQL `ingestion_checkpoints`
 row scoped by a SHA-256 of backend, repository, branch and trusted owner. The
@@ -297,27 +300,12 @@ errors. Neither missing counts nor tags execute an external action.
 
 ### Trusted local operation and scheduling
 
-1. Use a single configured content repository per local database/checkout (the
-   legacy note/attempt tables are not a multi-repository namespace). Verify
-   private visibility, a clean matching checkout/branch and scoped credentials.
-2. Run `npm run dev:local` with the existing ignored server-only `.env`,
-   `DATABASE_URL`, `PCE_INGEST_GITHUB=true`, `CONTENT_REPOSITORY` and
-   `CONTENT_BRANCH`. The launcher builds and deploys additive migrations, then
-   checks immediately and every 30 seconds. Keep services on loopback.
-3. Open the local web UI's ingestion status. `lastRun` means the source check
-   finished; `checkpoint.reconciledAt` means a clean reconciliation finished.
-   Inspect conflict/missing/invalid counts and fixed error status. No timestamp
-   implies continuous availability. Stopping the launcher stops polling.
-4. During downtime GitHub capture remains independent. Restart the same command
-   with the same DB and checkout to resume bounded scanning, recover durable
-   attempts and rescan current source state. No webhook delivery is required.
-5. For a separately managed trusted scheduler, the existing GitHub
-   `WORKER_MODE=once` entry point can be invoked repeatedly with its explicit
-   private-write opt-in. Prevent overlapping scheduled invocations; supply
-   secrets in the runtime environment, never command arguments or public CI.
-   It persists scan progress but does not perform the local web snapshot/status
-   refresh. There is no hosted scheduler, launch-at-login service or production
-   deployment installed by this change.
+Use the [two-stage runbook](27-ingestion-staging.md) for current operation:
+explicitly start the existing DB-jobs worker with optional read-only GitHub
+acquisition, or use authenticated manual API sync with the hosted DB-only worker.
+Starting the development server never starts ingestion. Legacy finalizing
+once-mode remains available only outside that transition; never run both paths
+for the same source. No missing source or tag authorizes an external action.
 
 Synthetic PostgreSQL tests cover scan-limit/restart continuation past poison
 inputs, scan wrapping, checkpoint stability on DB failure, durable commit/move

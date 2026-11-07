@@ -1,0 +1,137 @@
+name: GCP worker deploy after PR merge
+
+on:
+  # Target event supplies environment access even for merged fork PRs.
+  # Jobs remain gated on merged=true and execute only the immutable merged SHA.
+  pull_request_target:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pce-gcp-worker-production
+  cancel-in-progress: false
+
+jobs:
+  changes:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.base.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.classify.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Only inspect trusted, merged code, never an unmerged PR head.
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+      - name: Detect changed backend inputs (including renamed source paths)
+        id: classify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # Use PR changed-file API: correct for squash, merge and rebase merges.
+          # A GitHub API error fails closed rather than incorrectly skipping work.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" \
+            --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/changed-files"
+          # The GitHub PR files API caps responses at 3,000 paths. At the limit,
+          # be conservative and rebuild rather than miss an unreported file.
+          if (( $(wc -l < "$RUNNER_TEMP/changed-files") >= 3000 )); then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+          else
+            node scripts/deploy/report-worker-changes.mjs "$RUNNER_TEMP/changed-files" >> "$GITHUB_OUTPUT"
+          fi
+
+  validate:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    uses: ./.github/workflows/bootstrap.yml
+
+  database:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    uses: ./.github/workflows/database.yml
+
+  build:
+    needs: [validate, database]
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.base.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      sha: ${{ steps.revision.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Never execute the PR head or a synthetic unmerged PR ref.
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+      - name: Require an unsuperseded backend revision
+        id: revision
+        env:
+          MERGED_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MERGED_SHA"
+          node scripts/deploy/assert-worker-release-current.mjs "$MERGED_SHA"
+          echo "sha=$MERGED_SHA" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: node --test deploy/gcp/*.node-test.mjs scripts/deploy/*.node-test.mjs
+      - name: Build and package worker with production dependencies
+        run: bash deploy/gcp/package.sh "$RUNNER_TEMP/worker-artifact"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gcp-worker-${{ steps.revision.outputs.sha }}
+          path: ${{ runner.temp }}/worker-artifact/worker.tar.gz*
+          retention-days: 3
+          if-no-files-found: error
+
+  deploy:
+    needs: build
+    if: vars.GCP_WORKER_DEPLOY_ENABLED == 'true'
+    environment: gcp-worker-production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.sha }}
+          fetch-depth: 0
+      - name: Reject a release superseded by backend changes
+        env:
+          RELEASE_SHA: ${{ needs.build.outputs.sha }}
+        run: node scripts/deploy/assert-worker-release-current.mjs "$RELEASE_SHA"
+      - uses: actions/download-artifact@v4
+        with:
+          name: gcp-worker-${{ needs.build.outputs.sha }}
+          path: ${{ runner.temp }}/worker-artifact
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Transfer, activate, restart and verify
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_VM_NAME: ${{ secrets.GCP_VM_NAME }}
+          GCP_VM_ZONE: ${{ secrets.GCP_VM_ZONE }}
+          GCP_SSH_KNOWN_HOSTS: ${{ secrets.GCP_SSH_KNOWN_HOSTS }}
+          RELEASE_SHA: ${{ needs.build.outputs.sha }}
+          ARTIFACT_DIR: ${{ runner.temp }}/worker-artifact
+        run: bash deploy/gcp/ssh-operation.sh deploy

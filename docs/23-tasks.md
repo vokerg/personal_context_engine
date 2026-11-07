@@ -1,5 +1,7 @@
 # 23 — Independent Tasks
 
+**Two-stage transition (#173):** the optional read-only GitHub → PostgreSQL staging → shared DB-only processor is implemented. The legacy flows below remain available only outside that explicit transition. Follow [the staging migration and rollout guide](27-ingestion-staging.md) for current gates, privileges, compatibility and pending hosted checks.
+
 Epic [#147](https://github.com/vokerg/personal_context_engine/issues/147) defines
 first-class Tasks. The #148 slice implements durable creation, lifecycle, API,
 history and shared client contracts. The #149 slice adds extraction contracts
