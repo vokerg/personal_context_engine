@@ -1,3 +1,10 @@
+import {
+  TaskSuggestionsConfigSchema,
+  TaskSuggestionsSchema,
+  SaveSuggestedTasksSchema,
+  SavedSuggestedTasksSchema,
+  type SaveSuggestedTasks,
+} from "@pce/contracts";
 import { GitHubSyncResultSchema, GitHubSyncStatusSchema } from "@pce/contracts";
 export type { GitHubSyncResult, GitHubSyncStatus } from "@pce/contracts";
 import {
@@ -645,4 +652,35 @@ export function describeGitHubSyncError(error: unknown): string {
       return "GitHub fetching is disabled or unavailable on the API. Ask the operator to check its GitHub access.";
   }
   return "Could not sync from GitHub. Check your connection and retry; repeated sync is safe.";
+}
+
+export function getTaskSuggestionsConfig(options: AuthenticatedRequestOptions) {
+  return authenticatedGet(
+    options,
+    "/api/v1/task-suggestions/config",
+    TaskSuggestionsConfigSchema.parse,
+  );
+}
+export function suggestTasksForNote(
+  options: AuthenticatedRequestOptions,
+  noteId: string,
+) {
+  return authenticatedGet(
+    { ...options, timeoutMs: 55000 },
+    "/api/v1/notes/" + NoteIdSchema.parse(noteId) + "/task-suggestions",
+    TaskSuggestionsSchema.parse,
+    {},
+  );
+}
+export function saveSuggestedTasks(
+  options: AuthenticatedRequestOptions,
+  noteId: string,
+  input: SaveSuggestedTasks,
+) {
+  return authenticatedGet(
+    options,
+    "/api/v1/notes/" + NoteIdSchema.parse(noteId) + "/tasks",
+    SavedSuggestedTasksSchema.parse,
+    SaveSuggestedTasksSchema.parse(input),
+  );
 }

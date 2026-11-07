@@ -96,6 +96,11 @@ try {
   const researchEnabled = researchReportsEnabled(process.env);
   const { tasksEnabled } = await import("../apps/api/dist/tasks.js");
   const enableTasks = tasksEnabled(process.env);
+  const { taskSuggestionProvider } =
+    await import("../apps/api/dist/task-suggestions-provider.js");
+  const suggestionProvider = taskSuggestionProvider(process.env);
+  if (suggestionProvider && !enableTasks)
+    throw new Error("Suggestions require Tasks");
   if (enableTasks && !sessionAuth)
     throw new Error("Tasks require explicit local sessions");
   const {
@@ -155,6 +160,22 @@ try {
       ...(enableTasks
         ? {
             tasks: createTaskRepository(db),
+            ...(suggestionProvider
+              ? {
+                  taskSuggestions: {
+                    provider: suggestionProvider,
+                    getSource: (owner, noteId) =>
+                      db.note.findFirst({
+                        where: {
+                          id: noteId,
+                          ownerSubject: owner,
+                          removedAt: null,
+                        },
+                        select: { captureId: true, originalInput: true },
+                      }),
+                  },
+                }
+              : {}),
             taskBatches: createTaskExtractionRepository(db),
           }
         : {}),
