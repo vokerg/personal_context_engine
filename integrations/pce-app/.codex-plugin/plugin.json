@@ -1,0 +1,18 @@
+{
+  "apps": "./.app.json",
+  "author": {
+    "name": "App developer"
+  },
+  "description": "Search and retrieve private PCE notes, and manage independent Task records with explicit consent. Task creation, completion and reopening change records only; they never execute external actions or schedule reminders.",
+  "interface": {
+    "capabilities": [],
+    "category": "Other",
+    "defaultPrompt": null,
+    "developerName": "App developer",
+    "displayName": "Personal Context Engine",
+    "longDescription": "Search and retrieve private PCE notes, and manage independent Task records with explicit consent. Task creation, completion and reopening change records only; they never execute external actions or schedule reminders.",
+    "shortDescription": "Search and retrieve private PCE notes, and manage independent Task records with explicit consent. Task creation, completion and reopening change records only; they never execute external actions or schedule reminders."
+  },
+  "name": "dev-6ad7c002dda881919cb1c4049aead5a4",
+  "version": "1.0.0"
+}
