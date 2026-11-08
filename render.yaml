@@ -54,6 +54,16 @@ services:
         value: https://personal-context-engine-web.vercel.app
       - key: PCE_DB_SEARCH
         value: "true"
+      # User-triggered API suggestions only; configure Tasks and the provider key
+      # before enabling. Existing dashboard services need these settings there.
+      - key: PCE_TASKS_ENABLED
+        sync: false
+      - key: PCE_TASK_SUGGESTIONS_ENABLED
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: PCE_TASK_SUGGESTIONS_MODEL
+        value: deepseek-flash
       - key: PCE_MCP_TRANSPORT_ORIGIN
         value: https://personal-context-engine-api.onrender.com
       - key: PCE_OAUTH_CLIENTS

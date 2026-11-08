@@ -138,6 +138,39 @@ checkout are required by the API. Existing local GitHub ingestion can keep
 feeding the same DB. Hosted ingestion, DB preparation and embedding schedules
 are separate work; no such processes are launched by this web service.
 
+## On-demand Task suggestions (#184 / #186)
+
+This feature runs in the Render API, only after a user requests suggestions on
+an existing Note. Configure the existing service's server-only environment:
+
+- Keep `PCE_TASKS_ENABLED=true`, `PCE_AUTH_MODE=single-user` and the existing
+  database/session settings enabled.
+- Set `DEEPSEEK_API_KEY` to the trusted provider credential, then set
+  `PCE_TASK_SUGGESTIONS_ENABLED=true`. The API refuses startup when the flag is
+  enabled without a key or without Tasks. Optional `PCE_TASK_SUGGESTIONS_MODEL`
+  defaults to `deepseek-flash`.
+- Keep `VITE_PCE_TASKS=true` in the Vercel production build. There is no separate
+  frontend suggestions flag: Note detail discovers availability from the API.
+  Never put the DeepSeek key or server-only suggestion flag in Vercel.
+
+The Blueprint declares operator-supplied gates/key with `sync: false`; applying
+it does not activate suggestions. Existing dashboard-managed services require
+the environment settings in Render itself. Save the settings and deploy the API;
+verify `/ready` directly and through the Vercel proxy, then use an authenticated
+session to check `GET /api/v1/task-suggestions/config` returns `enabled: true`.
+Capability discovery makes no model request and sends no Note content. Opening
+Note detail should expose **Suggest tasks** and its DeepSeek disclosure. A real
+provider request is a separate user action and is not proven by configuration
+or readiness checks.
+
+The GCP DB-jobs worker does not use these settings and needs no DeepSeek key.
+Local API use requires the same server-only provider settings in the ignored
+root `.env`; both normal API startup and `dev:local` support them. Do not start
+a worker or scheduler to enable suggestions. Roll back by setting only
+`PCE_TASK_SUGGESTIONS_ENABLED=false` and redeploying/restarting the API; keep
+Tasks enabled to retain normal Task access. See [the Task runbook](23-tasks.md#web-postprocessing-of-existing-notes-184)
+for request limits, review/save and retry behavior.
+
 ## Hosted DB reader (#81)
 
 The standalone API attaches the trusted timeline/tag/detail reader only when
