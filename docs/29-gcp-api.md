@@ -223,6 +223,61 @@ new VM-targeted firewall rule/tag, and restore the previous API/static symlinks
 and protected configuration. Preserve existing providers, workers and DB data.
 Public DNS, TLS and actual ChatGPT installation/consent are independent gates.
 
+### Prepared free gateway — not deployed
+
+`deploy/gcp/edge-proxy.mjs` is an optional stateless Cloudflare Worker to make
+the existing IPv6 GCP origin reachable through a stable `workers.dev` hostname.
+It hosts no API/domain processing or storage. All login, OAuth, capture and
+retrieval still run on the GCP API against PostgreSQL. A Cloudflare account is
+required; the inspected dashboard was signed out. Do not report this gateway
+or its ChatGPT connection as active from synthetic tests or bundle validation.
+
+The Worker pins one operator-configured HTTPS `UPSTREAM_ORIGIN` and one exact
+`PUBLIC_ORIGIN`; caller URLs and forwarding headers cannot select another
+upstream. Bodies, cookies, Authorization, Origin, discovery and callback redirects
+are streamed/preserved without following redirects, parsing private payloads,
+request logging or caching. Fixed failures contain no exception/request data.
+The example Wrangler configuration fails closed with placeholder origins and
+disables observability and preview URLs. No KV, D1, R2, Cron or paid binding is used.
+
+Operator activation after account access is available:
+
+1. Verify the account uses **Workers Free**. Do not upgrade, add payment details,
+   create a paid resource or overwrite an existing Worker. The documented Free
+   plan currently allows 100,000 requests/day with bounded CPU; exhaustion can
+   make this reserve route unavailable rather than authorize a paid upgrade.
+2. Use an unused Worker name and its stable account `workers.dev` subdomain.
+   Copy `edge-proxy.wrangler.example.jsonc` into protected operator state, set
+   `main` to the absolute reviewed module path and fill the two actual origins
+   there. Keep real inventory and Cloudflare credentials outside Git/CI.
+3. Bundle with the official Wrangler CLI's `deploy --dry-run` before deployment.
+   Deploy manually using the authenticated operator account, with no new
+   production credential in public Actions. Inspect the resulting configuration
+   to confirm request observability and preview URLs remain disabled.
+4. Set only the reserve API's web/API issuer origins to the new public Worker
+   origin. Keep `PCE_MCP_TRANSPORT_ORIGIN` at the trusted GCP TLS origin: the
+   gateway fetches that hostname, which nginx validates and forwards to the API.
+   Do not rewrite or trust caller forwarding headers as the issuer/owner.
+5. Copy the **actual** ChatGPT form callback into the reserve client's exact
+   registration; request explicit fresh consent. Repeat HTTPS discovery,
+   Host/Origin/CSRF, PKCE, refresh/revocation and synthetic idempotent capture
+   through the public gateway, then verify the DB and actual ChatGPT tool calls.
+   Existing Render/Vercel/native/current ChatGPT clients retain their origins.
+6. If activation fails, remove/disable only this Worker and restore the saved
+   reserve API origins/configuration. Keep the GCP listener, DB originals and
+   existing providers intact. Do not substitute an ephemeral development tunnel
+   for durable acceptance or claim automatic fallback.
+
+Gateway tests use synthetic Request/Response objects and a fake origin fetch:
+
+```sh
+node --test deploy/gcp/edge-proxy.node-test.mjs
+```
+
+See [Cloudflare Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/),
+[request/redirect behavior](https://developers.cloudflare.com/workers/runtime-apis/request/)
+and [Wrangler configuration](https://developers.cloudflare.com/workers/wrangler/configuration/).
+
 References: [nginx request limits](https://nginx.org/en/docs/http/ngx_http_limit_req_module.html),
 [Certbot renewal](https://eff-certbot.readthedocs.io/en/stable/using.html#renewing-certificates),
 [OpenAI custom MCP connection](https://developers.openai.com/api/docs/guides/custom-mcp-server).
