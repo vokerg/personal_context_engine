@@ -120,3 +120,70 @@ OAuth and connector acceptance are independently observed. Do **not** copy
 Render's session tokens or rebind the current live client by changing only a
 URL. The single PCE plugin and clean NOTES 2 trial are tracked by #189,
 with conditional MCP-native capture acceptance in #49 and #50.
+
+## Reserve MCP ingress (#191)
+
+The owner clarified that the reserve API must be usable by ChatGPT and retained
+the no-paid-IPv4 constraint. The independent ingress templates are
+`deploy/gcp/nginx-api.conf.example` and `nginx-api-proxy.conf`. They do not
+change the existing Vercel routes or Render issuer. Actual inventory and secrets
+belong in protected operator state, never these templates.
+
+Use an independently verified public DNS hostname and certificate. On the
+existing IPv6 VM, a narrowly targeted ingress rule may allow only TCP 80/443
+from IPv6; keep port 3112 on loopback and preserve the IAP-only SSH rule. Public
+IPv6 and a valid certificate do not prove IPv4-only browser or ChatGPT access.
+If client reachability fails, use a separately verified free tunnel/proxy; do
+not add paid IPv4, NAT or a load balancer. Never declare an ephemeral development
+tunnel a durable reserve endpoint.
+
+Operator sequence after the stage-1 preflight:
+
+1. Install distribution `nginx` and `certbot` packages. Check for existing proxy
+   services/configuration before installation; preserve unrelated applications.
+2. Create root-owned mode-0755 `/var/lib/pce-api-acme` for HTTP-01 challenges.
+   Do not put the challenge root inside private mode-0700 API state. Initially
+   serve only ACME challenges; return 404 for other HTTP requests until TLS exists.
+3. Obtain a publicly trusted certificate for the verified hostname, configure
+   automated renewal and a successful-renewal nginx reload hook. Never bypass TLS
+   validation. Verify expiry and independent client connectivity.
+4. Build the existing web login from the same reviewed source in an environment
+   without private `.env` files. Enable the existing public browse/search/Task/
+   research flags only when the reserve API enables them. Install static assets
+   in a root-owned version directory under `/opt/pce-api/web` and atomically
+   select `current`. The web API base is its own origin.
+5. Replace `PCE_API_HOSTNAME` in the example with a validated DNS hostname,
+   install the proxy snippet at `/etc/nginx/snippets/pce-api-proxy.conf`, run
+   `nginx -t`, then reload only nginx. The example uses request/connection limits,
+   a stricter password limit, no request/error logs, bounded bodies/timeouts,
+   strict Host checks and unbuffered MCP forwarding. No forwarding header selects
+   identity or bypasses the API's Host, Origin or CSRF checks.
+6. Set `PCE_WEB_ORIGIN`, `PCE_API_ORIGIN` and `PCE_MCP_TRANSPORT_ORIGIN` to
+   this new exact HTTPS origin. Register a separate `pce-gcp-chatgpt` client with
+   the exact supported ChatGPT callback and only explicitly consented scopes.
+   Existing clients, sessions and origins stay unchanged. Use a separate finite
+   acceptance client; revoke its test grants and remove registration afterwards.
+7. Enable `PCE_MCP_ENABLED` and the already-deployed Task/research/diagnostics
+   capabilities as appropriate, with matching explicit runtime DB grants. Keep
+   provider calls, GitHub acquisition and mobile OAuth disabled in this reserve
+   runtime unless separately activated. Lexical retrieval requires no provider key.
+8. Test discovery, anonymous 401, wrong Host/Origin denial, password/CSRF,
+   authorization-code S256, refresh rotation/replay denial, the official MCP
+   client catalog, idempotent synthetic capture and direct DB persistence. Verify
+   existing workers' PIDs/restart counters and aggregate load. Soft-remove only
+   synthetic Notes and revoke only test grants; never log authenticated bodies.
+
+The runtime DB login must not own schema objects, create objects, delete Notes
+or update original bodies. Grant only the tables/columns used by enabled API
+capabilities. Keep its Prisma pool at two connections and PostgreSQL role at
+three sessions, with statement/lock/idle-transaction deadlines. An authenticated
+functional test must exercise these privileges; `/ready` alone checks connectivity.
+
+For rollback, stop the reserve API and its dedicated ingress, remove only the
+new VM-targeted firewall rule/tag, and restore the previous API/static symlinks
+and protected configuration. Preserve existing providers, workers and DB data.
+Public DNS, TLS and actual ChatGPT installation/consent are independent gates.
+
+References: [nginx request limits](https://nginx.org/en/docs/http/ngx_http_limit_req_module.html),
+[Certbot renewal](https://eff-certbot.readthedocs.io/en/stable/using.html#renewing-certificates),
+[OpenAI custom MCP connection](https://developers.openai.com/api/docs/guides/custom-mcp-server).

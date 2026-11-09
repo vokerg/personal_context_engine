@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Syntax-only verification with synthetic TLS material; never opens a listener.
+set -euo pipefail
+source_dir=$(cd "$(dirname "$0")" && pwd)
+stage=$(mktemp -d)
+trap 'rm -rf "$stage"' EXIT
+openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+  -subj /CN=pce.example.invalid \
+  -keyout "$stage/privkey.pem" -out "$stage/fullchain.pem" >/dev/null 2>&1
+python3 - "$source_dir" "$stage" <<'PY'
+from pathlib import Path
+import sys
+source, stage = map(Path, sys.argv[1:])
+config = (source / 'nginx-api.conf.example').read_text().replace('PCE_API_HOSTNAME', 'pce.example.invalid')
+config = config.replace('/etc/letsencrypt/live/pce.example.invalid/', str(stage) + '/')
+config = config.replace('/etc/nginx/snippets/pce-api-proxy.conf', str(source / 'nginx-api-proxy.conf'))
+(stage / 'nginx.conf').write_text('pid ' + str(stage / 'nginx.pid') + ';\nevents {}\nhttp {\n' + config + '\n}\n')
+PY
+nginx -t -p "$stage" -c "$stage/nginx.conf"
