@@ -2,6 +2,7 @@
 # One-time operator-only setup. Does not start a service or touch workers.
 set -euo pipefail
 [[ $EUID == 0 ]] || { echo 'Run as root' >&2; exit 1; }
+python3 -c 'import tarfile; assert hasattr(tarfile, "data_filter")'
 source_dir=$(cd "$(dirname "$0")" && pwd)
 id pce-api >/dev/null 2>&1 || useradd --system --user-group --home-dir /var/lib/pce-api --shell /usr/sbin/nologin pce-api
 install -d -o root -g root -m 0755 /opt/pce-api
