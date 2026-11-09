@@ -1,5 +1,34 @@
 # Independent GCP API — stage 1 runbook (#188)
 
+## Observed activation — 2026-11-09
+
+Merged #190's immutable main artifact was installed on the existing VM with an
+independent restricted API role and systemd service, now enabled across reboots.
+The API stays on loopback; the separately configured nginx ingress provides
+trusted TLS over the existing IPv6 route. No paid IPv4/NAT/load balancer was added.
+
+Finite server-side HTTPS acceptance passed: issuer/resource discovery, anonymous
+MCP denial, wrong-Origin/Host denial, password/secure cookies/CSRF, S256 consent,
+refresh rotation/replay denial, the official client's 14-tool catalog,
+idempotent synthetic capture with direct original/receipt/job readback,
+Note/search/Task retrieval and revocation. The synthetic Note was soft-removed,
+its original retained, and the finite test client/session credentials removed
+or revoked. Actual ChatGPT plugin connection acceptance is **not established**.
+
+A 120-request health/readiness load at concurrency four completed in 5.02 seconds
+with stable service PIDs/restart counters. The API was approximately 84 MiB after
+the load and peaked around 155 MiB during password/functional checks. Nginx used
+about 6–8 MiB. Both existing workers kept their original PIDs and zero restarts.
+These are bounded measurements, not a guarantee for arbitrary concurrent load;
+temporary memory pressure during archive transfer/extraction was observed.
+The installed unit/proxy validation and certificate renewal dry-run passed.
+
+The workstation cannot directly reach this IPv6-only endpoint. ChatGPT's initial
+OAuth discovery attempt also failed; retry and any free gateway remain #191
+acceptance work. Existing Render/Vercel/native/ChatGPT configuration is preserved.
+The hostname, VM inventory, DB credentials and detailed probe evidence stay in
+protected operator state. The steps below retain the original staging sequence.
+
 **Decision (2026-11-09):** keep Render API, Vercel/iOS, both existing workers,
 private GitHub capture, and current ChatGPT OAuth clients unchanged. Provision
 a second PCE API process on the **existing** GCP VM as a separate, initially
@@ -170,6 +199,9 @@ Operator sequence after the stage-1 preflight:
    the exact supported ChatGPT callback and only explicitly consented scopes.
    Existing clients, sessions and origins stay unchanged. Use a separate finite
    acceptance client; revoke its test grants and remove registration afterwards.
+   Copy the exact callback shown by the actual ChatGPT creation form: newer
+   plugin flows can allocate a per-connection callback, so do not assume the
+   historical shared callback works for a new reserve connection.
 7. Enable `PCE_MCP_ENABLED` and the already-deployed Task/research/diagnostics
    capabilities as appropriate, with matching explicit runtime DB grants. Keep
    provider calls, GitHub acquisition and mobile OAuth disabled in this reserve
