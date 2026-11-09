@@ -93,6 +93,9 @@ without memory/DB/worker measurements is insufficient to accept the service.
 No personal Note bodies, token values, DB URLs, journal messages or account
 inventory may appear in public issues or logs.
 
+Only **after** successful measured acceptance, enable persistence across VM reboots
+with `sudo systemctl enable pce-api.service` (this does not restart the unit).
+
 To pause the experiment: `sudo systemctl stop pce-api.service`. Leave
 the existing workers and Render untouched. For an already installed API release,
 the installer automatically restores the prior `current` symlink on failure.
