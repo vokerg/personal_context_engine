@@ -735,3 +735,15 @@ background workers never call this adapter. Existing immutable capture batches
 remain unchanged; manual postprocessing uses source-linked Task creation with
 stable IDs and exact retry payloads. No dates, reminders or action execution.
 Implementation checks and live provider/deployment acceptance are separate.
+
+## D-037 — Independent reserve GCP API (#188, 2026-11-09)
+
+**Accepted owner request:** deploy a separate always-on API on the existing
+shared GCP VM, with its own runtime identity, restricted DB login, configuration,
+release directory, resource limits and rollback. Preserve Render, Vercel, iOS,
+both workers and existing OAuth connections. First activation is loopback-only
+and requires measured aggregate capacity, DB readiness and unchanged workers.
+No migrations, paid IPv4, new VM or automatic API deployment are selected.
+Public HTTPS/MCP ingress and actual OAuth/client acceptance are independent
+verification gates; an active local listener does not satisfy them. See the
+[API runbook](29-gcp-api.md).

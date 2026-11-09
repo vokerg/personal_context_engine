@@ -1,0 +1,47 @@
+[Unit]
+Description=PCE independent API (loopback-only staging)
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=exec
+User=pce-api
+Group=pce-api
+WorkingDirectory=/opt/pce-api/current
+Environment=NODE_ENV=production
+Environment=NODE_OPTIONS=--max-old-space-size=128
+EnvironmentFile=/etc/pce/api.env
+ExecStartPre=/usr/bin/test -f /etc/pce/api-ready
+ExecStart=/opt/pce-api/current/runtime/node /opt/pce-api/current/apps/api/dist/main.js
+Restart=on-failure
+RestartSec=10
+KillSignal=SIGTERM
+TimeoutStopSec=60
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pce-api
+LogRateLimitIntervalSec=30s
+LogRateLimitBurst=100
+MemoryHigh=256M
+MemoryMax=384M
+MemorySwapMax=0
+CPUQuota=25%
+TasksMax=64
+LimitNOFILE=4096
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pce-api
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
