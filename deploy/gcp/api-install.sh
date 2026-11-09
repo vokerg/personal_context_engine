@@ -39,6 +39,8 @@ cleanup() {
   exit "$code"
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 python3 - "$archive" <<'PY'
 import posixpath, sys, tarfile
 with tarfile.open(sys.argv[1], 'r:gz') as archive:
