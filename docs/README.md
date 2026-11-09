@@ -66,3 +66,5 @@ Where a contract remains proposed, implement a test-backed specification before 
 - [27 — Two-stage GitHub ingestion](27-ingestion-staging.md) — shared acquisition/staging/processing, manual web/iOS sync, additive migration, restricted grants and manual rollout.
 
 - [28 — Private personal iPhone releases](28-ios-personal-releases.md) — local signed IPA builds, direct updates, AltStore migration and refresh limits.
+
+- [29 — Independent GCP API](29-gcp-api.md) — isolated reserve API installation, measured acceptance and separate public MCP gate.

@@ -29,6 +29,8 @@ jobs:
           bash -n deploy/gcp/package-api.sh
           bash -n deploy/gcp/api-bootstrap.sh
           bash -n deploy/gcp/api-install.sh
+      - name: Verify installer recovery with synthetic archives
+        run: node --test deploy/gcp/api-install.node-test.mjs
       - run: npm ci --no-audit --no-fund
       - name: Build and verify portable API artifact
         run: bash deploy/gcp/package-api.sh "$RUNNER_TEMP/api-artifact"

@@ -23,6 +23,7 @@ success=false
 cleanup() {
   local code=$?
   trap - EXIT
+  trap '' INT TERM
   if [[ $switched == true && $success != true ]]; then
     if [[ -n $previous && -d $previous ]]; then
       ln -s "$previous" "$root/current.restore"
@@ -35,6 +36,7 @@ cleanup() {
     code=1
   fi
   rm -rf -- "$staged"
+  rm -f -- "$root/current.next" "$root/current.restore"
   if [[ $success != true ]]; then rm -rf -- "$target"; fi
   exit "$code"
 }
@@ -72,11 +74,12 @@ chown -R root:root "$target"
 chmod -R go-w "$target"
 chmod -R a+rX "$target"
 ln -s "$target" "$root/current.next"
-mv -Tf "$root/current.next" "$root/current"
+# Arm rollback before the atomic switch so a signal cannot strand the new link.
 switched=true
+mv -Tf "$root/current.next" "$root/current"
 systemctl restart pce-api.service
 ready=false
-for i in $(seq 1 20); do
+for _ in $(seq 1 20); do
   if systemctl is-active --quiet pce-api.service && curl -fsS --max-time 3 http://127.0.0.1:3112/ready >/dev/null; then
     ready=true
     break
