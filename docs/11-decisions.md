@@ -747,3 +747,8 @@ No migrations, paid IPv4, new VM or automatic API deployment are selected.
 Public HTTPS/MCP ingress and actual OAuth/client acceptance are independent
 verification gates; an active local listener does not satisfy them. See the
 [API runbook](29-gcp-api.md).
+
+**Owner clarification during activation (#191):** the reserve API is primarily
+for ChatGPT. Keep it on GCP, with no paid IPv4 and no Vercel proxy dependency.
+An active IPv6 TLS endpoint is insufficient if ChatGPT cannot discover/connect;
+actual client acceptance or a separately verified free stable gateway is required.

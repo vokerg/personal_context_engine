@@ -24,7 +24,7 @@ temporary memory pressure during archive transfer/extraction was observed.
 The installed unit/proxy validation and certificate renewal dry-run passed.
 
 The workstation cannot directly reach this IPv6-only endpoint. ChatGPT's initial
-OAuth discovery attempt also failed; retry and any free gateway remain #191
+OAuth discovery failed twice; a usable client route/free gateway remains #191
 acceptance work. Existing Render/Vercel/native/ChatGPT configuration is preserved.
 The hostname, VM inventory, DB credentials and detailed probe evidence stay in
 protected operator state. The steps below retain the original staging sequence.
