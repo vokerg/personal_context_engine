@@ -1,0 +1,119 @@
+# Independent GCP API — stage 1 runbook (#188)
+
+**Decision (2026-11-09):** keep Render API, Vercel/iOS, both existing workers,
+private GitHub capture, and current ChatGPT OAuth clients unchanged. Provision
+a second PCE API process on the **existing** GCP VM as a separate, initially
+loopback-only service. This is **not** a public MCP cutover, a new VM, or an
+approval of paid IPv4 or cloud ingress.
+
+## Code and isolation
+
+- `deploy/gcp/package-api.sh`: Node 22 x86_64 archive with compiled
+  `@pce/api`, `@pce/db`, `@pce/core`, `@pce/contracts`, production
+  dependencies, Prisma engine and immutable source SHA. Explicit allowlist.
+  CI workflow `gcp-api-package.yml` builds it **without deployment secrets**
+  and never pushes to GCP. It is a separate artifact from `worker.tar.gz`.
+- `api-bootstrap.sh`: privileged *manual* creation of `pce-api` runtime
+  identity, `/opt/pce-api`, `/var/lib/pce-api` and a dedicated systemd unit.
+  It neither starts API nor touches `/opt/pce`, worker services, IAM or
+  networking. `/etc/pce/api.env` is root-owned mode 0600.
+- `api-install.sh`: root-only install from an operator-transferred archive
+  with SHA-256, revision, archive path/type/size and runtime import checks.
+  Swaps only `/opt/pce-api/current`, verifies systemd + local `/ready`
+  and restores the previous API release on failure. A first-install failure
+  stops API. No unattended PR deployment or sudoers expansion is installed.
+- `pce-api.service`: non-login `pce-api` account, loopback `API_HOST`
+  via private env, private writable state, no capabilities, systemd sandbox,
+  initial high/hard RAM limits 256/384 MiB, 128 MiB V8 heap, CPU quota 25%.
+  **Limits are proposed ceilings, not proof of available spare VM capacity.**
+  This deliberately does not alter the active worker's 192 MiB cap.
+
+## Operator preflight (required before starting)
+
+1. Read existing `docs/26-worker-deployment.md` and verify the current GCP
+   inventory via approved IAP/OS Login path. Record sanitized aggregate RAM,
+   CPU pressure, available disk, SportOS/PCE worker peak RSS/CPU, and systemd
+   restart counters. Confirm there is headroom for **concurrent** workers,
+   Fastify/Prisma, 128-MiB scrypt password derivation and OS. If capacity
+   is insufficient, **do not start this API**; do not relax existing worker
+   quotas to make it fit.
+2. Review the current production DB schema, TLS connectivity, pooler and max
+   sessions. Provision an **API-specific restricted DB role**, not the worker
+   processing role or DB migration owner. The API requires owner-scoped
+   Note/search/OAuth session and capture read/write privileges; review the
+   actual SQL/schema grants rather than copying the worker's limited grants.
+   Append a small Prisma `connection_limit` (e.g. 2) to the actual runtime
+   URL. No migration runs on the VM.
+3. As the operator, transfer the **reviewed** bootstrap/unit/install scripts
+   via the existing pinned IAP SSH mechanism. Verify bytes/checksums. Run
+   `sudo bash api-bootstrap.sh` from their common directory.
+4. Privately fill `/etc/pce/api.env` with the existing trusted owner subject,
+   an independent API DB login, existing single-user username/password hash,
+   and confirmed origin settings. Restrict to 0600, root-owned. Do not store,
+   print, echo, email, commit or publish any env values.
+   Initially leave `PCE_MCP_ENABLED=false`,
+   `PCE_GITHUB_FETCH_ENABLED=false` and provider/Task-suggestions gates off.
+   `API_HOST=127.0.0.1`, `API_PORT=3112`. The web/API origins must use
+   **one hostname** under PCE's present session contract. In this local-only
+   phase they are configuration placeholders, not a publicly routed issuer.
+5. Only after verified capacity, DB role, service unit, artifact provenance
+   and private config, create root-owned `/etc/pce/api-ready`. This is an
+   operator activation gate, not a public deployment flag.
+
+## Package and install
+
+Run the new packaging workflow on reviewed source, or locally on Linux x86_64
+with Node 22, `npm ci` and `bash deploy/gcp/package-api.sh OUTPUT_DIR`.
+The produced `api.tar.gz` and `api.tar.gz.sha256` contain no runtime
+credentials. Transfer them to a root-controlled temporary location on the VM
+through verified IAP/OS Login. Do not expose the VM's application port.
+
+Use the **exact source commit SHA** printed by the build and the verified
+SHA-256 of `api.tar.gz`. On the VM the operator runs:
+
+```sh
+sudo /usr/local/sbin/pce-api-install SOURCE_SHA /absolute/path/api.tar.gz SHA256
+curl --fail --silent --show-error http://127.0.0.1:3112/health
+curl --fail --silent --show-error http://127.0.0.1:3112/ready
+sudo systemctl show pce-api.service --property=ActiveState,SubState,NRestarts,MainPID,MemoryCurrent,CPUUsageNSec
+```
+
+The installer verifies local `/ready`; the additional probes are independent
+readback. Do not run it with missing `api-ready` marker, an unreviewed artifact,
+an unsigned revision assumption, or private data on a public CI runner.
+
+## Load and regression acceptance
+
+Measure baseline, idle API, and bounded concurrent **synthetic**
+`/health`/`/ready` requests; sample process RSS, systemd
+`MemoryPeak`/`MemoryCurrent`/`CPUUsageNSec`, open DB connections and
+application errors. Verify PCE and SportOS workers' active states and
+`NRestarts` stay stable during and after the experiment. A readiness 200
+without memory/DB/worker measurements is insufficient to accept the service.
+No personal Note bodies, token values, DB URLs, journal messages or account
+inventory may appear in public issues or logs.
+
+To pause the experiment: `sudo systemctl stop pce-api.service`. Leave
+the existing workers and Render untouched. For an already installed API release,
+the installer automatically restores the prior `current` symlink on failure.
+For later operator-initiated rollback, stop API, verify the intended previous
+release and revision, atomically repoint **only** `/opt/pce-api/current`,
+restart and recheck `/ready`. Never remove DB originals or migration history.
+
+## Stage 1b: public reachability and identity (not activated here)
+
+PCE uses a canonical HTTPS `issuer` equal to its API origin, an OAuth
+`resource` of `<issuer>/mcp`, and host-only browser-session cookies. The
+browser origin must share its hostname. Adding a second public address,
+changing a reverse proxy, or forwarding only `/mcp` can break OAuth consent,
+CSRF, issuer/resource checks and refresh. Before exposing the GCP API, choose
+and verify a TLS ingress reachable from ChatGPT **without assuming paid IPv4**;
+test the exact Host and trusted transport origin, root and MCP discovery,
+OAuth login/PKCE/refresh and `capture:write` on a separately consented test
+client. Do not claim an IPv6-only listener is globally reachable.
+
+Render/Vercel continue to serve real traffic until GCP's public endpoint,
+OAuth and connector acceptance are independently observed. Do **not** copy
+Render's session tokens or rebind the current live client by changing only a
+URL. The single PCE plugin and clean NOTES 2 trial are tracked by #189,
+with conditional MCP-native capture acceptance in #49 and #50.
