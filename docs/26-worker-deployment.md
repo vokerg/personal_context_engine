@@ -91,6 +91,12 @@ nor enabled by deployment. A dedicated embeddings unit/config/resource budget
 and actual provider checks are a separate activation step; never change
 `WORKER_MODE` on this service to silently replace DB/ingress jobs with embeddings.
 
+User-triggered Note Task suggestions (#184) run only in the API on Render (or
+the explicitly configured local API). `PCE_TASK_SUGGESTIONS_ENABLED`,
+`PCE_TASK_SUGGESTIONS_MODEL` and `DEEPSEEK_API_KEY` are not worker settings;
+do not provision them on this VM or add a suggestion background process. Existing
+deterministic Task ingestion remains independent. See [hosted configuration](19-hosted-deployment.md#on-demand-task-suggestions-184--186).
+
 The PCE unit uses a 96 MiB V8 heap, 160 MiB memory high watermark, 192 MiB hard
 cap, no swap and 25% CPU quota. These are initial ceilings, not a measured sizing
 guarantee. Inspect total host memory and competing peak demand before starting;

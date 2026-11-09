@@ -324,6 +324,10 @@ With `PCE_TASKS_ENABLED=true`, sessions and
 optional `PCE_TASK_SUGGESTIONS_MODEL` (default `deepseek-flash`). Both normal API
 startup and explicit `dev:local` support this adapter. The web Task flag remains
 required. Configuration loads no content and starts no model request or worker.
+For Render/Vercel environment placement, capability verification and rollback,
+see [hosted configuration](19-hosted-deployment.md#on-demand-task-suggestions-184--186).
+The GCP DB-jobs worker does not implement suggestion requests and needs neither
+the suggestion flag nor a DeepSeek credential.
 
 Note detail offers **Suggest tasks**, explicitly disclosing DeepSeek egress.
 Only that Note's original (at most 24,000 UTF-8 bytes) is sent, never other Notes,
