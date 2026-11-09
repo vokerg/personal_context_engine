@@ -16,4 +16,4 @@ config = config.replace('/etc/letsencrypt/live/pce.example.invalid/', str(stage)
 config = config.replace('/etc/nginx/snippets/pce-api-proxy.conf', str(source / 'nginx-api-proxy.conf'))
 (stage / 'nginx.conf').write_text('pid ' + str(stage / 'nginx.pid') + ';\nevents {}\nhttp {\n' + config + '\n}\n')
 PY
-nginx -t -p "$stage" -c "$stage/nginx.conf"
+nginx -t -e stderr -p "$stage" -c "$stage/nginx.conf"
