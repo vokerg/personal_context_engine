@@ -144,9 +144,16 @@ Operator sequence after the stage-1 preflight:
 2. Create root-owned mode-0755 `/var/lib/pce-api-acme` for HTTP-01 challenges.
    Do not put the challenge root inside private mode-0700 API state. Initially
    serve only ACME challenges; return 404 for other HTTP requests until TLS exists.
+   For a newly dedicated nginx installation, install `nginx-api-limits.conf` as
+   `/etc/systemd/system/nginx.service.d/pce-api-limits.conf`, then daemon-reload
+   and apply the limits to nginx alone. Its proposed ceilings are 32/64 MiB and
+   10% CPU; verify actual headroom. Never impose these on an unrelated shared proxy.
 3. Obtain a publicly trusted certificate for the verified hostname, configure
    automated renewal and a successful-renewal nginx reload hook. Never bypass TLS
    validation. Verify expiry and independent client connectivity.
+   Install `api-certificate-renewed.sh` root-owned mode 0755 under
+   `/etc/letsencrypt/renewal-hooks/deploy/`; verify the Certbot timer and a renewal
+   dry-run, then verify the reload hook independently without printing certificates.
 4. Build the existing web login from the same reviewed source in an environment
    without private `.env` files. Enable the existing public browse/search/Task/
    research flags only when the reserve API enables them. Install static assets
