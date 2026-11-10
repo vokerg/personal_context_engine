@@ -1,0 +1,40 @@
+name: Version every main commit
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# GitHub can supersede a pending run during bursts of merges. Every execution
+# scans first-parent main history since this workflow was introduced and fills
+# any missing tags, rather than trusting one workflow run per push.
+concurrency:
+  group: pce-main-versions
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    if: github.repository == 'vokerg/personal_context_engine' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out current main and full tag history
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify version numbering and tag safety
+        run: node --test .github/release/main-version.node-test.mjs
+
+      - name: Tag all unversioned main commits
+        id: version
+        run: node .github/release/main-version.mjs --publish

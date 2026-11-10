@@ -68,3 +68,5 @@ Where a contract remains proposed, implement a test-backed specification before 
 - [28 — Private personal iPhone releases](28-ios-personal-releases.md) — local signed IPA builds, direct updates, AltStore migration and refresh limits.
 
 - [29 — Independent GCP API](29-gcp-api.md) — isolated reserve API installation, measured acceptance and separate public MCP gate.
+
+- [30 — Main-commit release versions](30-main-release-versions.md) — immutable automatic source tags, recovery and deployed-SHA lookup.

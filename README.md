@@ -152,3 +152,10 @@ The optional [OpenAI setup runbook](docs/14-openai-setup.md) covers project
 credentials and local configuration. `npm run openai:check` is offline;
 `npm run openai:check -- --live` explicitly reads model metadata only.
 Actual embedding processing remains disabled and unimplemented (#46/#47).
+
+## Source versions
+
+Every new first-parent commit on `main` receives an immutable `rNNNNNN` Git tag
+from the introduction of the version workflow onward, following the SportOS
+standard. Tags identify source revisions; services still deploy independently.
+See [release versions and recovery](docs/30-main-release-versions.md).

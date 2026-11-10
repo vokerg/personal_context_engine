@@ -752,3 +752,15 @@ verification gates; an active local listener does not satisfy them. See the
 for ChatGPT. Keep it on GCP, with no paid IPv4 and no Vercel proxy dependency.
 An active IPv6 TLS endpoint is insufficient if ChatGPT cannot discover/connect;
 actual client acceptance or a separately verified free stable gateway is required.
+
+
+## D-038 — Immutable main source versions (#193, 2026-11-10)
+
+**Accepted owner request:** make the recent SportOS #245 main-commit versioning
+approach the repository standard. Automatically publish lightweight `rNNNNNN`
+tags from workflow introduction onward, numbered by first-parent main ordinal.
+Never move/delete/reuse tags; fail on conflicts, backfill missed tags, and use
+scoped repository-only CI permissions. No package bump or GitHub Release.
+Source tags do not establish deployment state or authorize cloud changes.
+Existing service deployment triggers/gates remain authoritative. See the
+[version runbook](30-main-release-versions.md) for implementation and activation.

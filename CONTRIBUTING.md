@@ -43,3 +43,10 @@ Example issue and branch names are synthetic; do not create or close #123 just t
 ## Issue/PR dependency discipline
 
 If a blocker appears, record the issue/PR link and consequence, move the work to **blocked**, and avoid unsupported implementation assumptions. A stacked PR is not considered ready to merge until the upstream PR is merged and the target branch is correct. Incomplete or rejected work stays visible in GitHub; it does not get silently marked done.
+
+## Main source versions
+
+Use the [immutable main-commit version standard](docs/30-main-release-versions.md).
+The main workflow creates `rNNNNNN` tags automatically; do not bump package
+versions, create release tags manually, or move/delete an existing version tag.
+Record the actual deployed SHA separately from the latest source tag.
