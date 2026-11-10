@@ -765,7 +765,7 @@ Source tags do not establish deployment state or authorize cloud changes.
 Existing service deployment triggers/gates remain authoritative. See the
 [version runbook](30-main-release-versions.md) for implementation and activation.
 
-### Reserve ChatGPT acceptance and NOTES 2 setup (#189, 2026-11-10)
+## Reserve ChatGPT acceptance and NOTES 2 setup (#189, 2026-11-10)
 
 Owner-authorized synthetic browser testing observed direct reserve MCP
 capture/readback of two Notes, three OPEN Tasks and cross-chat retrieval after
