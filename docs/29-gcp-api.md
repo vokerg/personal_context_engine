@@ -1,6 +1,6 @@
 # Independent GCP API — stage 1 runbook (#188)
 
-## Observed activation — 2026-11-09
+## Observed activation — 2026-11-10
 
 Merged #190's immutable main artifact was installed on the existing VM with an
 independent restricted API role and systemd service, now enabled across reboots.
@@ -23,11 +23,17 @@ These are bounded measurements, not a guarantee for arbitrary concurrent load;
 temporary memory pressure during archive transfer/extraction was observed.
 The installed unit/proxy validation and certificate renewal dry-run passed.
 
-The workstation cannot directly reach this IPv6-only endpoint. ChatGPT's initial
-OAuth discovery failed twice; a usable client route/free gateway remains #191
-acceptance work. Existing Render/Vercel/native/ChatGPT configuration is preserved.
-The hostname, VM inventory, DB credentials and detailed probe evidence stay in
-protected operator state. The steps below retain the original staging sequence.
+A stable Cloudflare Workers Free gateway now reaches the GCP IPv6 origin from
+IPv4. Live gateway acceptance with the official MCP SDK passed public discovery,
+anonymous denial, secure-cookie/CSRF login, S256 consent, refresh rotation/replay
+denial, all 14 tools, synthetic capture/replay with DB original/receipt/job
+readback, synthetic retrieval and soft-removal, and test-session/grant revocation.
+A separate private reserve package and web MCP connector were created. Actual
+ChatGPT web OAuth discovery passed and the displayed callback matched the exact
+registration. The browser reached Connect; owner consent and tool invocation
+remain unverified; existing connections are
+preserved. Exact inventory and protected probe evidence belong in private
+operations documentation, not this public mechanism repository.
 
 **Decision (2026-11-09):** keep Render API, Vercel/iOS, both existing workers,
 private GitHub capture, and current ChatGPT OAuth clients unchanged. Provision
@@ -132,7 +138,7 @@ For later operator-initiated rollback, stop API, verify the intended previous
 release and revision, atomically repoint **only** `/opt/pce-api/current`,
 restart and recheck `/ready`. Never remove DB originals or migration history.
 
-## Stage 1b: public reachability and identity (not activated here)
+## Stage 1b: public reachability and identity
 
 PCE uses a canonical HTTPS `issuer` equal to its API origin, an OAuth
 `resource` of `<issuer>/mcp`, and host-only browser-session cookies. The
@@ -223,24 +229,28 @@ new VM-targeted firewall rule/tag, and restore the previous API/static symlinks
 and protected configuration. Preserve existing providers, workers and DB data.
 Public DNS, TLS and actual ChatGPT installation/consent are independent gates.
 
-### Prepared free gateway — not deployed
+### Free gateway — deployed 2026-11-10
 
 `deploy/gcp/edge-proxy.mjs` is an optional stateless Cloudflare Worker to make
 the existing IPv6 GCP origin reachable through a stable `workers.dev` hostname.
 It hosts no API/domain processing or storage. All login, OAuth, capture and
-retrieval still run on the GCP API against PostgreSQL. A Cloudflare account is
-required; the inspected dashboard was signed out. Do not report this gateway
-or its ChatGPT connection as active from synthetic tests or bundle validation.
+retrieval still run on the GCP API against PostgreSQL. The owner authorized account creation and CLI access. Workers Free was verified
+active with no payment method; no paid subscription, IPv4, NAT or load balancer
+was added. Gateway deployment and live IPv4 acceptance are verified; actual
+ChatGPT consent/tool invocation is a separate outstanding gate.
 
 The Worker pins one operator-configured HTTPS `UPSTREAM_ORIGIN` and one exact
 `PUBLIC_ORIGIN`; caller URLs and forwarding headers cannot select another
 upstream. Bodies, cookies, Authorization, Origin, discovery and callback redirects
 are streamed/preserved without following redirects, parsing private payloads,
-request logging or caching. Fixed failures contain no exception/request data.
+request logging or caching. Cloudflare's `cacheTtl: 0` forces cache writes and
+must not be used here: the gateway sets `cacheEverything: false` and negative
+`cacheTtlByStatus` across 100–599 to disable caching. Live readiness returned
+`DYNAMIC` and `Cache-Control: no-store`. Fixed failures contain no exception/request data.
 The example Wrangler configuration fails closed with placeholder origins and
 disables observability and preview URLs. No KV, D1, R2, Cron or paid binding is used.
 
-Operator activation after account access is available:
+Operator activation and recovery procedure:
 
 1. Verify the account uses **Workers Free**. Do not upgrade, add payment details,
    create a paid resource or overwrite an existing Worker. The documented Free
@@ -254,6 +264,15 @@ Operator activation after account access is available:
    Deploy manually using the authenticated operator account, with no new
    production credential in public Actions. Inspect the resulting configuration
    to confirm request observability and preview URLs remain disabled.
+   Observed Wrangler 4.159.0 deployment failed at its new deployments endpoint
+   with the narrowly authorized legacy `workers:write` scope. The documented
+   multipart `PUT /accounts/{account}/workers/scripts/{name}` and script-subdomain
+   API worked with that same scope; do not broaden permissions merely to use a
+   different CLI endpoint. Upload metadata sets `observability.enabled=false`
+   and `logpush=false`; enable only the stable subdomain with previews disabled.
+   Revoke temporary Wrangler authorization after readback (completed for this
+   deployment). Never copy tokens
+   into an upload script, repository, issue or log.
 4. Set only the reserve API's web/API issuer origins to the new public Worker
    origin. Keep `PCE_MCP_TRANSPORT_ORIGIN` at the trusted GCP TLS origin: the
    gateway fetches that hostname, which nginx validates and forwards to the API.
@@ -267,6 +286,10 @@ Operator activation after account access is available:
    reserve API origins/configuration. Keep the GCP listener, DB originals and
    existing providers intact. Do not substitute an ephemeral development tunnel
    for durable acceptance or claim automatic fallback.
+
+This is incoming ChatGPT/browser → gateway → GCP traffic. It does not provide
+GCP → GitHub egress and does not enable worker GitHub acquisition. A restricted
+outbound relay would require its own issue, authentication and acceptance.
 
 Gateway tests use synthetic Request/Response objects and a fake origin fetch:
 
