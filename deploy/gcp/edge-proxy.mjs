@@ -46,7 +46,9 @@ export async function proxy(request, env, fetchOrigin = fetch) {
     for (const header of forwardedHeaders) outgoing.headers.delete(header);
     const response = await fetchOrigin(outgoing, {
       redirect: "manual",
-      cf: { cacheEverything: false, cacheTtl: 0 },
+      // A zero TTL still forces a cache write. Negative per-status TTLs bypass
+      // storage entirely, including when an upstream returns cacheable headers.
+      cf: { cacheEverything: false, cacheTtlByStatus: { "100-599": -1 } },
     });
     const result = new Response(response.body, response);
     result.headers.set("cache-control", "no-store");

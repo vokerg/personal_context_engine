@@ -32,8 +32,10 @@ test("discovery is forwarded only to the pinned HTTPS authority without caching 
     calls++;
     assert.equal(outgoing.url, env.UPSTREAM_ORIGIN + "/.well-known/oauth-protected-resource/mcp?test=1");
     assert.equal(options.redirect, "manual");
-    assert.deepEqual(options.cf, { cacheEverything: false, cacheTtl: 0 });
-    return Response.json({ resource: env.PUBLIC_ORIGIN + "/mcp" });
+    assert.deepEqual(options.cf, { cacheEverything: false, cacheTtlByStatus: { "100-599": -1 } });
+    return Response.json({ resource: env.PUBLIC_ORIGIN + "/mcp" }, {
+      headers: { "cache-control": "public, max-age=3600" },
+    });
   });
   assert.equal(calls, 1);
   assert.equal(response.headers.get("cache-control"), "no-store");
