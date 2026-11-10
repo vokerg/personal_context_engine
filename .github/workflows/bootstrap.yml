@@ -44,6 +44,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Main revision numbering and immutable tag safety (synthetic only)
+        run: node --test .github/release/main-version.test.mjs
       - name: Deployment mechanism and scope checks (synthetic only)
         run: node --test deploy/gcp/*.node-test.mjs scripts/deploy/*.node-test.mjs
       - run: npm run lint

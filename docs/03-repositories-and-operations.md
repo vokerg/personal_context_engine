@@ -607,3 +607,10 @@ A private wrapper may invoke these two Node processes sequentially. This
 operator-only schedule works with the already-merged finite worker modes,
 independently of rollout of the new portable `embeddings:watch` mode. Configure
 both `PCE_OWNER_SUBJECT` and `PCE_EMBEDDING_OWNER_SUBJECT` to the persisted owner.
+
+## Source version standard
+
+Every main first-parent commit from workflow introduction gets an immutable
+`rNNNNNN` source tag automatically. Service deployment remains independent; use
+the actual deployed SHA when matching a version. See the
+[versioning and recovery runbook](30-main-release-versions.md).
