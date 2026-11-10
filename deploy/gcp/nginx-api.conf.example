@@ -1,0 +1,48 @@
+# Render PCE_API_HOSTNAME after validating it as a DNS hostname. Install inside
+# nginx's http context only after the certificate and static login assets exist.
+limit_req_zone $binary_remote_addr zone=pce_api_requests:1m rate=10r/s;
+limit_req_zone $binary_remote_addr zone=pce_api_password:1m rate=5r/m;
+limit_conn_zone $binary_remote_addr zone=pce_api_connections:1m;
+
+server {
+    listen [::]:80;
+    server_name PCE_API_HOSTNAME;
+    access_log off;
+    error_log /dev/null;
+    location /.well-known/acme-challenge/ { root /var/lib/pce-api-acme; }
+    location / { return 308 https://PCE_API_HOSTNAME$request_uri; }
+}
+
+server {
+    listen [::]:443 ssl;
+    server_name PCE_API_HOSTNAME;
+    ssl_certificate /etc/letsencrypt/live/PCE_API_HOSTNAME/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/PCE_API_HOSTNAME/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    server_tokens off;
+    access_log off;
+    error_log /dev/null;
+    client_max_body_size 300k;
+    client_body_timeout 15s;
+    client_header_timeout 15s;
+    keepalive_timeout 15s;
+    limit_req_status 429;
+    limit_conn_status 429;
+    limit_req zone=pce_api_requests burst=30 nodelay;
+    limit_conn pce_api_connections 8;
+    add_header Strict-Transport-Security "max-age=86400" always;
+    add_header Cache-Control "no-store" always;
+    root /opt/pce-api/web/current;
+
+    # Reject alternate Host values even if the TLS SNI matched this server.
+    if ($host != PCE_API_HOSTNAME) { return 421; }
+
+    location = /auth/password {
+        limit_req zone=pce_api_password burst=3 nodelay;
+        include /etc/nginx/snippets/pce-api-proxy.conf;
+    }
+    location ~ ^/(mcp$|oauth/|auth/|api/|\.well-known/|health$|ready$) {
+        include /etc/nginx/snippets/pce-api-proxy.conf;
+    }
+    location / { try_files $uri $uri/ /index.html; }
+}

@@ -30,7 +30,12 @@ jobs:
           bash -n deploy/gcp/api-bootstrap.sh
           bash -n deploy/gcp/api-install.sh
       - name: Verify installer recovery with synthetic archives
-        run: node --test deploy/gcp/api-install.node-test.mjs
+        run: node --test deploy/gcp/api-install.node-test.mjs deploy/gcp/edge-proxy.node-test.mjs
+      - name: Verify reserve ingress syntax with synthetic TLS material
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends nginx
+          bash deploy/gcp/verify-api-proxy.sh
       - run: npm ci --no-audit --no-fund
       - name: Build and verify portable API artifact
         run: bash deploy/gcp/package-api.sh "$RUNNER_TEMP/api-artifact"
