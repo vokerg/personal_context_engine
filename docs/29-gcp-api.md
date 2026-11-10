@@ -30,8 +30,9 @@ denial, all 14 tools, synthetic capture/replay with DB original/receipt/job
 readback, synthetic retrieval and soft-removal, and test-session/grant revocation.
 A separate private reserve package and web MCP connector were created. Actual
 ChatGPT web OAuth discovery passed and the displayed callback matched the exact
-registration. The browser reached Connect; owner consent and tool invocation
-remain unverified; existing connections are
+registration. Owner completed consent; scoped database readback confirmed an active reserve
+ChatGPT grant with the four intended scopes, a 15-minute access token and
+no fixed refresh expiry. Actual ChatGPT tool invocation remains unverified; existing connections are
 preserved. Exact inventory and protected probe evidence belong in private
 operations documentation, not this public mechanism repository.
 
