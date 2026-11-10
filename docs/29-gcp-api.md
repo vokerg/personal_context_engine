@@ -32,7 +32,8 @@ A separate private reserve package and web MCP connector were created. Actual
 ChatGPT web OAuth discovery passed and the displayed callback matched the exact
 registration. Owner completed consent; scoped database readback confirmed an active reserve
 ChatGPT grant with the four intended scopes, a 15-minute access token and
-no fixed refresh expiry. Actual ChatGPT tool invocation remains unverified; existing connections are
+no fixed refresh expiry. The owner’s ChatGPT test conversation showed a live
+reserve search tool trace and successful search/full-note retrieval; existing connections are
 preserved. Exact inventory and protected probe evidence belong in private
 operations documentation, not this public mechanism repository.
 
