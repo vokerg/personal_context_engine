@@ -213,6 +213,19 @@ identity, parent/revision, generated content type and READY status. The client
 tool catalog still omitted `get_research`, so the supported `fetch` fallback was used.
 See [the final integration runbook](12-chatgpt-project.md) for remaining acceptance.
 
+### Reserve ChatGPT capture checkpoint (2026-11-10, #189)
+
+Four ordinary ChatGPT chats using the explicitly selected reserve MCP plugin
+verified two directly captured Notes, three independent OPEN Tasks and final
+cross-chat retrieval. Research-text capture needed an explicit Markdown v1
+formatting retry; its contents were stored as a Note, not a ResearchReport.
+The obsolete read/Task plugin was uninstalled at the owner's request. No GitHub
+content path participated. See the [bounded acceptance evidence](evidence/issue-189/2026-11-10-reserve-chatgpt.md)
+for observed failures, readback limits and remaining clean-Project gates.
+Actionable capture errors/instructions remain [#195](https://github.com/vokerg/personal_context_engine/issues/195);
+MCP currently has no ResearchReport creation tool. This does not establish
+one-send/dictation acceptance or authorize default retrieval cutover.
+
 ## Optional Task tools (#150)
 
 With the independent default-off `PCE_TASKS_ENABLED` API gate and injected Task

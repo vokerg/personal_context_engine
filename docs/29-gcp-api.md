@@ -13,7 +13,8 @@ refresh rotation/replay denial, the official client's 14-tool catalog,
 idempotent synthetic capture with direct original/receipt/job readback,
 Note/search/Task retrieval and revocation. The synthetic Note was soft-removed,
 its original retained, and the finite test client/session credentials removed
-or revoked. Actual ChatGPT plugin connection acceptance is **not established**.
+or revoked. That finite server-side probe alone did not establish actual
+ChatGPT plugin acceptance; subsequent browser evidence is recorded below.
 
 A 120-request health/readiness load at concurrency four completed in 5.02 seconds
 with stable service PIDs/restart counters. The API was approximately 84 MiB after
@@ -36,6 +37,18 @@ no fixed refresh expiry. The owner’s ChatGPT test conversation showed a live
 reserve search tool trace and successful search/full-note retrieval; existing connections are
 preserved. Exact inventory and protected probe evidence belong in private
 operations documentation, not this public mechanism repository.
+
+Subsequent owner-authorized four-chat browser acceptance verified direct reserve
+MCP capture/readback of two synthetic Notes, creation/readback of three OPEN
+Tasks, and cross-chat lexical retrieval of both Notes and all Tasks. No GitHub
+content write/import was involved. Research-text capture passed after explicitly
+supplying valid Markdown; this was Note storage, not versioned ResearchReport
+creation. The older read/Task integration was then uninstalled at the owner's
+request. This later account change does not alter the historical initial
+activation boundary below. See [#189 evidence](evidence/issue-189/2026-11-10-reserve-chatgpt.md)
+for failures, separate server/browser verification and outstanding UX gates;
+[#195](https://github.com/vokerg/personal_context_engine/issues/195) tracks capture
+error/guidance improvements. No default capture/search cutover is established.
 
 **Decision (2026-11-09):** keep Render API, Vercel/iOS, both existing workers,
 private GitHub capture, and current ChatGPT OAuth clients unchanged. Provision

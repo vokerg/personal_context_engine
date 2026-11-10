@@ -764,3 +764,17 @@ scoped repository-only CI permissions. No package bump or GitHub Release.
 Source tags do not establish deployment state or authorize cloud changes.
 Existing service deployment triggers/gates remain authoritative. See the
 [version runbook](30-main-release-versions.md) for implementation and activation.
+
+### Reserve ChatGPT acceptance and NOTES 2 setup (#189, 2026-11-10)
+
+Owner-authorized synthetic browser testing observed direct reserve MCP
+capture/readback of two Notes, three OPEN Tasks and cross-chat retrieval after
+retries, without GitHub content writes/import. The obsolete read/Task MCP
+integration was uninstalled on explicit owner request; existing NOTES and the
+GitHub-only conversation-capture plugin were not retired. At the owner's later
+request, a new empty NOTES 2 Project received only a concise recommendation to
+use available PCE MCP tools and acknowledge saves only after tool success; its
+saved instruction has no repository dependency. Ordinary NOTES 2 capture has
+not been tested. These are bounded observations, not default cutover approval
+or completion of #189. See [evidence and limits](evidence/issue-189/2026-11-10-reserve-chatgpt.md)
+and [capture-error follow-up #195](https://github.com/vokerg/personal_context_engine/issues/195).
