@@ -33,7 +33,7 @@ jobs:
           node-version: 22
 
       - name: Verify version numbering and tag safety
-        run: node --test .github/release/main-version.test.mjs
+        run: node --test .github/release/main-version.node-test.mjs
 
       - name: Tag all unversioned main commits
         id: version

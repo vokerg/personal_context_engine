@@ -31,7 +31,7 @@ every push to `main` and can be launched manually via **Actions → Version ever
 main commit → Run workflow → main**.
 
 The workflow checks out current `main` with complete history, runs the
-[Git-fixture tests](../.github/release/main-version.test.mjs) and executes
+[Git-fixture tests](../.github/release/main-version.node-test.mjs) and executes
 [the tagger](../.github/release/main-version.mjs). The tagger:
 
 1. Finds the original first-parent commit adding the workflow.
