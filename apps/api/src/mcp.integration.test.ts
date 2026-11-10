@@ -215,7 +215,13 @@ ${text}
       csrf = /pce_csrf=([^;]+)/.exec(cookie)![1]!;
     });
     afterAll(async () => {
-      if (app) await app.close();
+      if (app) {
+        // MCP hijacks raw replies. The official client's shared HTTP pool can
+        // retain keep-alive sockets on Node 22 after client.close(); this finite
+        // fixture owns all requests, so close its sockets before shutdown.
+        app.server.closeAllConnections();
+        await app.close();
+      }
       if (db) {
         await db.taskExtractionBatch.deleteMany({
           where: { ownerSubject: { in: [owner, foreign] } },
