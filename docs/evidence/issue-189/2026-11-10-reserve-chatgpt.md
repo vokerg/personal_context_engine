@@ -67,7 +67,7 @@ The instruction contains no repository reference or GitHub workflow. The memory
 selector reported global memory off at creation; saved Project settings show
 the default memory mode and Library access enabled. No claim of enforced
 Project-only isolation or disabled account Library access is made. No test
-message was sent in NOTES 2; the owner will evaluate ordinary use separately.
+message was sent during setup; subsequent baseline testing is recorded below.
 
 ## Remaining acceptance
 
@@ -78,3 +78,23 @@ Existing official-client/server-side acceptance in the GCP runbook must not be
 conflated with this browser run. No authorization for default cutover follows
 from these results. Existing NOTES and optional private GitHub capture remain
 available independently.
+
+
+## Subsequent NOTES 2 baseline — capture failed
+
+With the short saved instruction unchanged, three automatic capture attempts
+(plain English, a successive message in the same chat, and a Russian explicit
+save request in a fresh chat) reported `UNSAVED`/service unavailable. Independent
+reserve MCP lexical searches for the synthetic project and each marker found
+no matching Notes. A diagnostic follow-up in the Russian chat reported two
+identical `capture_note` calls whose `notes` array contained plain prose, not
+Markdown v1; the reported tool error was `UNAVAILABLE`. This is model-reported
+call detail, not direct inspection of server logs.
+
+A separate fresh-chat question automatically used saved-note retrieval and
+returned the earlier synthetic design Note's correct values and source ID,
+while reporting no saved records for the new fixture. No mention or manual
+tool selection was used. Automatic selection/retrieval therefore worked;
+ordinary capture preparation failed. Dictation was not tested. #195 now owns
+a self-described plain-text MCP input with server-owned formatting and
+actionable errors; the baseline must not be relabeled a capture pass.

@@ -4,6 +4,12 @@
 
 ## Principles
 
+**Ordinary MCP capture (#195):** clients supply exact plain text and optional
+structured metadata. PCE generates identity/time and serializes the internal
+Markdown v1 interchange below. The MCP caller does not construct frontmatter or
+body sections. Existing GitHub interchange and authenticated HTTP Markdown
+capture remain compatible. See [MCP input and retries](18-mcp.md).
+
 1. **One utterance = one capture**; a capture can yield one or more notes.
 2. Preserve the user's original **transcribed text** as received, including hedges, uncertainty, and language. Store raw audio only under a separate, future, explicit retention policy.
 3. Each created note includes a useful title and precise normalized summary, without fabricating facts, due dates, project IDs, or action commitments.

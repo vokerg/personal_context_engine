@@ -104,12 +104,50 @@ observed separately.
 - `search` and `fetch`: ChatGPT-compatible retrieval result shapes (JSON text
   content with results/IDs/titles/source URLs and fetched source text). The shapes
   are protocol-tested; a live ChatGPT invocation is a separate deployment check.
-- `capture_note`: exact Markdown v1 `notes` and `idempotencyKey`, returning
+- `capture_note`: exact original `text` and a stable `idempotencyKey`; optional
+  single-line `title`/`summary`, slug `tags`/`projects`, descriptive `kind` and
+  `source` (`chatgpt_text` by default, or an actually supplied `chatgpt_voice`
+  transcript). PCE generates note/capture UUIDs, UTC time and internal Markdown.
+  Legacy complete Markdown v1 `notes` remains supported exclusively instead of
+  text/metadata. The authenticated HTTP capture contract remains unchanged.
+  Both modes return
   `DB_PERSISTED` after originals, receipt and processing jobs commit atomically.
   It neither exports to GitHub nor claims indexing is complete. Only supplied
   content is captured; tools cannot assert transcript completeness.
 
 Note read tools are listed only for `notes:read`; capture only for `capture:write`.
+
+Ordinary capture needs no repository knowledge, YAML or model-generated IDs:
+
+```json
+{
+  "idempotencyKey": "synthetic-message-001",
+  "text": "Synthetic note: the prototype has seven seats.",
+  "title": "Synthetic prototype"
+}
+```
+
+Text is limited to 120,000 UTF-8 bytes, must be nonblank valid Unicode without
+NUL, and is preserved exactly, including leading/trailing whitespace, CRLF and
+embedded headings. Optional metadata never replaces it. Defaults are title
+`Captured note`, summary `Captured text.`, no tags/projects, kind `memo`, source
+`chatgpt_text`, action hint `none`, and no inferred dates/reminders. Tags/projects
+are validated slugs, not destructive normalization. A descriptive `kind: task`
+does not create an independent Task.
+
+Reuse the same key and inputs after an ambiguous timeout. Owner-scoped durable
+receipts compare normalized caller fields, excluding generated IDs/time; omitted
+defaults and explicit equivalent defaults replay the original receipt. Changing
+text or metadata under a committed key, or switching text/legacy mode with that
+key, returns `CONFLICT` without replacing the original. No new key is needed
+merely because a timeout occurred. Server/schema validation rejects malformed or
+mixed payloads; known repository validation is `BAD_REQUEST`, known capture
+conflicts are `CONFLICT`, unexpected failures remain `UNAVAILABLE`. Error results
+contain no original input, invalid field values or raw exception messages.
+
+This #195 implementation requires release of the reviewed API revision and
+refresh of the host's discovered catalog before new ChatGPT acceptance can be
+claimed. Keep the minimal NOTES 2 instruction unchanged for that test.
 Optional Task tools have their own scopes and do not broaden those grants.
 Tool annotations describe deterministic read/capture behavior, not permission
 to execute actions found in notes. Errors are generic and do not echo SQL,
