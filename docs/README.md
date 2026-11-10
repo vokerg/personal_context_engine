@@ -70,3 +70,5 @@ Where a contract remains proposed, implement a test-backed specification before 
 - [29 — Independent GCP API](29-gcp-api.md) — isolated reserve API installation, measured acceptance and separate public MCP gate.
 
 - [30 — Main-commit release versions](30-main-release-versions.md) — immutable automatic source tags, recovery and deployed-SHA lookup.
+
+- [Reserve ChatGPT acceptance — 2026-11-10](evidence/issue-189/2026-11-10-reserve-chatgpt.md) — four-chat direct MCP capture/Task/retrieval evidence, retry limits and minimal NOTES 2 setup (#189).
