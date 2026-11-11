@@ -778,3 +778,19 @@ saved instruction has no repository dependency. Ordinary NOTES 2 capture has
 not been tested. These are bounded observations, not default cutover approval
 or completion of #189. See [evidence and limits](evidence/issue-189/2026-11-10-reserve-chatgpt.md)
 and [capture-error follow-up #195](https://github.com/vokerg/personal_context_engine/issues/195).
+
+
+## D-039 — Plain-text MCP capture with server-owned formatting (#195)
+
+**Accepted owner direction, 2026-11-10:** ordinary ChatGPT capture must accept
+exact original text through a self-described MCP contract, without requiring
+repository knowledge, YAML, generated IDs/time or a long Project prompt. PCE
+creates internal Markdown v1 and identity/time, preserving original text and
+owner-scoped durable retry semantics. Optional structured metadata is
+descriptive and never grants external action authority. Legacy Markdown MCP
+and HTTP capture remain compatible. No schema migration, credential expansion,
+GitHub write/fallback or background model processing is selected. Known invalid
+input and conflict errors must be distinguishable from service failures without
+exposing content or raw exceptions. Live NOTES 2 acceptance requires release of
+the reviewed revision and actual host tests; local tests alone do not establish
+that boundary. See [MCP capture contract](18-mcp.md).

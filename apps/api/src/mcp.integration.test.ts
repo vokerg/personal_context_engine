@@ -215,7 +215,13 @@ ${text}
       csrf = /pce_csrf=([^;]+)/.exec(cookie)![1]!;
     });
     afterAll(async () => {
-      if (app) await app.close();
+      if (app) {
+        // MCP hijacks raw replies. The official client's shared HTTP pool can
+        // retain keep-alive sockets on Node 22 after client.close(); this finite
+        // fixture owns all requests, so close its sockets before shutdown.
+        app.server.closeAllConnections();
+        await app.close();
+      }
       if (db) {
         await db.taskExtractionBatch.deleteMany({
           where: { ownerSubject: { in: [owner, foreign] } },
@@ -607,6 +613,83 @@ ${text}
       }
     });
 
+    it("discovers and captures ordinary text without Markdown/IDs/time, preserving durable retries", async () => {
+      const { pair } = await token();
+      const client = new Client({ name: "plain-text-capture", version: "1.0" });
+      const value = (reply: Awaited<ReturnType<typeof client.callTool>>) =>
+        JSON.parse((reply.content as Array<{ text: string }>)[0]!.text);
+      try {
+        await client.connect(
+          new StreamableHTTPClientTransport(new URL(issuer + "/mcp"), {
+            requestInit: {
+              headers: { Authorization: "Bearer " + pair.access_token },
+            },
+          }),
+        );
+        const catalog = (await client.listTools()).tools.find(
+          (t) => t.name === "capture_note",
+        )!;
+        expect(catalog.description).toContain('text:"exact supplied text"');
+        expect(catalog.inputSchema.properties).toHaveProperty("text");
+        const input = {
+          idempotencyKey: "plain-mcp-" + randomUUID(),
+          text: "\nСинтетическая заметка 🐦\r\n## Summary\nLiteral original.\n ",
+          title: "Synthetic direct text",
+          tags: ["synthetic"],
+        };
+        const saved = value(
+          await client.callTool({ name: "capture_note", arguments: input }),
+        );
+        expect(saved).toMatchObject({
+          status: "DB_PERSISTED",
+          indexing: "PENDING",
+          replayed: false,
+        });
+        const id = saved.noteIds[0] as string;
+        ids.push(id);
+        const stored = await db.note.findUniqueOrThrow({ where: { id } });
+        captures.push(stored.captureId);
+        expect(stored.ownerSubject).toBe(owner);
+        expect(stored.originalInput).toBe(input.text);
+        expect(
+          value(await client.callTool({ name: "get_note", arguments: { id } })),
+        ).toMatchObject({ originalInput: input.text, title: input.title });
+        expect(
+          value(
+            await client.callTool({ name: "capture_note", arguments: input }),
+          ),
+        ).toMatchObject({ noteIds: [id], replayed: true });
+        const conflict = await client.callTool({
+          name: "capture_note",
+          arguments: { ...input, text: "changed" },
+        });
+        expect(conflict.isError).toBe(true);
+        expect(value(conflict)).toEqual({ error: "CONFLICT" });
+        const malformed = await client.callTool({
+          name: "capture_note",
+          arguments: {
+            idempotencyKey: "bad-legacy",
+            notes: ["Synthetic source must not leak"],
+          },
+        });
+        expect(value(malformed)).toEqual({ error: "BAD_REQUEST" });
+        expect(JSON.stringify(malformed)).not.toContain(
+          "Synthetic source must not leak",
+        );
+        for (const extra of [{ notes: ["mixed"] }, { ownerSubject: foreign }]) {
+          expect(
+            (
+              await client.callTool({
+                name: "capture_note",
+                arguments: { ...input, ...extra },
+              })
+            ).isError,
+          ).toBe(true);
+        }
+      } finally {
+        await client.close();
+      }
+    });
     it("omits diagnostics by default and refuses capture-only grants", async () => {
       const { pair } = await token("notes:read");
       const off = createApp({

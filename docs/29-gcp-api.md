@@ -319,3 +319,18 @@ and [Wrangler configuration](https://developers.cloudflare.com/workers/wrangler/
 References: [nginx request limits](https://nginx.org/en/docs/http/ngx_http_limit_req_module.html),
 [Certbot renewal](https://eff-certbot.readthedocs.io/en/stable/using.html#renewing-certificates),
 [OpenAI custom MCP connection](https://developers.openai.com/api/docs/guides/custom-mcp-server).
+
+
+## Plain-text MCP release boundary (#195)
+
+The new model-facing `capture_note` text input requires an explicitly approved
+API release through the existing immutable artifact/install process. There is
+no migration or additional OAuth scope. Preserve the current reserve App
+identity/connection, gateway and workers; do not infer deployed behavior from
+a source merge. Refresh the ChatGPT-discovered tool catalog after installation
+and check that it exposes the described `text` input. Retest fresh and
+successive NOTES 2 captures with its short instruction unchanged, verify exact
+originals/receipts through MCP, and test independent retrieval in another chat.
+If the host retains a legacy catalog, report that limitation instead of adding
+a repository/Markdown workaround to the Project. Record the deployed SHA and
+actual client results separately from local synthetic verification.

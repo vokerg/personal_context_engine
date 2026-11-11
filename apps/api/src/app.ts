@@ -32,6 +32,7 @@ import {
   CaptureResponseSchema,
   type CaptureRequest,
   type CaptureResponse,
+  type TextCaptureRequest,
 } from "@pce/contracts";
 import {
   registerSessionRoutes,
@@ -125,6 +126,10 @@ export interface ApiDependencies {
   sessionAuth?: SessionAuth;
   search?: SearchService;
   capture?: {
+    persistTextByOwner?(
+      owner: string,
+      input: TextCaptureRequest,
+    ): Promise<CaptureResponse>;
     persistByOwner(
       owner: string,
       input: CaptureRequest,

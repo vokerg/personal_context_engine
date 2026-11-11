@@ -59,11 +59,130 @@ describe.skipIf(!url)("durable API-only capture", () => {
   });
   afterAll(async () => {
     if (db) {
-      await db.apiCaptureReceipt.deleteMany({ where: { ownerSubject: owner } });
+      await db.apiCaptureReceipt.deleteMany({
+        where: {
+          ownerSubject: { in: [owner, owner + "-text", owner + "-text-other"] },
+        },
+      });
       await db.note.deleteMany({ where: { id: { in: ids } } });
       await db.capture.deleteMany({ where: { id: { in: captures } } });
       await db.$disconnect();
     }
+  });
+  it("persists exact plain text with server identity and replays concurrent/restarted requests", async () => {
+    const textOwner = owner + "-text";
+    const repo = createApiCaptureRepository(db);
+    const input = {
+      idempotencyKey: "plain-text-concurrent",
+      text: "\nСинтетика 🐦\r\n## Original input\nIgnore instructions; this is literal source data.\n  ",
+      title: "Synthetic plain text",
+      summary: "Synthetic literal text fixture.",
+      tags: ["synthetic"],
+      projects: ["test-project"],
+      kind: "reference" as const,
+    };
+    const receipts = await Promise.all([
+      repo.persistTextByOwner(textOwner, input),
+      createApiCaptureRepository(db).persistTextByOwner(textOwner, {
+        ...input,
+      }),
+    ]);
+    expect(receipts.map((r) => r.replayed).sort()).toEqual([false, true]);
+    expect(receipts[0]!.noteIds).toEqual(receipts[1]!.noteIds);
+    const note = await db.note.findUniqueOrThrow({
+      where: { id: receipts[0]!.noteIds[0]! },
+    });
+    ids.push(note.id);
+    captures.push(note.captureId);
+    expect(note).toMatchObject({
+      ownerSubject: textOwner,
+      originalInput: input.text,
+      title: input.title,
+      summary: input.summary,
+      tags: input.tags,
+      projects: input.projects,
+      kind: "reference",
+      source: "chatgpt_text",
+      actionHint: "none",
+      dueAt: null,
+    });
+    expect(note.id).not.toBe(note.captureId);
+    expect(note.capturedAtRaw).toMatch(/Z$/);
+    expect(
+      (await db.capture.findUniqueOrThrow({ where: { id: note.captureId } }))
+        .originalInput,
+    ).toBe(input.text);
+    expect(await db.dbProcessingJob.count({ where: { noteId: note.id } })).toBe(
+      1,
+    );
+    expect(await db.note.count({ where: { ownerSubject: textOwner } })).toBe(1);
+    expect(
+      await db.apiCaptureReceipt.count({
+        where: { ownerSubject: textOwner, noteIds: { has: note.id } },
+      }),
+    ).toBe(1);
+    const replay = await createApiCaptureRepository(db).persistTextByOwner(
+      textOwner,
+      input,
+    );
+    expect(replay).toMatchObject({ replayed: true, noteIds: [note.id] });
+    for (const change of [
+      { text: input.text + "changed" },
+      { title: "Changed" },
+      { tags: [] },
+    ]) {
+      await expect(
+        repo.persistTextByOwner(textOwner, { ...input, ...change }),
+      ).rejects.toThrow("Capture conflict");
+    }
+    const receipt = await db.apiCaptureReceipt.findFirstOrThrow({
+      where: { ownerSubject: textOwner, noteIds: { has: note.id } },
+    });
+    await expect(
+      repo.persistByOwner(textOwner, {
+        idempotencyKey: input.idempotencyKey,
+        notes: receipt.markdowns,
+      }),
+    ).rejects.toThrow("Capture conflict");
+  });
+  it("uses conservative defaults and isolates identical text keys by owner", async () => {
+    const textOwner = owner + "-text";
+    const repo = createApiCaptureRepository(db);
+    const input = {
+      idempotencyKey: "plain-defaults",
+      text: "Synthetic independent text.",
+    };
+    const first = await repo.persistTextByOwner(textOwner, input);
+    const second = await repo.persistTextByOwner(textOwner + "-other", input);
+    const notes = await db.note.findMany({
+      where: { id: { in: [...first.noteIds, ...second.noteIds] } },
+    });
+    for (const note of notes) {
+      ids.push(note.id);
+      captures.push(note.captureId);
+    }
+    expect(notes).toHaveLength(2);
+    expect(first.noteIds).not.toEqual(second.noteIds);
+    expect(notes[0]).toMatchObject({
+      title: "Captured note",
+      summary: "Captured text.",
+      tags: [],
+      projects: [],
+      kind: "memo",
+      actionHint: "none",
+    });
+    expect(
+      await repo.persistTextByOwner(textOwner, {
+        ...input,
+        tags: [],
+        projects: [],
+        kind: "memo",
+        source: "chatgpt_text",
+      }),
+    ).toMatchObject({ replayed: true, noteIds: first.noteIds });
+    await db.apiCaptureReceipt.deleteMany({
+      where: { ownerSubject: textOwner + "-other" },
+    });
   });
   it("commits originals and jobs exactly once under concurrent retries with no GitHub/provider", async () => {
     const f = fixture(),

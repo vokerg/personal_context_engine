@@ -402,3 +402,17 @@ and ID-based retry semantics. Provider errors/content are never returned or
 logged; source text is rendered literally and drafts stay memory-only. See the
 [Task runbook](23-tasks.md#web-postprocessing-of-existing-notes-184) for limits,
 rollback, duplicate/reload caveats and unverified live provider acceptance.
+
+
+### Plain-text MCP capture (#195)
+
+The verified token subject and `capture:write` scope remain the only owner/write
+authority. Exact supplied text is inert data; optional classification creates no
+reminder, independent Task or external action. The server generates UUIDs/time
+and internal Markdown. Durable receipt hashes distinguish normalized plain-text
+input from legacy Markdown input and retain the existing owner/key uniqueness.
+Retries return the committed identity rather than replacing an original with
+new server metadata. Invalid Unicode/NUL, blank/oversize input, unknown owner
+fields and mixed capture modes are rejected. Errors remain fixed codes without
+private input or exception details; no new logging, credential, egress or
+background processing path is added.
