@@ -73,8 +73,19 @@ does no npm install, compilation, migration or dependency download.
 The initial service runs existing `WORKER_MODE=db-jobs-loop`: deterministic
 DB preparation, plus independently gated Task/research ingress and approved-tag
 publication. It requires a trusted existing `PCE_OWNER_SUBJECT` and runtime DB
-login. Its minute loop finishes a pass before cooling down; SIGTERM stops future
-passes, disconnects the DB and has a 120-second systemd shutdown allowance.
+login. A pass starts immediately on service start, then the worker cools down for
+60 minutes **after** each pass finishes. Prisma connects only for each pass and
+disconnects in a `finally` block, including on failure; no idle DB sessions
+are intentionally held during the cooldown. SIGTERM stops future passes, lets
+the current pass complete, and has a 120-second systemd shutdown allowance.
+
+This deliberately trades DB-backed job preparation and staging-import latency
+(up to about one hour plus pass duration) for compute-idle time on Neon Free.
+Direct API/MCP note capture is still committed immediately and does not wait
+for the worker. Neon Free suspends a compute after about 5 minutes without
+activity; frequent requests from the API, other workers or clients may still
+prevent suspension. This change does not alter the separately gated
+`embeddings-loop`, which retains its existing cadence.
 
 **Execution boundary (D-034 / #180):** development-server ingestion and checkout
 reconciliation have been removed. Only the explicitly started existing worker
@@ -221,6 +232,14 @@ rollback, interrupted releases and cleanup with synthetic fixtures. Mac/Windows
 skip Linux-only host tests explicitly. Existing workspace and disposable DB CI
 remain required; reusable release checks check out the exact merged revision and
 receive no production/runtime secrets.
+
+After the worker update is explicitly approved and deployed, verify the
+GCP worker remains healthy, then check Neon at least five minutes after the
+first completed DB-job pass: `pce_worker_runtime` should have no idle client
+sessions, and the single production compute should become Idle if no other
+clients are querying. Observe at least one subsequent hourly pass, compare
+the CU-hour consumption slope and verify existing durable jobs progress.
+Keep Neon credentials, note contents and live worker logs out of public CI.
 
 After rollout, observe separate mobile-only, frontend-only, backend-only and
 shared-input merges against actual provider histories. Filter unit tests alone
