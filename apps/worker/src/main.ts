@@ -9,6 +9,10 @@ import {
   runTaskImportPass,
 } from "./task-ingress.js";
 import { runEmbeddingLoop } from "./embedding-loop.js";
+import {
+  DB_JOBS_COOLDOWN_MS,
+  withDbJobsConnection,
+} from "./db-jobs-runtime.js";
 import { runDbJobPass } from "./db-jobs.js";
 import { runTagSnapshotPass } from "./tag-snapshot-jobs.js";
 import { scheduleTagSnapshots } from "./tag-snapshot-schedule.js";
@@ -103,8 +107,6 @@ async function start(mode: string): Promise<void> {
       process.once("SIGINT", stop);
     }
     try {
-      await db.$connect();
-      await checkDatabase(db);
       const publishTags = async () => {
         if (!publisher) return;
         console.log(
@@ -114,69 +116,71 @@ async function start(mode: string): Promise<void> {
       };
       const scheduledTags = scheduleTagSnapshots(publishTags);
       const pass = async () => {
-        // Acquisition failure must not prevent processing already durable input.
-        if (fetchOptions) {
-          try {
-            console.log(
-              "GitHub staging complete " +
-                JSON.stringify(
-                  await acquireGitHubArtifacts(db, owner, fetchOptions),
-                ),
+        await withDbJobsConnection(db, async () => {
+          await checkDatabase(db);
+          // Acquisition failure must not prevent processing already durable input.
+          if (fetchOptions) {
+            try {
+              console.log(
+                "GitHub staging complete " +
+                  JSON.stringify(
+                    await acquireGitHubArtifacts(db, owner, fetchOptions),
+                  ),
+              );
+            } catch {
+              console.error(
+                "GitHub acquisition unavailable; staged processing continues.",
+              );
+            }
+          }
+          console.log(
+            "Staging processing complete " +
+              JSON.stringify(await processStagingPass(db, owner)),
+          );
+
+          console.log(
+            "DB preparation complete " +
+              JSON.stringify(await runDbJobPass(db, owner)),
+          );
+          if (taskIngress && taskOptions) {
+            const report = await runTaskImportPass({
+              db,
+              store: taskIngress,
+              ownerSubject: owner,
+              checkpointKey: taskIngressCheckpointKey(
+                owner,
+                taskOptions.repository,
+                taskOptions.branch,
+              ),
+            });
+            console.log("Task import pass complete " + JSON.stringify(report));
+          }
+          if (mode === "db-jobs-loop") await scheduledTags();
+          else await publishTags();
+          if (ingress && researchOptions) {
+            const checkpointKey = researchIngressCheckpointKey(
+              owner,
+              researchOptions.repository,
+              researchOptions.branch,
             );
-          } catch {
-            console.error(
-              "GitHub acquisition unavailable; staged processing continues.",
+            const report = await runResearchImportPass({
+              db,
+              store: ingress,
+              ownerSubject: owner,
+              checkpointKey,
+            });
+            console.log(
+              "Research import pass complete " + JSON.stringify(report),
             );
           }
-        }
-        console.log(
-          "Staging processing complete " +
-            JSON.stringify(await processStagingPass(db, owner)),
-        );
-
-        console.log(
-          "DB preparation complete " +
-            JSON.stringify(await runDbJobPass(db, owner)),
-        );
-        if (taskIngress && taskOptions) {
-          const report = await runTaskImportPass({
-            db,
-            store: taskIngress,
-            ownerSubject: owner,
-            checkpointKey: taskIngressCheckpointKey(
-              owner,
-              taskOptions.repository,
-              taskOptions.branch,
-            ),
-          });
-          console.log("Task import pass complete " + JSON.stringify(report));
-        }
-        if (mode === "db-jobs-loop") await scheduledTags();
-        else await publishTags();
-        if (ingress && researchOptions) {
-          const checkpointKey = researchIngressCheckpointKey(
-            owner,
-            researchOptions.repository,
-            researchOptions.branch,
-          );
-          const report = await runResearchImportPass({
-            db,
-            store: ingress,
-            ownerSubject: owner,
-            checkpointKey,
-          });
-          console.log(
-            "Research import pass complete " + JSON.stringify(report),
-          );
-        }
+        });
       };
       if (mode === "db-jobs-loop")
-        await runEmbeddingLoop(pass, controller.signal);
+        await runEmbeddingLoop(pass, controller.signal, DB_JOBS_COOLDOWN_MS);
       else await pass();
     } finally {
       process.removeListener("SIGTERM", stop);
       process.removeListener("SIGINT", stop);
-      await db.$disconnect();
     }
     return;
   }
