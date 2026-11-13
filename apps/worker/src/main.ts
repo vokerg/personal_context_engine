@@ -134,7 +134,7 @@ async function start(mode: string): Promise<void> {
             "Staging processing complete " +
               JSON.stringify(await processStagingPass(db, owner)),
           );
-  
+
           console.log(
             "DB preparation complete " +
               JSON.stringify(await runDbJobPass(db, owner)),
