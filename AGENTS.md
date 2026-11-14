@@ -93,4 +93,12 @@ The eventual private content repository may have its own narrow `AGENTS.md` for 
 
 ## On-demand iOS device Release installation
 
+For an **AltStore-managed PCE** install, refresh or new-version update, read
+[the personal iPhone release runbook](docs/28-ios-personal-releases.md), especially
+its latest operational checkpoint, before using the direct Xcode installation
+skill. Build the labelled candidate with `./scripts/ios/release.sh --altstore`;
+importing its IPA in AltStore enrolls it for refresh. Direct Xcode installation
+does not enroll an app in AltStore. Preserve the original app and distinguish
+signature refresh from a new application build.
+
 For on-demand **physical iPhone Release** deployment from a local Mac, use the repository skill [ios-device-release](.agents/skills/ios-device-release/SKILL.md). The skill runs a guarded helper against the current checkout with normal Xcode signing and a free Apple Personal Team. Run it **only locally**, never in remote GitHub CI/agents; the owner must complete first-time Xcode/device trust and authorize provisioning in Xcode. Do not confuse the Release installation path with the existing simulator/Metro development workflow.

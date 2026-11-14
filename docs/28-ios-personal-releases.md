@@ -285,3 +285,59 @@ original IPA bundle identifier, signature and package. The mode rejects
 the candidate. Private transfer and actual AltStore-managed installation are
 independent acceptance checks. Original-branch CI subsequently passed all
 five checks, including macOS; later candidate changes require fresh CI.
+
+### Operational checkpoint and next-agent procedure (2026-11-14, #182)
+
+AltStore Classic was restored through the existing local AltServer after its
+previous installation stopped working. Local inspection found AltServer 1.8.4.
+The owner reported that AltStore could refresh apps again. A subsequent private
+AirDrop transfer used the existing labelled candidate, version 0.1.0 / build
+1793906627, built on November 5; no new binary was built during this session.
+The local artifact is under
+`~/Library/Application Support/PCE/iOS Releases/release-uprQu5/`, named
+`PCE-0.1.0-1793906627.ipa`, with display name **PCE AltStore** and original IPA
+bundle ID `dev.pce.mobile`. Validate its digest against private `release.json`
+before reuse; the metadata and IPA remain private and must not be committed.
+AltStore re-signs the imported IPA; the old embedded signing expiry does not
+describe the expiry of the resulting AltStore-managed installation.
+
+During import, the owner reported that the remote AltServer could not be
+reached. The advised local fallback was to turn **Prefer Remote AltServer** off
+in AltStore Settings and retry with the unlocked iPhone connected to the Mac
+running AltServer. The owner subsequently reported that the app appeared
+installed. Treat this as owner-reported installation, not an independently
+verified managed identity, successful login or migration. Do not assume that
+remote installation or remote refresh has passed.
+
+For the next agent:
+
+1. Ask for or inspect the current phone-side result: open **PCE AltStore**,
+   sign in if needed, verify server-backed notes, then cold-relaunch and verify
+   the session. Retain the original Xcode app. Installed managed identifiers,
+   keychain access and generic deep-link routing remain unverified.
+2. To **renew signing**, use AltStore My Apps → **Refresh All** before expiry
+   and verify new expiry dates for both AltStore and PCE. With the local
+   fallback selected, keep AltServer running and reachable by USB or the same
+   Wi-Fi. A manual refresh every few days is the interim procedure; unattended
+   weekly refresh has not been demonstrated. Remote mode separately requires
+   its pairing setup, Wi-Fi and LocalDevVPN and explicit phone-side testing.
+3. To **install changed PCE code**, inspect the current checkout/status and run
+   `./scripts/ios/release.sh --altstore`. Do not silently pull/switch the app
+   revision or substitute `--install`. If provisioning blocks the build, use
+   the existing signing recovery guidance without revoking certificates or
+   uninstalling apps. Privately transfer the new labelled IPA, then import it
+   through AltStore My Apps → `+` using the same Apple account and original IPA
+   bundle ID. Verify that AltStore updates the same managed copy, that its
+   build number changes, and that the authenticated session survives. That
+   higher-build update has not yet been tested.
+4. **Refresh All does not build or download a new PCE release.** There is no
+   configured private update feed or Expo OTA service. Do not claim automatic
+   code updates, identity-preserving cutover or completion of #182.
+
+Recovery observations: Install AltStore can request Apple credentials again;
+the owner enters them only in Apple's/AltServer's UI. An HTTP 429 response was
+observed during recovery. Stop repeated sign-in attempts and retry later; no
+Apple cooldown duration was established. A suggested 30–60 minute pause was
+troubleshooting advice, not a verified service guarantee. If AltStore expires,
+reinstall it through local AltServer with the same account without first
+deleting PCE or AltStore, then refresh managed apps.
