@@ -335,3 +335,9 @@ app/keychain identity. See [personal iPhone releases](../../docs/28-ios-personal
 for setup, private outputs, signing expiry and AltStore Classic's unresolved
 identity-migration gate. Do not install the IPA through AltStore over the
 existing Xcode app until that gate is verified.
+
+For the separately labelled **PCE AltStore** copy, use
+`./scripts/ios/release.sh --altstore` and privately transfer/import the IPA via
+AltStore My Apps → `+`. Follow the runbook's latest checkpoint for the observed
+installation status and remaining acceptance checks. AltStore **Refresh All**
+renews signing; it does not fetch or build new PCE code.
