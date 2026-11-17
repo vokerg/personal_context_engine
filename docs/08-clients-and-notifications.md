@@ -131,7 +131,9 @@ tags (#54) and DB search (#48) remain separate work.
 
 The opt-in local/development React client now has a responsive **read-only timeline shell** with
 calendar-day grouping in the viewer's timezone, a selected-note detail panel,
-a Back control and browser back/forward navigation by stable note ID.
+a Back control and browser back/forward navigation by stable note ID. On phones,
+search stays visible and **Filters and tags** opens the date, project, kind,
+status, and tag controls. Closing the controls keeps the current filters.
 Authenticated requests continue to use the short-lived in-memory token; the
 URL contains a note ID by default; #53 adds explicit opt-in structured filter
 sharing. It never contains note text, a search query, or a bearer token.
