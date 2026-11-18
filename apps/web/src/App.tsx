@@ -187,6 +187,7 @@ export function App({
   const [facetsError, setFacetsError] = useState("");
   const [facetsState, setFacetsState] = useState<LoadState>("loading");
   const [facetAttempt, setFacetAttempt] = useState(0);
+  const [browseFiltersOpen, setBrowseFiltersOpen] = useState(false);
   const [debouncedQuery, setDebouncedQuery] = useState(filters.query);
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(filters.query), 250);
@@ -1269,6 +1270,7 @@ export function App({
         >
           <section
             className="panel controls-panel"
+            data-filters-open={browseFiltersOpen}
             aria-label="Browse controls"
           >
             <div className="filters" role="group" aria-label="Timeline filters">
@@ -1291,286 +1293,310 @@ export function App({
                   }
                 />
               </div>
-              <div
-                className="filter-field date-presets"
-                role="group"
-                aria-label="Quick date range"
+              <button
+                className="ghost browse-filter-toggle"
+                type="button"
+                aria-expanded={browseFiltersOpen}
+                aria-controls="timeline-advanced-filters timeline-filter-extras"
+                onClick={() => setBrowseFiltersOpen((open) => !open)}
               >
-                <span>Period</span>
-                <div className="date-preset-buttons">
-                  {datePresets.map((preset) => {
-                    const range = presetDates(preset.id);
-                    return (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        aria-label={preset.label + " date range"}
-                        aria-pressed={
-                          filters.from === range.from && filters.to === range.to
-                        }
-                        onClick={() => changeFilter(presetDates(preset.id))}
-                      >
-                        {preset.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="filter-field filter-date">
-                <label htmlFor="from-date">From (local date)</label>
-                <input
-                  id="from-date"
-                  type="date"
-                  onClick={(event) => {
-                    try {
-                      event.currentTarget.showPicker?.();
-                    } catch {
-                      /* Native input remains usable. */
-                    }
-                  }}
-                  value={filters.from}
-                  onChange={(event) =>
-                    changeFilter({ from: event.target.value })
-                  }
-                />
-              </div>
-              <div className="filter-field filter-date">
-                <label htmlFor="to-date">To (local date)</label>
-                <input
-                  id="to-date"
-                  type="date"
-                  onClick={(event) => {
-                    try {
-                      event.currentTarget.showPicker?.();
-                    } catch {
-                      /* Native input remains usable. */
-                    }
-                  }}
-                  value={filters.to}
-                  onChange={(event) => changeFilter({ to: event.target.value })}
-                />
-              </div>
-              <div className="filter-field">
-                <label htmlFor="project-filter">
-                  {browseEnabled ? "Project" : "Project slug"}
-                </label>
-                <SuggestionPicker
-                  id="project-filter"
-                  placeholder="All projects"
-                  suggestionsLabel="Project suggestions"
-                  value={filters.project}
-                  onChange={(project) => changeFilter({ project })}
-                  open={projectPickerOpen}
-                  onOpenChange={setProjectPickerOpen}
-                  options={
-                    browseEnabled
-                      ? [
-                          { value: "", label: "All projects" },
-                          ...facets.projects
-                            .filter((project) =>
-                              project.slug
-                                .toLowerCase()
-                                .includes(filters.project.trim().toLowerCase()),
-                            )
-                            .map((project) => ({
-                              value: project.slug,
-                              label: `${project.slug} (${project.count})`,
-                            })),
-                        ]
-                      : []
-                  }
-                  emptyMessage={
-                    browseEnabled
-                      ? "No matching projects. You can type a project slug."
-                      : "Type a project slug to filter."
-                  }
-                />
-              </div>
-              <div className="filter-field filter-date">
-                <label htmlFor="kind-filter">Kind</label>
-                <select
-                  id="kind-filter"
-                  value={filters.kind}
-                  onChange={(event) =>
-                    changeFilter({
-                      kind: event.target.value as BrowseFilters["kind"],
-                    })
-                  }
+                {browseFiltersOpen ? "Hide filters" : "Filters and tags"}
+              </button>
+              <div
+                className="browse-filter-extras"
+                id="timeline-advanced-filters"
+              >
+                <div
+                  className="filter-field date-presets"
+                  role="group"
+                  aria-label="Quick date range"
                 >
-                  <option value="">All kinds</option>
-                  {(browseEnabled
-                    ? facets.kinds.map((k) => k.slug)
-                    : noteKinds
-                  ).map((kind) => (
-                    <option value={kind} key={kind}>
-                      {kind}
-                      {browseEnabled
-                        ? ` (${facets.kinds.find((k) => k.slug === kind)?.count ?? 0})`
-                        : ""}
-                    </option>
-                  ))}
-                  {browseEnabled &&
-                    filters.kind &&
-                    !facets.kinds.some((k) => k.slug === filters.kind) && (
-                      <option value={filters.kind}>{filters.kind} (0)</option>
-                    )}
-                </select>
-              </div>
-              <div className="filter-field filter-date">
-                <label htmlFor="status-filter">Notes</label>
-                <select
-                  id="status-filter"
-                  value={filters.status}
-                  onChange={(event) =>
-                    changeFilter({
-                      status: event.target.value as BrowseFilters["status"],
-                    })
-                  }
-                >
-                  <option value="active">Active notes</option>
-                  <option value="archived">Archived notes</option>
-                  <option value="all">Active and archived</option>
-                </select>
-              </div>
-              <div className="filter-actions">
-                <button
-                  className="ghost"
-                  type="button"
-                  disabled={!hasFilters}
-                  onClick={() => {
-                    navigate(initialFilters, null, false);
-                  }}
-                >
-                  Reset filters
-                </button>
-              </div>
-            </div>
-
-            {browseEnabled && facetsState === "loading" && (
-              <p className="notice" role="status">
-                Loading project and kind filters…
-              </p>
-            )}
-            {browseEnabled && facetsError && (
-              <div className="notice" role="alert">
-                <p>Project/kind filters: {facetsError}</p>
-                <button
-                  className="secondary"
-                  onClick={() => setFacetAttempt((n) => n + 1)}
-                >
-                  Retry filters
-                </button>
-              </div>
-            )}
-            {browseEnabled && facets.truncated && (
-              <p className="notice">
-                Showing 200 project suggestions. Enter another observed project
-                slug to filter.
-              </p>
-            )}
-            <section className="tag-browser" aria-labelledby="tags-title">
-              <h3 id="tags-title">Your tags</h3>
-              <p className="subtitle">
-                Counts cover all notes available to this session.
-              </p>
-              {tagsState === "loading" && <p role="status">Loading tags…</p>}
-              {tagsError && (
-                <div role="alert">
-                  <p>{tagsError}</p>
-                  <button
-                    className="secondary"
-                    type="button"
-                    onClick={() => setTagAttempt((n) => n + 1)}
-                  >
-                    Retry tags
-                  </button>
-                </div>
-              )}
-              {tagsState === "ready" && (
-                <>
-                  {tags.tags.length === 0 && <p>No tags yet.</p>}
-                  {tags.tags.length > 0 &&
-                    approvedObservedTags.length === 0 && (
-                      <p>
-                        No approved tags yet. Pick one from a note activity to
-                        add it here.
-                      </p>
-                    )}
-                  <div
-                    className="tag-chips"
-                    role="group"
-                    aria-label="Approved tags"
-                  >
-                    {approvedObservedTags.map((tag) => (
-                      <span key={tag.slug} className="tag-pair">
+                  <span>Period</span>
+                  <div className="date-preset-buttons">
+                    {datePresets.map((preset) => {
+                      const range = presetDates(preset.id);
+                      return (
                         <button
-                          className="tag-chip tag-chip-picked"
+                          key={preset.id}
                           type="button"
-                          aria-pressed={filters.tag === tag.slug}
-                          aria-label={`Filter by approved tag ${tag.slug}, ${tag.count} notes`}
-                          title="Approved tag"
-                          onClick={() =>
-                            selectTag(filters.tag === tag.slug ? "" : tag.slug)
+                          aria-label={preset.label + " date range"}
+                          aria-pressed={
+                            filters.from === range.from &&
+                            filters.to === range.to
                           }
+                          onClick={() => changeFilter(presetDates(preset.id))}
                         >
-                          <span aria-hidden="true" className="tag-check">
-                            ✓
-                          </span>
-                          {tag.slug} <span aria-hidden="true">{tag.count}</span>
+                          {preset.label}
                         </button>
-                      </span>
-                    ))}
+                      );
+                    })}
                   </div>
-                  {registryError && (
-                    <div role="alert">
-                      <p>Tag approval unavailable: {registryError}</p>
-                      <button
-                        className="secondary"
-                        type="button"
-                        onClick={() => setRegistryAttempt((n) => n + 1)}
-                      >
-                        Retry approvals
-                      </button>
-                    </div>
-                  )}
-                  {tags.truncated && (
-                    <p role="status">
-                      Showing the first 200 observed tags. Candidate tags stay
-                      on note activities until picked.
-                    </p>
-                  )}
-                </>
-              )}
-              {filters.tag && (
-                <p className="active-tag">
-                  Selected tag: <strong>{filters.tag}</strong>{" "}
+                </div>
+                <div className="filter-field filter-date">
+                  <label htmlFor="from-date">From (local date)</label>
+                  <input
+                    id="from-date"
+                    type="date"
+                    onClick={(event) => {
+                      try {
+                        event.currentTarget.showPicker?.();
+                      } catch {
+                        /* Native input remains usable. */
+                      }
+                    }}
+                    value={filters.from}
+                    onChange={(event) =>
+                      changeFilter({ from: event.target.value })
+                    }
+                  />
+                </div>
+                <div className="filter-field filter-date">
+                  <label htmlFor="to-date">To (local date)</label>
+                  <input
+                    id="to-date"
+                    type="date"
+                    onClick={(event) => {
+                      try {
+                        event.currentTarget.showPicker?.();
+                      } catch {
+                        /* Native input remains usable. */
+                      }
+                    }}
+                    value={filters.to}
+                    onChange={(event) =>
+                      changeFilter({ to: event.target.value })
+                    }
+                  />
+                </div>
+                <div className="filter-field">
+                  <label htmlFor="project-filter">
+                    {browseEnabled ? "Project" : "Project slug"}
+                  </label>
+                  <SuggestionPicker
+                    id="project-filter"
+                    placeholder="All projects"
+                    suggestionsLabel="Project suggestions"
+                    value={filters.project}
+                    onChange={(project) => changeFilter({ project })}
+                    open={projectPickerOpen}
+                    onOpenChange={setProjectPickerOpen}
+                    options={
+                      browseEnabled
+                        ? [
+                            { value: "", label: "All projects" },
+                            ...facets.projects
+                              .filter((project) =>
+                                project.slug
+                                  .toLowerCase()
+                                  .includes(
+                                    filters.project.trim().toLowerCase(),
+                                  ),
+                              )
+                              .map((project) => ({
+                                value: project.slug,
+                                label: `${project.slug} (${project.count})`,
+                              })),
+                          ]
+                        : []
+                    }
+                    emptyMessage={
+                      browseEnabled
+                        ? "No matching projects. You can type a project slug."
+                        : "Type a project slug to filter."
+                    }
+                  />
+                </div>
+                <div className="filter-field filter-date">
+                  <label htmlFor="kind-filter">Kind</label>
+                  <select
+                    id="kind-filter"
+                    value={filters.kind}
+                    onChange={(event) =>
+                      changeFilter({
+                        kind: event.target.value as BrowseFilters["kind"],
+                      })
+                    }
+                  >
+                    <option value="">All kinds</option>
+                    {(browseEnabled
+                      ? facets.kinds.map((k) => k.slug)
+                      : noteKinds
+                    ).map((kind) => (
+                      <option value={kind} key={kind}>
+                        {kind}
+                        {browseEnabled
+                          ? ` (${facets.kinds.find((k) => k.slug === kind)?.count ?? 0})`
+                          : ""}
+                      </option>
+                    ))}
+                    {browseEnabled &&
+                      filters.kind &&
+                      !facets.kinds.some((k) => k.slug === filters.kind) && (
+                        <option value={filters.kind}>{filters.kind} (0)</option>
+                      )}
+                  </select>
+                </div>
+                <div className="filter-field filter-date">
+                  <label htmlFor="status-filter">Notes</label>
+                  <select
+                    id="status-filter"
+                    value={filters.status}
+                    onChange={(event) =>
+                      changeFilter({
+                        status: event.target.value as BrowseFilters["status"],
+                      })
+                    }
+                  >
+                    <option value="active">Active notes</option>
+                    <option value="archived">Archived notes</option>
+                    <option value="all">Active and archived</option>
+                  </select>
+                </div>
+                <div className="filter-actions">
                   <button
                     className="ghost"
                     type="button"
-                    onClick={() => selectTag("")}
+                    disabled={!hasFilters}
+                    onClick={() => {
+                      navigate(initialFilters, null, false);
+                    }}
                   >
-                    Clear tag
+                    Reset filters
                   </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="browse-filter-extras" id="timeline-filter-extras">
+              {browseEnabled && facetsState === "loading" && (
+                <p className="notice" role="status">
+                  Loading project and kind filters…
                 </p>
               )}
-              <button
-                className="ghost"
-                type="button"
-                disabled={!apiFilters || dateRangeInvalid}
-                onClick={() =>
-                  navigate(filters, selectedId, !sharedFilters, true)
-                }
-              >
-                {sharedFilters
-                  ? "Remove filters from link"
-                  : "Share filtered view"}
-              </button>
-              <p className="share-hint">
-                {sharedFilters
-                  ? "Tag, project, kind, status and dates are in the address. Copy it to share; access still requires a session."
-                  : "Sharing adds tag, project, kind, status and dates to the address. Search text stays in memory."}
-              </p>
-            </section>
+              {browseEnabled && facetsError && (
+                <div className="notice" role="alert">
+                  <p>Project/kind filters: {facetsError}</p>
+                  <button
+                    className="secondary"
+                    onClick={() => setFacetAttempt((n) => n + 1)}
+                  >
+                    Retry filters
+                  </button>
+                </div>
+              )}
+              {browseEnabled && facets.truncated && (
+                <p className="notice">
+                  Showing 200 project suggestions. Enter another observed
+                  project slug to filter.
+                </p>
+              )}
+              <section className="tag-browser" aria-labelledby="tags-title">
+                <h3 id="tags-title">Your tags</h3>
+                <p className="subtitle">
+                  Counts cover all notes available to this session.
+                </p>
+                {tagsState === "loading" && <p role="status">Loading tags…</p>}
+                {tagsError && (
+                  <div role="alert">
+                    <p>{tagsError}</p>
+                    <button
+                      className="secondary"
+                      type="button"
+                      onClick={() => setTagAttempt((n) => n + 1)}
+                    >
+                      Retry tags
+                    </button>
+                  </div>
+                )}
+                {tagsState === "ready" && (
+                  <>
+                    {tags.tags.length === 0 && <p>No tags yet.</p>}
+                    {tags.tags.length > 0 &&
+                      approvedObservedTags.length === 0 && (
+                        <p>
+                          No approved tags yet. Pick one from a note activity to
+                          add it here.
+                        </p>
+                      )}
+                    <div
+                      className="tag-chips"
+                      role="group"
+                      aria-label="Approved tags"
+                    >
+                      {approvedObservedTags.map((tag) => (
+                        <span key={tag.slug} className="tag-pair">
+                          <button
+                            className="tag-chip tag-chip-picked"
+                            type="button"
+                            aria-pressed={filters.tag === tag.slug}
+                            aria-label={`Filter by approved tag ${tag.slug}, ${tag.count} notes`}
+                            title="Approved tag"
+                            onClick={() =>
+                              selectTag(
+                                filters.tag === tag.slug ? "" : tag.slug,
+                              )
+                            }
+                          >
+                            <span aria-hidden="true" className="tag-check">
+                              ✓
+                            </span>
+                            {tag.slug}{" "}
+                            <span aria-hidden="true">{tag.count}</span>
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    {registryError && (
+                      <div role="alert">
+                        <p>Tag approval unavailable: {registryError}</p>
+                        <button
+                          className="secondary"
+                          type="button"
+                          onClick={() => setRegistryAttempt((n) => n + 1)}
+                        >
+                          Retry approvals
+                        </button>
+                      </div>
+                    )}
+                    {tags.truncated && (
+                      <p role="status">
+                        Showing the first 200 observed tags. Candidate tags stay
+                        on note activities until picked.
+                      </p>
+                    )}
+                  </>
+                )}
+                {filters.tag && (
+                  <p className="active-tag">
+                    Selected tag: <strong>{filters.tag}</strong>{" "}
+                    <button
+                      className="ghost"
+                      type="button"
+                      onClick={() => selectTag("")}
+                    >
+                      Clear tag
+                    </button>
+                  </p>
+                )}
+                <button
+                  className="ghost"
+                  type="button"
+                  disabled={!apiFilters || dateRangeInvalid}
+                  onClick={() =>
+                    navigate(filters, selectedId, !sharedFilters, true)
+                  }
+                >
+                  {sharedFilters
+                    ? "Remove filters from link"
+                    : "Share filtered view"}
+                </button>
+                <p className="share-hint">
+                  {sharedFilters
+                    ? "Tag, project, kind, status and dates are in the address. Copy it to share; access still requires a session."
+                    : "Sharing adds tag, project, kind, status and dates to the address. Search text stays in memory."}
+                </p>
+              </section>
+            </div>
 
             {dateRangeInvalid && (
               <p className="notice" role="status">
